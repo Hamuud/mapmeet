@@ -2,7 +2,6 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'reac
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
-  Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
   type LongPressEvent,
@@ -37,7 +36,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     pendingCoords,
     pickMode,
     mapStyle = 'streets',
-    route,
     onMarkerPress,
     onClusterTap,
     onPickLocation,
@@ -59,18 +57,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           { latitude: coords.latitude, longitude: coords.longitude, ...delta },
           400,
         );
-      },
-      fitToPoints: (points, padding = 60) => {
-        if (points.length === 0) return;
-        mapRef.current?.fitToCoordinates(points, {
-          edgePadding: {
-            top: padding,
-            right: padding,
-            bottom: padding,
-            left: padding,
-          },
-          animated: true,
-        });
       },
     }),
     [],
@@ -122,25 +108,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         >
           <PendingMarker />
         </Marker>
-      ) : null}
-
-      {route && route.length > 1 ? (
-        <>
-          <Polyline
-            coordinates={route}
-            strokeColor="rgba(255,255,255,0.9)"
-            strokeWidth={8}
-            lineCap="round"
-            lineJoin="round"
-          />
-          <Polyline
-            coordinates={route}
-            strokeColor="#3757FF"
-            strokeWidth={5}
-            lineCap="round"
-            lineJoin="round"
-          />
-        </>
       ) : null}
 
       {clusters.map((c) =>

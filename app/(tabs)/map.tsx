@@ -8,23 +8,19 @@ import { FilterBar } from '@/components/events/FilterBar';
 import { SearchBar } from '@/components/events/SearchBar';
 import { ClusterPickerSheet } from '@/features/events/ClusterPickerSheet';
 import { CreateEventSheet } from '@/features/events/CreateEventSheet';
+import { DirectionsSheet } from '@/features/events/DirectionsSheet';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
 import { filterEvents } from '@/features/events/filterEvents';
 import { DEMO_CENTER } from '@/features/map/demo-events';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
-import { routingService, type Route } from '@/services/routing.service';
 import { useEventsStore } from '@/store/events.store';
 import { useFiltersStore } from '@/store/filters.store';
-import { useToast } from '@/components/ui/Toast';
-import { formatDistance } from '@/utils/distance';
-import { formatDuration } from '@/utils/duration';
 import type { EventWithCreator, LatLng } from '@/types';
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
-  const toast = useToast();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
 
@@ -44,13 +40,9 @@ export default function MapScreen() {
   const [pendingCoords, setPendingCoords] = useState<LatLng | null>(null);
   const [pickMode, setPickMode] = useState(false);
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
-
   const [mapStyle, setMapStyle] = useState<MapStyle>('streets');
-
-  const [route, setRoute] = useState<Route | null>(null);
-  const [routing, setRouting] = useState(false);
-
   const [clusterEvents, setClusterEvents] = useState<EventWithCreator[] | null>(null);
+  const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
 
   const visibleEvents = useMemo(
     () => filterEvents({ events, viewerId, filter, query, coords }),
@@ -78,31 +70,14 @@ export default function MapScreen() {
   };
 
   const handleDirections = useCallback(
-    async (target: EventWithCreator) => {
-      if (!coords) {
-        toast.show('Enable location to get directions.', 'error');
-        return;
-      }
-      selectEvent(null); // close the preview sheet
-      setRouting(true);
-      try {
-        const result = await routingService.route(coords, {
-          latitude: target.latitude,
-          longitude: target.longitude,
-        });
-        setRoute(result);
-        // Frame the whole route with a bit of padding on top for the overlay.
-        mapRef.current?.fitToPoints(result.geometry, 80);
-      } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'No route found.', 'error');
-      } finally {
-        setRouting(false);
-      }
+    (target: EventWithCreator) => {
+      // Close the preview sheet before showing the picker so the sheets
+      // don't stack visually.
+      selectEvent(null);
+      setDirectionsTarget(target);
     },
-    [coords, selectEvent, toast],
+    [selectEvent],
   );
-
-  const clearRoute = () => setRoute(null);
 
   return (
     <View className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -115,7 +90,6 @@ export default function MapScreen() {
         pendingCoords={pendingCoords}
         pickMode={pickMode}
         mapStyle={mapStyle}
-        route={route?.geometry ?? null}
         onMarkerPress={selectEvent}
         onClusterTap={setClusterEvents}
         onPickLocation={handlePickLocation}
@@ -162,39 +136,10 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-      {/* Route summary — floats above the FABs so distance + ETA stay
-          visible while the user pans the map. */}
-      {route ? (
-        <View
-          pointerEvents="box-none"
-          style={{ paddingTop: insets.top + 8 }}
-          className="absolute inset-x-0 top-0 items-center px-4"
-        >
-          <View className="w-full max-w-md flex-row items-center gap-3 rounded-2xl bg-brand-500 px-4 py-3 shadow-lg shadow-brand-500/40">
-            <Ionicons name="navigate" size={18} color="#fff" />
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-white">
-                {formatDuration(route.durationSeconds)} ·{' '}
-                {formatDistance(route.distanceMeters / 1000)}
-              </Text>
-              <Text className="text-[11px] text-white/80">
-                Driving route from your location
-              </Text>
-            </View>
-            <Pressable
-              onPress={clearRoute}
-              className="rounded-full bg-white/25 px-3 py-1"
-            >
-              <Text className="text-xs font-semibold text-white">Clear</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-
-      {/* Map style switcher — sits below the top chrome, above the FABs. */}
+      {/* Map style switcher */}
       <View
         pointerEvents="box-none"
-        style={{ top: insets.top + (pickMode || route ? 68 : 108) }}
+        style={{ top: insets.top + (pickMode ? 68 : 108) }}
         className="absolute right-4"
       >
         <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} />
@@ -235,20 +180,6 @@ export default function MapScreen() {
         </Pressable>
       </View>
 
-      {routing ? (
-        <View
-          pointerEvents="box-none"
-          className="absolute inset-x-0 items-center"
-          style={{ bottom: insets.bottom + 240 }}
-        >
-          <View className="rounded-full bg-black/70 px-3 py-1.5">
-            <Text className="text-xs font-semibold text-white">
-              Finding the fastest route…
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       <EventPreviewSheet
         event={selectedEvent}
         viewerLocation={coords}
@@ -281,6 +212,11 @@ export default function MapScreen() {
           setClusterEvents(null);
           selectEvent(id);
         }}
+      />
+
+      <DirectionsSheet
+        event={directionsTarget}
+        onClose={() => setDirectionsTarget(null)}
       />
     </View>
   );

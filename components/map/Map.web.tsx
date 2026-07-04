@@ -60,9 +60,6 @@ const STYLE_FOR: Record<MapStyle, maplibregl.StyleSpecification> = {
 const SOURCE_ID = 'mapmeet-events';
 const CLUSTER_LAYER_ID = 'mapmeet-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'mapmeet-cluster-count';
-const ROUTE_SOURCE_ID = 'mapmeet-route';
-const ROUTE_CASING_LAYER_ID = 'mapmeet-route-casing';
-const ROUTE_LAYER_ID = 'mapmeet-route-line';
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_TOLERANCE_PX = 8;
 
@@ -74,19 +71,6 @@ function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection 
       properties: { eventId: e.id, emoji: e.emoji, title: e.title },
       geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
     })),
-  };
-}
-
-function routeToGeoJson(
-  points: { latitude: number; longitude: number }[] | null | undefined,
-): GeoJSON.Feature<GeoJSON.LineString> {
-  return {
-    type: 'Feature',
-    properties: {},
-    geometry: {
-      type: 'LineString',
-      coordinates: (points ?? []).map((p) => [p.longitude, p.latitude]),
-    },
   };
 }
 
@@ -164,11 +148,7 @@ function buildPendingElement(): HTMLDivElement {
   return el;
 }
 
-function installCustomLayers(
-  map: maplibregl.Map,
-  events: EventWithCreator[],
-  route: { latitude: number; longitude: number }[] | null | undefined,
-) {
+function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
   if (!map.getSource(SOURCE_ID)) {
     map.addSource(SOURCE_ID, {
       type: 'geojson',
@@ -210,35 +190,6 @@ function installCustomLayers(
       paint: { 'text-color': '#fff' },
     });
   }
-
-  if (!map.getSource(ROUTE_SOURCE_ID)) {
-    map.addSource(ROUTE_SOURCE_ID, {
-      type: 'geojson',
-      data: routeToGeoJson(route),
-    });
-  } else {
-    (map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource).setData(
-      routeToGeoJson(route),
-    );
-  }
-  if (!map.getLayer(ROUTE_CASING_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_CASING_LAYER_ID,
-      type: 'line',
-      source: ROUTE_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': 'rgba(255,255,255,0.9)', 'line-width': 8 },
-    });
-  }
-  if (!map.getLayer(ROUTE_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_LAYER_ID,
-      type: 'line',
-      source: ROUTE_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#3757FF', 'line-width': 5 },
-    });
-  }
 }
 
 export const Map = forwardRef<MapRef, MapProps>(function Map(
@@ -250,7 +201,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     pendingCoords,
     pickMode,
     mapStyle = 'streets',
-    route,
     onMarkerPress,
     onClusterTap,
     onPickLocation,
@@ -274,8 +224,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   pickModeRef.current = !!pickMode;
   const eventsRef = useRef(events);
   eventsRef.current = events;
-  const routeRef = useRef(route);
-  routeRef.current = route;
 
   useImperativeHandle(
     ref,
@@ -286,17 +234,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           zoom: zoom ?? 14,
           duration: 500,
         });
-      },
-      fitToPoints: (points, padding = 60) => {
-        if (points.length === 0 || !mapRef.current) return;
-        const bounds = points.reduce(
-          (b, p) => b.extend([p.longitude, p.latitude]),
-          new maplibregl.LngLatBounds(
-            [points[0]!.longitude, points[0]!.latitude],
-            [points[0]!.longitude, points[0]!.latitude],
-          ),
-        );
-        mapRef.current.fitBounds(bounds, { padding, duration: 500 });
       },
     }),
     [],
@@ -315,7 +252,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     map.on('load', () => {
-      installCustomLayers(map, eventsRef.current, routeRef.current);
+      installCustomLayers(map, eventsRef.current);
 
       map.on('click', CLUSTER_LAYER_ID, async (e) => {
         const feature = map.queryRenderedFeatures(e.point, {
@@ -355,7 +292,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
     map.on('styledata', () => {
       if (map.isStyleLoaded()) {
-        installCustomLayers(map, eventsRef.current, routeRef.current);
+        installCustomLayers(map, eventsRef.current);
       }
     });
 
@@ -534,22 +471,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       map.off('sourcedata', syncVisibility);
     };
   }, [events]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const apply = () => {
-      const src = map.getSource(ROUTE_SOURCE_ID) as
-        | maplibregl.GeoJSONSource
-        | undefined;
-      if (src) src.setData(routeToGeoJson(route));
-    };
-    if (!map.isStyleLoaded()) {
-      map.once('load', apply);
-    } else {
-      apply();
-    }
-  }, [route]);
 
   useEffect(() => {
     const map = mapRef.current;
