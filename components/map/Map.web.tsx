@@ -5,9 +5,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
 import type { EventWithCreator } from '@/types';
 
-/** Raster styles for each basemap flavor. All three providers are free
- *  under attribution — swap in vector styles + your own key by setting
- *  EXPO_PUBLIC_MAPLIBRE_STYLE_URL. */
 const STREETS_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -93,13 +90,14 @@ function routeToGeoJson(
   };
 }
 
-function buildMarkerElement(
+/** Marker geometry as inline styles. Kept in one place so update-in-place
+ *  in the effect below stays perfectly aligned with initial creation. */
+function styleMarkerElement(
+  el: HTMLDivElement,
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
-  onPress: () => void,
-): HTMLDivElement {
-  const el = document.createElement('div');
+) {
   const size = selected ? 56 : 48;
   el.style.cssText = `
     position:relative;
@@ -111,6 +109,7 @@ function buildMarkerElement(
     font-size:${selected ? 26 : 22}px;cursor:pointer;
     transition:transform 160ms ease;
   `;
+  // We want the emoji only — clear any prior lock badge before mutating.
   el.textContent = emoji;
   if (isPrivate) {
     const lock = document.createElement('div');
@@ -123,6 +122,16 @@ function buildMarkerElement(
     lock.textContent = '🔒';
     el.appendChild(lock);
   }
+}
+
+function buildMarkerElement(
+  emoji: string,
+  selected: boolean,
+  isPrivate: boolean,
+  onPress: () => void,
+): HTMLDivElement {
+  const el = document.createElement('div');
+  styleMarkerElement(el, emoji, selected, isPrivate);
   el.addEventListener('click', (ev) => {
     ev.stopPropagation();
     onPress();
@@ -155,8 +164,6 @@ function buildPendingElement(): HTMLDivElement {
   return el;
 }
 
-/** Every source/layer we add on top of a basemap needs to be re-added
- *  after a `setStyle` swap. Runs on load AND on styledata after a swap. */
 function installCustomLayers(
   map: maplibregl.Map,
   events: EventWithCreator[],
@@ -204,7 +211,6 @@ function installCustomLayers(
     });
   }
 
-  // Route source + double-stroke line (casing under, brand line on top).
   if (!map.getSource(ROUTE_SOURCE_ID)) {
     map.addSource(ROUTE_SOURCE_ID, {
       type: 'geojson',
@@ -246,6 +252,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     mapStyle = 'streets',
     route,
     onMarkerPress,
+    onClusterTap,
     onPickLocation,
   },
   ref,
@@ -259,13 +266,12 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   const pendingMarkerRef = useRef<maplibregl.Marker | null>(null);
   const onMarkerPressRef = useRef(onMarkerPress);
   onMarkerPressRef.current = onMarkerPress;
+  const onClusterTapRef = useRef(onClusterTap);
+  onClusterTapRef.current = onClusterTap;
   const onPickLocationRef = useRef(onPickLocation);
   onPickLocationRef.current = onPickLocation;
   const pickModeRef = useRef(!!pickMode);
   pickModeRef.current = !!pickMode;
-  // Latest events + route are kept in a ref so the styledata handler
-  // (which re-installs layers after a style swap) can always pull the
-  // current data.
   const eventsRef = useRef(events);
   eventsRef.current = events;
   const routeRef = useRef(route);
@@ -311,18 +317,33 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.on('load', () => {
       installCustomLayers(map, eventsRef.current, routeRef.current);
 
-      map.on('click', CLUSTER_LAYER_ID, (e) => {
+      map.on('click', CLUSTER_LAYER_ID, async (e) => {
         const feature = map.queryRenderedFeatures(e.point, {
           layers: [CLUSTER_LAYER_ID],
         })[0];
         if (!feature) return;
         const clusterId = feature.properties?.cluster_id as number | undefined;
-        const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
         if (clusterId == null) return;
-        source.getClusterExpansionZoom(clusterId).then((zoom) => {
+
+        // Prefer opening the picker; the caller can decide whether to
+        // dismiss it and zoom in instead. Falls back to expansion-zoom
+        // only when no handler is wired.
+        const leaves = await src.getClusterLeaves(clusterId, Infinity, 0);
+        const ids = leaves
+          .map((leaf) => leaf.properties?.eventId as string | undefined)
+          .filter((id): id is string => !!id);
+        const clusterEvents = ids
+          .map((id) => eventsRef.current.find((ev) => ev.id === id))
+          .filter((ev): ev is EventWithCreator => !!ev);
+
+        if (onClusterTapRef.current && clusterEvents.length > 0) {
+          onClusterTapRef.current(clusterEvents);
+        } else {
+          const zoom = await src.getClusterExpansionZoom(clusterId);
           const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
           map.easeTo({ center: [lng!, lat!], zoom });
-        });
+        }
       });
       map.on('mouseenter', CLUSTER_LAYER_ID, () => {
         map.getCanvas().style.cursor = 'pointer';
@@ -332,8 +353,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       });
     });
 
-    // Re-install custom sources/layers whenever the basemap style is
-    // hot-swapped (setStyle wipes everything back to the raster tiles).
     map.on('styledata', () => {
       if (map.isStyleLoaded()) {
         installCustomLayers(map, eventsRef.current, routeRef.current);
@@ -403,14 +422,12 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hot-swap the basemap when the caller flips mapStyle.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const styleUrl = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL;
-    if (styleUrl) return; // user-supplied styles opt out of the swap
+    if (styleUrl) return;
     map.setStyle(STYLE_FOR[mapStyle]);
-    // installCustomLayers runs from the styledata listener above.
   }, [mapStyle]);
 
   useEffect(() => {
@@ -419,61 +436,105 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
   }, [pickMode]);
 
+  // Marker set sync — the important part. Markers persist across pan/zoom;
+  // they're only added when a new event arrives, removed when an event
+  // goes away, and mutated in place when their content changes. The old
+  // "rebuild on every moveend" was what made them appear to drift.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const applyMarkers = () => {
+    const applyEvents = () => {
       const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-      if (!src) return;
-      src.setData(eventsToGeoJson(events));
+      if (src) src.setData(eventsToGeoJson(events));
 
-      const clusteredIds = new Set<string>();
-      const clusterFeatures = map.queryRenderedFeatures({ layers: [CLUSTER_LAYER_ID] });
-      const promises = clusterFeatures.map(async (feature) => {
-        const cid = feature.properties?.cluster_id as number | undefined;
-        if (cid == null) return;
-        const leaves = await src.getClusterLeaves(cid, Infinity, 0);
-        for (const leaf of leaves) {
-          const id = leaf.properties?.eventId as string | undefined;
-          if (id) clusteredIds.add(id);
-        }
-      });
-      Promise.all(promises).then(() => {
-        for (const [, marker] of markersRef.current) marker.remove();
-        markersRef.current.clear();
-
-        for (const event of events) {
-          const isSelected = event.id === selectedEventId;
-          const isHidden = clusteredIds.has(event.id);
-          const el = buildMarkerElement(
+      const seen = new Set<string>();
+      for (const event of events) {
+        seen.add(event.id);
+        const isSelected = event.id === selectedEventId;
+        const existing = markersRef.current.get(event.id);
+        if (existing) {
+          // Keep the same DOM node so MapLibre's transform bindings stay
+          // valid; just refresh visuals + position.
+          styleMarkerElement(
+            existing.getElement() as HTMLDivElement,
             event.emoji,
             isSelected,
             event.visibility === 'private',
-            () => onMarkerPressRef.current?.(event.id),
           );
-          if (isHidden) el.style.display = 'none';
-          const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat([event.longitude, event.latitude])
-            .addTo(map);
-          markersRef.current.set(event.id, marker);
+          existing.setLngLat([event.longitude, event.latitude]);
+          continue;
         }
-      });
+        const el = buildMarkerElement(
+          event.emoji,
+          isSelected,
+          event.visibility === 'private',
+          () => onMarkerPressRef.current?.(event.id),
+        );
+        // Center-anchored — the emoji dot IS the coord, not the tip of a pin.
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([event.longitude, event.latitude])
+          .addTo(map);
+        markersRef.current.set(event.id, marker);
+      }
+      for (const [id, marker] of markersRef.current) {
+        if (!seen.has(id)) {
+          marker.remove();
+          markersRef.current.delete(id);
+        }
+      }
     };
 
     if (!map.isStyleLoaded()) {
-      map.once('load', applyMarkers);
+      map.once('load', applyEvents);
     } else {
-      applyMarkers();
+      applyEvents();
     }
-
-    map.on('moveend', applyMarkers);
-    return () => {
-      map.off('moveend', applyMarkers);
-    };
   }, [events, selectedEventId]);
 
-  // Route geometry sync.
+  // Visibility sync — hides markers whose event is currently rolled up
+  // into a cluster. Runs on every moveend but is cheap: just toggles
+  // `display` on already-mounted elements. No teardown, no flicker.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const syncVisibility = async () => {
+      const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      if (!src) return;
+      const clusterFeatures = map.queryRenderedFeatures({
+        layers: [CLUSTER_LAYER_ID],
+      });
+      const clustered = new Set<string>();
+      await Promise.all(
+        clusterFeatures.map(async (feature) => {
+          const cid = feature.properties?.cluster_id as number | undefined;
+          if (cid == null) return;
+          const leaves = await src.getClusterLeaves(cid, Infinity, 0);
+          for (const leaf of leaves) {
+            const id = leaf.properties?.eventId as string | undefined;
+            if (id) clustered.add(id);
+          }
+        }),
+      );
+      for (const [id, marker] of markersRef.current) {
+        marker.getElement().style.display = clustered.has(id) ? 'none' : 'flex';
+      }
+    };
+
+    const armed = () => {
+      if (map.isStyleLoaded()) void syncVisibility();
+      else map.once('load', syncVisibility);
+    };
+    armed();
+    map.on('moveend', syncVisibility);
+    map.on('sourcedata', syncVisibility);
+    return () => {
+      map.off('moveend', syncVisibility);
+      map.off('sourcedata', syncVisibility);
+    };
+  }, [events]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -501,7 +562,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     if (!pendingMarkerRef.current) {
       pendingMarkerRef.current = new maplibregl.Marker({
         element: buildPendingElement(),
-        anchor: 'bottom',
+        anchor: 'center',
       })
         .setLngLat([pendingCoords.longitude, pendingCoords.latitude])
         .addTo(map);

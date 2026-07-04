@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Map, MapStyleSwitcher, type MapRef, type MapStyle } from '@/components/map';
 import { FilterBar } from '@/components/events/FilterBar';
 import { SearchBar } from '@/components/events/SearchBar';
+import { ClusterPickerSheet } from '@/features/events/ClusterPickerSheet';
 import { CreateEventSheet } from '@/features/events/CreateEventSheet';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
@@ -48,6 +49,8 @@ export default function MapScreen() {
 
   const [route, setRoute] = useState<Route | null>(null);
   const [routing, setRouting] = useState(false);
+
+  const [clusterEvents, setClusterEvents] = useState<EventWithCreator[] | null>(null);
 
   const visibleEvents = useMemo(
     () => filterEvents({ events, viewerId, filter, query, coords }),
@@ -114,6 +117,7 @@ export default function MapScreen() {
         mapStyle={mapStyle}
         route={route?.geometry ?? null}
         onMarkerPress={selectEvent}
+        onClusterTap={setClusterEvents}
         onPickLocation={handlePickLocation}
       />
 
@@ -268,6 +272,15 @@ export default function MapScreen() {
         event={editEvent}
         open={!!editEvent}
         onClose={() => setEditEvent(null)}
+      />
+
+      <ClusterPickerSheet
+        events={clusterEvents}
+        onClose={() => setClusterEvents(null)}
+        onPick={(id) => {
+          setClusterEvents(null);
+          selectEvent(id);
+        }}
       />
     </View>
   );

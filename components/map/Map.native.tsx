@@ -22,8 +22,6 @@ function deltaFromZoom(zoom: number) {
   return { latitudeDelta: longitudeDelta, longitudeDelta };
 }
 
-/** Terrain is only supported on Apple Maps — Google Maps for Android falls
- *  back to hybrid to still give the user something photographic. */
 function toMapType(style: MapStyle | undefined): MapType {
   if (style === 'satellite') return 'satellite';
   if (style === 'terrain') return Platform.OS === 'android' ? 'hybrid' : 'terrain';
@@ -41,6 +39,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     mapStyle = 'streets',
     route,
     onMarkerPress,
+    onClusterTap,
     onPickLocation,
   },
   ref,
@@ -84,13 +83,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
   const clusters = useCluster(events, region);
 
-  const handleClusterPress = (
-    coordinate: { latitude: number; longitude: number },
-    zoom: number,
-  ) => {
-    mapRef.current?.animateToRegion({ ...coordinate, ...deltaFromZoom(zoom) }, 400);
-  };
-
   return (
     <MapView
       ref={mapRef}
@@ -124,7 +116,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       {pendingCoords ? (
         <Marker
           coordinate={pendingCoords}
-          anchor={{ x: 0.5, y: 1 }}
+          anchor={{ x: 0.5, y: 0.5 }}
           tracksViewChanges={false}
           zIndex={999}
         >
@@ -134,8 +126,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
       {route && route.length > 1 ? (
         <>
-          {/* Casing under the primary line gives the route a Google-Maps-y
-              double-stroke look that reads on satellite + street both. */}
           <Polyline
             coordinates={route}
             strokeColor="rgba(255,255,255,0.9)"
@@ -158,8 +148,9 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           <Marker
             key={c.id}
             coordinate={c.coordinate}
+            // Center anchor — the bubble is a round chip, not a pin.
             anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => handleClusterPress(c.coordinate, c.expansionZoom)}
+            onPress={() => onClusterTap?.(c.leaves())}
             tracksViewChanges={false}
           >
             <ClusterBubble count={c.count} />
@@ -168,7 +159,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           <Marker
             key={c.id}
             coordinate={c.coordinate}
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={{ x: 0.5, y: 0.5 }}
             onPress={() => onMarkerPress?.(c.event.id)}
             tracksViewChanges={false}
           >
