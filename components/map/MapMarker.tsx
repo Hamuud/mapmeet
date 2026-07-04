@@ -9,9 +9,6 @@ type Props = {
   isPrivate?: boolean;
 };
 
-/** Visual-only marker chip. Shared between the native map's <Marker> body
- *  and the web map's DOM markers (via a parallel build in Map.web.tsx).
- *  Keep purely presentational — no gestures. */
 export function MapMarker({ emoji, title, selected, compact, isPrivate }: Props) {
   return (
     <View className="items-center">
@@ -37,6 +34,24 @@ export function MapMarker({ emoji, title, selected, compact, isPrivate }: Props)
           </Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** Distinct visual for the "you're placing a marker here" state. Kept in
+ *  the same file so it stays in lockstep with MapMarker's sizing. */
+export function PendingMarker() {
+  return (
+    <View className="items-center">
+      <View
+        className="items-center justify-center rounded-full border-2 border-white bg-brand-500 shadow-lg shadow-brand-500/60"
+        style={{ width: 44, height: 44 }}
+      >
+        <Ionicons name="add" size={22} color="#fff" />
+      </View>
+      <View className="mt-1 rounded-full bg-brand-500 px-2 py-0.5">
+        <Text className="text-[10px] font-semibold text-white">New event here</Text>
+      </View>
     </View>
   );
 }

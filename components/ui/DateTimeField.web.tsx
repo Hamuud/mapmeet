@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Text, useColorScheme, View } from 'react-native';
 
 export type DateTimeFieldProps = {
   mode: 'date' | 'time';
@@ -8,9 +8,16 @@ export type DateTimeFieldProps = {
   error?: string;
 };
 
-/** Web uses the native HTML picker — it's fully accessible and covers
- *  every browser without a JS date library. */
+/** Web uses the native HTML picker. `color-scheme` tells the browser to
+ *  paint the picker chrome (icons, spinners) with the right palette, and
+ *  we set `color` explicitly because react-native-web's parent styles
+ *  don't cascade through to a raw <input>. Without that the selected
+ *  value renders as white-on-white in light mode and vice versa. */
 export function DateTimeField({ mode, label, value, onChange, error }: DateTimeFieldProps) {
+  const scheme = useColorScheme() ?? 'light';
+  const isDark = scheme === 'dark';
+  const textColor = isDark ? '#F5F5F7' : '#0B0B0F';
+
   return (
     <View className="w-full">
       <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
@@ -23,8 +30,6 @@ export function DateTimeField({ mode, label, value, onChange, error }: DateTimeF
           error ? 'border-red-500' : 'border-border-light dark:border-border-dark',
         ].join(' ')}
       >
-        {/* React Native Web forwards unknown props onto the underlying div, so we
-            render the raw HTML input for a native-looking picker. */}
         <input
           type={mode}
           value={value}
@@ -33,7 +38,8 @@ export function DateTimeField({ mode, label, value, onChange, error }: DateTimeF
             border: 'none',
             outline: 'none',
             background: 'transparent',
-            color: 'inherit',
+            color: textColor,
+            colorScheme: isDark ? 'dark' : 'light',
             fontSize: 16,
             width: '100%',
             fontFamily: 'inherit',

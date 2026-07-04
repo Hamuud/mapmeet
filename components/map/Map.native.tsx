@@ -4,25 +4,33 @@ import MapView, {
   Marker,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
+  type LongPressEvent,
   type MapPressEvent,
   type Region,
 } from 'react-native-maps';
 
-import { MapMarker } from './MapMarker';
+import { MapMarker, PendingMarker } from './MapMarker';
 import { useCluster } from './useCluster';
 import type { MapProps, MapRef } from './Map.types';
 
 const DEFAULT_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
-/** Approx delta from a supercluster zoom level — inverse of the trick in
- *  useCluster. Used to animate into a cluster on tap. */
 function deltaFromZoom(zoom: number) {
   const longitudeDelta = 360 / Math.pow(2, zoom);
   return { latitudeDelta: longitudeDelta, longitudeDelta };
 }
 
 export const Map = forwardRef<MapRef, MapProps>(function Map(
-  { events, initialCenter, userLocation, selectedEventId, onMarkerPress, onMapPress },
+  {
+    events,
+    initialCenter,
+    userLocation,
+    selectedEventId,
+    pendingCoords,
+    pickMode,
+    onMarkerPress,
+    onPickLocation,
+  },
   ref,
 ) {
   const mapRef = useRef<MapView | null>(null);
@@ -70,9 +78,17 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       showsCompass={false}
       toolbarEnabled={false}
       onRegionChangeComplete={setRegion}
-      onPress={(e: MapPressEvent) => {
+      onLongPress={(e: LongPressEvent) => {
         const { latitude, longitude } = e.nativeEvent.coordinate;
-        onMapPress?.({ latitude, longitude });
+        onPickLocation?.({ latitude, longitude });
+      }}
+      onPress={(e: MapPressEvent) => {
+        // Regular tap only picks when we're in explicit pick mode —
+        // otherwise it stays a no-op so users can dismiss callouts,
+        // deselect, etc. without accidentally spawning events.
+        if (!pickMode) return;
+        const { latitude, longitude } = e.nativeEvent.coordinate;
+        onPickLocation?.({ latitude, longitude });
       }}
     >
       {userLocation ? (
@@ -81,6 +97,17 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           anchor={{ x: 0.5, y: 0.5 }}
           tracksViewChanges={false}
         />
+      ) : null}
+
+      {pendingCoords ? (
+        <Marker
+          coordinate={pendingCoords}
+          anchor={{ x: 0.5, y: 1 }}
+          tracksViewChanges={false}
+          zIndex={999}
+        >
+          <PendingMarker />
+        </Marker>
       ) : null}
 
       {clusters.map((c) =>

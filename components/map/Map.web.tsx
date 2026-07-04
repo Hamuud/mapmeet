@@ -21,6 +21,10 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
 const SOURCE_ID = 'mapmeet-events';
 const CLUSTER_LAYER_ID = 'mapmeet-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'mapmeet-cluster-count';
+/** Long-press threshold — matches Android's default. */
+const LONG_PRESS_MS = 500;
+/** How far the finger/cursor can drift and still count as a long-press. */
+const LONG_PRESS_TOLERANCE_PX = 8;
 
 function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection {
   return {
@@ -70,8 +74,43 @@ function buildMarkerElement(
   return el;
 }
 
+function buildPendingElement(): HTMLDivElement {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:relative;
+    width:48px;height:48px;border-radius:9999px;
+    background:#3757FF;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid #fff;
+    box-shadow:0 8px 20px rgba(55,87,255,0.55);
+    font-size:26px;line-height:1;
+    animation: mm-pulse 1.6s ease-in-out infinite;
+  `;
+  el.textContent = '+';
+  // Register the keyframes once — repeated appends are harmless.
+  if (!document.getElementById('mm-pending-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'mm-pending-keyframes';
+    style.textContent = `@keyframes mm-pulse {
+      0%,100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-3px) scale(1.05); }
+    }`;
+    document.head.appendChild(style);
+  }
+  return el;
+}
+
 export const Map = forwardRef<MapRef, MapProps>(function Map(
-  { events, initialCenter, userLocation, selectedEventId, onMarkerPress, onMapPress },
+  {
+    events,
+    initialCenter,
+    userLocation,
+    selectedEventId,
+    pendingCoords,
+    pickMode,
+    onMarkerPress,
+    onPickLocation,
+  },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -80,8 +119,13 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     new globalThis.Map(),
   );
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const pendingMarkerRef = useRef<maplibregl.Marker | null>(null);
   const onMarkerPressRef = useRef(onMarkerPress);
   onMarkerPressRef.current = onMarkerPress;
+  const onPickLocationRef = useRef(onPickLocation);
+  onPickLocationRef.current = onPickLocation;
+  const pickModeRef = useRef(!!pickMode);
+  pickModeRef.current = !!pickMode;
 
   useImperativeHandle(
     ref,
@@ -97,9 +141,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     [],
   );
 
-  // Bootstrap the map + a clustered GeoJSON source. Individual point
-  // markers are rendered as DOM elements (so we can keep emoji fidelity
-  // + tap handling); clusters are rendered by MapLibre's own layer.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const styleUrl = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL;
@@ -166,13 +207,68 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       });
     });
 
+    // Long-press + pickMode click handling ------------------------------
+    // MapLibre only exposes `mousedown`/`mouseup`/`touchstart`/`touchend`,
+    // not a synthetic long-press event, so we time it ourselves. If the
+    // pointer drifts more than LONG_PRESS_TOLERANCE_PX we abort — that's
+    // a drag, not a press.
+    let pressTimer: ReturnType<typeof setTimeout> | null = null;
+    let pressStart: { x: number; y: number; lng: number; lat: number } | null = null;
+
+    const beginPress = (
+      point: { x: number; y: number },
+      lngLat: { lat: number; lng: number },
+    ) => {
+      pressStart = { x: point.x, y: point.y, lng: lngLat.lng, lat: lngLat.lat };
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        if (!pressStart) return;
+        onPickLocationRef.current?.({
+          latitude: pressStart.lat,
+          longitude: pressStart.lng,
+        });
+        pressStart = null;
+      }, LONG_PRESS_MS);
+    };
+    const cancelPress = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = null;
+      pressStart = null;
+    };
+    const trackDrift = (point: { x: number; y: number }) => {
+      if (!pressStart) return;
+      const dx = point.x - pressStart.x;
+      const dy = point.y - pressStart.y;
+      if (Math.hypot(dx, dy) > LONG_PRESS_TOLERANCE_PX) cancelPress();
+    };
+
+    map.on('mousedown', (e) => beginPress(e.point, e.lngLat));
+    map.on('mousemove', (e) => trackDrift(e.point));
+    map.on('mouseup', cancelPress);
+    map.on('touchstart', (e) => beginPress(e.point, e.lngLat));
+    map.on('touchmove', (e) => trackDrift(e.point));
+    map.on('touchend', cancelPress);
+    map.on('dragstart', cancelPress);
+
+    // Regular click: only picks when we're in explicit pickMode.
     map.on('click', (e) => {
-      // Bubble a bare map click when nothing above intercepted it.
-      onMapPress?.({ latitude: e.lngLat.lat, longitude: e.lngLat.lng });
+      if (!pickModeRef.current) return;
+      onPickLocationRef.current?.({
+        latitude: e.lngLat.lat,
+        longitude: e.lngLat.lng,
+      });
+    });
+    // Right-click also picks — desktop shortcut equivalent to long-press.
+    map.on('contextmenu', (e) => {
+      onPickLocationRef.current?.({
+        latitude: e.lngLat.lat,
+        longitude: e.lngLat.lng,
+      });
     });
 
     mapRef.current = map;
     return () => {
+      cancelPress();
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
@@ -180,9 +276,14 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reconcile point markers each render pass. Clusters live purely in the
-  // layer, so we drop any event that has an associated cluster feature —
-  // that would double-render on top of the cluster circle.
+  // Swap the map canvas cursor when pickMode toggles so the affordance is obvious.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
+  }, [pickMode]);
+
+  // Reconcile point markers.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -192,11 +293,8 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       if (!src) return;
       src.setData(eventsToGeoJson(events));
 
-      // We render *every* event as a DOM marker but hide those that fall
-      // inside a rendered cluster so the emoji doesn't leak through.
       const clusteredIds = new Set<string>();
       const clusterFeatures = map.queryRenderedFeatures({ layers: [CLUSTER_LAYER_ID] });
-      // Best-effort: expand each cluster into its leaves and mark them hidden.
       const promises = clusterFeatures.map(async (feature) => {
         const cid = feature.properties?.cluster_id as number | undefined;
         if (cid == null) return;
@@ -207,10 +305,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         }
       });
       Promise.all(promises).then(() => {
-        // Rebuild markers rather than mutating them — MapLibre binds the
-        // marker to the DOM element passed at construction time, so
-        // replacing that element in-place breaks its position tracking.
-        for (const [id, marker] of markersRef.current) marker.remove();
+        for (const [, marker] of markersRef.current) marker.remove();
         markersRef.current.clear();
 
         for (const event of events) {
@@ -237,26 +332,35 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       applyMarkers();
     }
 
-    // Re-reconcile after every zoom/pan so cluster/point membership stays fresh.
     map.on('moveend', applyMarkers);
     return () => {
       map.off('moveend', applyMarkers);
     };
   }, [events, selectedEventId]);
 
-  // Persist the map-press callback via ref so we don't need to rebind the
-  // whole listener when a screen re-renders.
+  // Pending marker (the "you're placing an event here" pin).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const handler = (e: maplibregl.MapMouseEvent) => {
-      onMapPress?.({ latitude: e.lngLat.lat, longitude: e.lngLat.lng });
-    };
-    map.on('click', handler);
-    return () => {
-      map.off('click', handler);
-    };
-  }, [onMapPress]);
+    if (!pendingCoords) {
+      pendingMarkerRef.current?.remove();
+      pendingMarkerRef.current = null;
+      return;
+    }
+    if (!pendingMarkerRef.current) {
+      pendingMarkerRef.current = new maplibregl.Marker({
+        element: buildPendingElement(),
+        anchor: 'bottom',
+      })
+        .setLngLat([pendingCoords.longitude, pendingCoords.latitude])
+        .addTo(map);
+    } else {
+      pendingMarkerRef.current.setLngLat([
+        pendingCoords.longitude,
+        pendingCoords.latitude,
+      ]);
+    }
+  }, [pendingCoords]);
 
   useEffect(() => {
     const map = mapRef.current;

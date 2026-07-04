@@ -187,13 +187,25 @@ export function EventPreviewSheet({ event, viewerLocation, onClose, onEdit }: Pr
                 />
               </View>
               <View className="flex-1">
-                <PrimaryButton
-                  label={event.is_joined ? 'Joined ✓' : 'Join'}
-                  variant={event.is_joined ? 'secondary' : 'primary'}
-                  loading={busy}
-                  onPress={handleJoinToggle}
-                  fullWidth
-                />
+                {isCreator ? (
+                  // Creators are implicit attendees — joining their own event
+                  // was possible before and just looked buggy. Give them a
+                  // status chip instead.
+                  <View className="h-12 flex-row items-center justify-center gap-2 rounded-2xl bg-brand-500/10">
+                    <Ionicons name="star" size={14} color="#3757FF" />
+                    <Text className="text-sm font-semibold text-brand-500">
+                      You're hosting
+                    </Text>
+                  </View>
+                ) : (
+                  <PrimaryButton
+                    label={event.is_joined ? 'Joined ✓' : 'Join'}
+                    variant={event.is_joined ? 'secondary' : 'primary'}
+                    loading={busy}
+                    onPress={handleJoinToggle}
+                    fullWidth
+                  />
+                )}
               </View>
             </View>
           </View>

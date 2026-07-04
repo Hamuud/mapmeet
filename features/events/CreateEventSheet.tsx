@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
 
+import { AddressField } from '@/components/events/AddressField';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { DateTimeField } from '@/components/ui/DateTimeField';
@@ -20,8 +21,13 @@ import type { LatLng } from '@/types';
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** When set, the form pre-fills lat/lng from a map tap. */
-  seedCoords?: LatLng | null;
+  /** Wherever the pending marker currently sits on the map. */
+  pendingCoords: LatLng | null;
+  /** Bubble up an updated coord (from address search, current location, etc.)
+   *  so the map's pending marker moves in sync. */
+  onCoordsChange: (coords: LatLng | null) => void;
+  /** Close the sheet and put the map in "next tap places the pin" mode. */
+  onRequestPickLocation: () => void;
 };
 
 function todayISO(): string {
@@ -50,7 +56,13 @@ const defaultValues: EventInput = {
   visibility: 'public',
 };
 
-export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
+export function CreateEventSheet({
+  open,
+  onClose,
+  pendingCoords,
+  onCoordsChange,
+  onRequestPickLocation,
+}: Props) {
   const toast = useToast();
   const { session } = useAuth();
   const upsertEvent = useEventsStore((s) => s.upsertEvent);
@@ -68,16 +80,14 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
     defaultValues,
   });
 
-  // When the sheet opens, seed lat/lng from either the tapped point or the
-  // user's current location.
+  // Sync the form's lat/lng with whatever pendingCoords the parent owns.
   useEffect(() => {
     if (!open) return;
-    const start = seedCoords ?? currentCoords;
-    if (start) {
-      setValue('latitude', start.latitude);
-      setValue('longitude', start.longitude);
+    if (pendingCoords) {
+      setValue('latitude', pendingCoords.latitude);
+      setValue('longitude', pendingCoords.longitude);
     }
-  }, [open, seedCoords, currentCoords, setValue]);
+  }, [open, pendingCoords, setValue]);
 
   const emoji = watch('emoji');
   const visibility = watch('visibility');
@@ -89,12 +99,17 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
     if (currentCoords) {
       setValue('latitude', currentCoords.latitude);
       setValue('longitude', currentCoords.longitude);
+      onCoordsChange(currentCoords);
       toast.show('Pinned to your location.', 'success');
     }
   };
 
   const onSubmit = async (values: EventInput) => {
     if (!session) return;
+    if (!values.latitude || !values.longitude) {
+      toast.show('Pick a location on the map first.', 'error');
+      return;
+    }
     try {
       const inserted = await eventsService.create({
         creator_id: session.user.id,
@@ -108,7 +123,10 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
         max_participants: values.max_participants ?? null,
         visibility: values.visibility,
       });
-      // Optimistically add — realtime will reconcile the exact shape moments later.
+      // Auto-join the creator — they're always attending their own event, and
+      // seeing an active "Join" button for it in the preview was confusing.
+      await eventsService.join(inserted.id, session.user.id);
+
       upsertEvent({
         ...inserted,
         creator: {
@@ -121,8 +139,8 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
           avatar_url:
             (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
         },
-        participant_count: 0,
-        is_joined: false,
+        participant_count: 1,
+        is_joined: true,
       });
       toast.show('Event pinned to the map.', 'success');
       reset(defaultValues);
@@ -166,9 +184,6 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
               Emoji
             </Text>
             <EmojiPicker value={emoji} onChange={(v) => setValue('emoji', v)} />
-            {errors.emoji?.message ? (
-              <Text className="mt-1.5 text-xs text-red-500">{errors.emoji.message}</Text>
-            ) : null}
           </View>
 
           <Controller
@@ -220,20 +235,52 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
             </View>
           </View>
 
+          {/* Location block ---------------------------------------------- */}
           <View>
-            <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
+            <Text className="mb-2 text-sm font-medium text-text-light dark:text-text-dark">
               Location
             </Text>
-            <View className="rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
-              <Text className="text-xs text-muted-light dark:text-muted-dark">
-                {latitude && longitude
-                  ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-                  : 'Not set'}
-              </Text>
-              <View className="mt-3 flex-row gap-2">
-                <View className="flex-1">
+
+            <View className="gap-3 rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
+              {/* State summary */}
+              <View className="flex-row items-center gap-2">
+                <Ionicons
+                  name={latitude && longitude ? 'location' : 'location-outline'}
+                  size={16}
+                  color={latitude && longitude ? '#3757FF' : '#8E8E93'}
+                />
+                <Text className="flex-1 text-xs text-muted-light dark:text-muted-dark">
+                  {latitude && longitude
+                    ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+                    : 'No pin dropped yet'}
+                </Text>
+              </View>
+
+              {/* Address search */}
+              <AddressField
+                onSelect={(hit) => {
+                  setValue('latitude', hit.coords.latitude);
+                  setValue('longitude', hit.coords.longitude);
+                  onCoordsChange(hit.coords);
+                  toast.show('Pinned to that address.', 'success');
+                }}
+              />
+
+              {/* Actions */}
+              <View className="flex-row flex-wrap gap-2">
+                <View className="min-w-[45%] flex-1">
                   <PrimaryButton
-                    label="Use current location"
+                    label="Add new position"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Ionicons name="map" size={14} color="#3757FF" />}
+                    onPress={onRequestPickLocation}
+                    fullWidth
+                  />
+                </View>
+                <View className="min-w-[45%] flex-1">
+                  <PrimaryButton
+                    label="Current location"
                     variant="secondary"
                     size="sm"
                     leftIcon={<Ionicons name="navigate" size={14} color="#3757FF" />}
@@ -242,10 +289,13 @@ export function CreateEventSheet({ open, onClose, seedCoords }: Props) {
                   />
                 </View>
               </View>
-              <Text className="mt-2 text-[11px] text-muted-light dark:text-muted-dark">
-                Tip: tap anywhere on the map to drop a pin, then reopen this sheet.
+
+              <Text className="text-[11px] text-muted-light dark:text-muted-dark">
+                Tip: long-press anywhere on the map to drop a pin without
+                opening this sheet.
               </Text>
             </View>
+
             {errors.latitude?.message || errors.longitude?.message ? (
               <Text className="mt-1.5 text-xs text-red-500">
                 {errors.latitude?.message ?? errors.longitude?.message}

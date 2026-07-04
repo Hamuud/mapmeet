@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Map, type MapRef } from '@/components/map';
@@ -34,8 +34,14 @@ export default function MapScreen() {
   const { coords } = useLocation();
   const mapRef = useRef<MapRef | null>(null);
 
+  // Composition state.
+  //  - `pendingCoords`: where the map should draw the pending pin.
+  //  - `createOpen`:    is the composition sheet up.
+  //  - `pickMode`:      the sheet is minimized to let the user re-pick
+  //                     the location via a single tap.
   const [createOpen, setCreateOpen] = useState(false);
-  const [createSeed, setCreateSeed] = useState<LatLng | null>(null);
+  const [pendingCoords, setPendingCoords] = useState<LatLng | null>(null);
+  const [pickMode, setPickMode] = useState(false);
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
 
   const visibleEvents = useMemo(
@@ -43,14 +49,26 @@ export default function MapScreen() {
     [events, viewerId, filter, query, coords],
   );
 
-  // Look up the selected event out of the whole feed — a user can still
-  // preview an event that got filtered out.
-  const selectedEvent =
-    events.find((e) => e.id === selectedEventId) ?? null;
+  const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
-  const openCreate = (seed: LatLng | null) => {
-    setCreateSeed(seed);
+  /** Long-press on the map OR single tap when pickMode is on. */
+  const handlePickLocation = useCallback((c: LatLng) => {
+    setPendingCoords(c);
+    setPickMode(false);
     setCreateOpen(true);
+    // Recenter so the pin isn't halfway off screen after picking.
+    mapRef.current?.animateTo(c);
+  }, []);
+
+  const armPickMode = () => {
+    setCreateOpen(false);
+    setPickMode(true);
+  };
+
+  const closeCreate = () => {
+    setCreateOpen(false);
+    setPendingCoords(null);
+    setPickMode(false);
   };
 
   return (
@@ -61,27 +79,53 @@ export default function MapScreen() {
         initialCenter={coords ?? DEMO_CENTER}
         userLocation={coords}
         selectedEventId={selectedEventId}
+        pendingCoords={pendingCoords}
+        pickMode={pickMode}
         onMarkerPress={selectEvent}
-        onMapPress={(c) => {
-          // If nothing selected + create sheet closed, just drop the last-tap
-          // seed. If the user then presses "+", it opens with that coord.
-          if (!createOpen && !selectedEventId) setCreateSeed(c);
-        }}
+        onPickLocation={handlePickLocation}
       />
 
-      {/* Top overlay: search + filters */}
-      <View
-        pointerEvents="box-none"
-        style={{ paddingTop: insets.top + 8 }}
-        className="absolute inset-x-0 top-0"
-      >
-        <View className="px-4">
-          <SearchBar value={query} onChangeText={setQuery} />
+      {/* Top overlay: search + filters (hidden during pickMode so it doesn't
+          fight the map for taps). */}
+      {!pickMode ? (
+        <View
+          pointerEvents="box-none"
+          style={{ paddingTop: insets.top + 8 }}
+          className="absolute inset-x-0 top-0"
+        >
+          <View className="px-4">
+            <SearchBar value={query} onChangeText={setQuery} />
+          </View>
+          <View className="mt-3 px-2">
+            <FilterBar value={filter} onChange={setFilter} />
+          </View>
         </View>
-        <View className="mt-3 px-2">
-          <FilterBar value={filter} onChange={setFilter} />
+      ) : null}
+
+      {/* Pick-mode banner — a persistent hint plus a way out. */}
+      {pickMode ? (
+        <View
+          pointerEvents="box-none"
+          style={{ paddingTop: insets.top + 12 }}
+          className="absolute inset-x-0 top-0 items-center px-4"
+        >
+          <View className="w-full max-w-md flex-row items-center gap-3 rounded-2xl bg-brand-500 px-4 py-3 shadow-lg shadow-brand-500/40">
+            <Ionicons name="hand-left" size={18} color="#fff" />
+            <Text className="flex-1 text-sm font-semibold text-white">
+              Tap the map to pin the event
+            </Text>
+            <Pressable
+              onPress={() => {
+                setPickMode(false);
+                setCreateOpen(true);
+              }}
+              className="rounded-full bg-white/25 px-3 py-1"
+            >
+              <Text className="text-xs font-semibold text-white">Cancel</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      ) : null}
 
       {/* Floating locate button */}
       <View
@@ -107,7 +151,12 @@ export default function MapScreen() {
         style={{ bottom: insets.bottom + 96 }}
       >
         <Pressable
-          onPress={() => openCreate(createSeed ?? coords ?? null)}
+          onPress={() => {
+            // "+" button lets the user compose without picking a spot first —
+            // seed with wherever they were: pending, current, or map default.
+            setPendingCoords((prev) => prev ?? coords ?? null);
+            setCreateOpen(true);
+          }}
           className="h-14 w-14 items-center justify-center rounded-full bg-brand-500 shadow-lg shadow-brand-500/40 active:opacity-90"
           accessibilityLabel="Create event"
         >
@@ -127,8 +176,10 @@ export default function MapScreen() {
 
       <CreateEventSheet
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        seedCoords={createSeed}
+        onClose={closeCreate}
+        pendingCoords={pendingCoords}
+        onCoordsChange={setPendingCoords}
+        onRequestPickLocation={armPickMode}
       />
 
       <EditEventSheet
