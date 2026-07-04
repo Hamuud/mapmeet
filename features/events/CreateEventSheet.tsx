@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from '
 
 import { AddressField } from '@/components/events/AddressField';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
+import { TagsField } from '@/components/events/TagsField';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { DateTimeField } from '@/components/ui/DateTimeField';
 import { Input } from '@/components/ui/Input';
@@ -54,6 +55,7 @@ const defaultValues: EventInput = {
   event_time: roundedHourISO(),
   max_participants: null,
   visibility: 'public',
+  tags: [],
 };
 
 export function CreateEventSheet({
@@ -93,6 +95,7 @@ export function CreateEventSheet({
   const visibility = watch('visibility');
   const latitude = watch('latitude');
   const longitude = watch('longitude');
+  const tags = watch('tags');
 
   const useCurrentLocation = async () => {
     await request();
@@ -122,6 +125,7 @@ export function CreateEventSheet({
         event_time: values.event_time,
         max_participants: values.max_participants ?? null,
         visibility: values.visibility,
+        tags: values.tags,
       });
       // Auto-join the creator — they're always attending their own event, and
       // seeing an active "Join" button for it in the preview was confusing.
@@ -200,6 +204,12 @@ export function CreateEventSheet({
                 error={errors.description?.message}
               />
             )}
+          />
+
+          <TagsField
+            value={tags}
+            onChange={(next) => setValue('tags', next, { shouldValidate: true })}
+            error={errors.tags?.message}
           />
 
           <View className="flex-row gap-3">

@@ -81,15 +81,25 @@ export function filterEvents({
       break;
   }
 
-  const q = query.trim().toLowerCase();
-  if (q) {
-    out = out.filter(
-      (e) =>
-        e.title.toLowerCase().includes(q) ||
-        e.emoji.includes(q) ||
-        e.creator.display_name.toLowerCase().includes(q) ||
-        e.creator.username.toLowerCase().includes(q),
-    );
+  const raw = query.trim().toLowerCase();
+  if (raw) {
+    // "#coffee" scopes the search to tags only; otherwise we match tags
+    // as one of the searchable fields alongside title/emoji/creator.
+    if (raw.startsWith('#')) {
+      const tagQ = raw.slice(1);
+      if (tagQ) {
+        out = out.filter((e) => e.tags.some((t) => t.includes(tagQ)));
+      }
+    } else {
+      out = out.filter(
+        (e) =>
+          e.title.toLowerCase().includes(raw) ||
+          e.emoji.includes(raw) ||
+          e.creator.display_name.toLowerCase().includes(raw) ||
+          e.creator.username.toLowerCase().includes(raw) ||
+          e.tags.some((t) => t.includes(raw)),
+      );
+    }
   }
 
   return out;

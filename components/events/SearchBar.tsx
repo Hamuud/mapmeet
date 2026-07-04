@@ -11,7 +11,7 @@ type Props = {
 export function SearchBar({
   value,
   onChangeText,
-  placeholder = 'Search events, emoji, creators',
+  placeholder = 'Search events, #tags, creators',
   onSubmit,
 }: Props) {
   return (

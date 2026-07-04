@@ -39,6 +39,7 @@ export type Database = {
           event_time: string; // ISO time (HH:MM:SS)
           max_participants: number | null;
           visibility: 'public' | 'private';
+          tags: string[];
           created_at: string;
           updated_at: string;
         };
@@ -53,6 +54,9 @@ export type Database = {
           event_time: string;
           max_participants?: number | null;
           visibility?: 'public' | 'private';
+          // Required at the type level so the compiler stops us from
+          // shipping an event without at least one tag.
+          tags: string[];
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
       };

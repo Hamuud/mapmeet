@@ -131,6 +131,21 @@ export function EventPreviewSheet({
               </Text>
             ) : null}
 
+            {event.tags && event.tags.length > 0 ? (
+              <View className="mt-3 flex-row flex-wrap gap-1.5">
+                {event.tags.map((tag) => (
+                  <View
+                    key={tag}
+                    className="rounded-full bg-brand-500/15 px-2.5 py-1"
+                  >
+                    <Text className="text-xs font-semibold text-brand-500">
+                      #{tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <View className="mt-5 flex-row items-center gap-3">
               <Avatar
                 name={event.creator.display_name}

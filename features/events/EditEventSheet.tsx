@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
 
 import { EmojiPicker } from '@/components/events/EmojiPicker';
+import { TagsField } from '@/components/events/TagsField';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { DateTimeField } from '@/components/ui/DateTimeField';
 import { Input } from '@/components/ui/Input';
@@ -43,6 +44,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       event_time: '',
       max_participants: null,
       visibility: 'public',
+      tags: [],
     },
   });
 
@@ -58,11 +60,13 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       event_time: event.event_time.slice(0, 5),
       max_participants: event.max_participants,
       visibility: event.visibility,
+      tags: event.tags ?? [],
     });
   }, [event, reset]);
 
   const emoji = watch('emoji');
   const visibility = watch('visibility');
+  const tags = watch('tags');
 
   const onSubmit = async (values: EventInput) => {
     if (!event) return;
@@ -77,6 +81,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         event_time: values.event_time,
         max_participants: values.max_participants ?? null,
         visibility: values.visibility,
+        tags: values.tags,
       });
       patchEvent(event.id, updated);
       toast.show('Event updated.', 'success');
@@ -131,6 +136,12 @@ export function EditEventSheet({ event, open, onClose }: Props) {
                 error={errors.description?.message}
               />
             )}
+          />
+
+          <TagsField
+            value={tags ?? []}
+            onChange={(next) => setValue('tags', next, { shouldValidate: true })}
+            error={errors.tags?.message}
           />
 
           <View className="flex-row gap-3">

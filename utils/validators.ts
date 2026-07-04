@@ -23,6 +23,11 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email('Enter a valid email.'),
 });
 
+// Mirror of the SQL check constraint on events.tags — lowercased ASCII
+// letters/digits, dash or underscore, 2..24 chars. The client-side
+// normalizer (`normalizeTag`) shapes user input to match.
+const TAG_REGEX = /^[a-z0-9_-]{2,24}$/;
+
 export const eventSchema = z.object({
   title: z.string().min(1, 'Title is required.').max(80),
   description: z.string().max(500).optional().or(z.literal('')),
@@ -38,6 +43,10 @@ export const eventSchema = z.object({
     .optional()
     .nullable(),
   visibility: z.enum(['public', 'private']).default('public'),
+  tags: z
+    .array(z.string().regex(TAG_REGEX, 'Use 2–24 letters, digits, `-` or `_`.'))
+    .min(1, 'Add at least one tag.')
+    .max(5, 'Up to 5 tags.'),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

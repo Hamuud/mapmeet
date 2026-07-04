@@ -61,6 +61,20 @@ export function EventCard({ event, distanceLabel, onPress, trailing }: Props) {
             {distanceLabel ? ` · ${distanceLabel}` : ''}
           </Text>
         </View>
+        {event.tags && event.tags.length > 0 ? (
+          <View className="mt-2 flex-row flex-wrap gap-1">
+            {event.tags.slice(0, 4).map((tag) => (
+              <View
+                key={tag}
+                className="rounded-full bg-brand-500/10 px-2 py-0.5"
+              >
+                <Text className="text-[10px] font-semibold text-brand-500">
+                  #{tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       {trailing ?? (
