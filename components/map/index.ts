@@ -2,4 +2,5 @@
 // Metro picks the right platform implementation (Map.native.tsx or Map.web.tsx).
 export { Map } from './Map';
 export { MapMarker } from './MapMarker';
-export type { MapProps, MapRef } from './Map.types';
+export { MapStyleSwitcher } from './MapStyleSwitcher';
+export type { MapProps, MapRef, MapStyle } from './Map.types';

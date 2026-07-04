@@ -2,10 +2,13 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import type { MapProps, MapRef } from './Map.types';
+import type { MapProps, MapRef, MapStyle } from './Map.types';
 import type { EventWithCreator } from '@/types';
 
-const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
+/** Raster styles for each basemap flavor. All three providers are free
+ *  under attribution — swap in vector styles + your own key by setting
+ *  EXPO_PUBLIC_MAPLIBRE_STYLE_URL. */
+const STREETS_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     osm: {
@@ -18,12 +21,52 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
+const SATELLITE_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    esri: {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      attribution: 'Tiles © Esri',
+    },
+  },
+  layers: [{ id: 'esri', type: 'raster', source: 'esri' }],
+};
+
+const TERRAIN_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    otm: {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+        'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
+        'https://c.tile.opentopomap.org/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      attribution:
+        'Map data © OpenStreetMap contributors, SRTM · Style © OpenTopoMap (CC-BY-SA)',
+    },
+  },
+  layers: [{ id: 'otm', type: 'raster', source: 'otm' }],
+};
+
+const STYLE_FOR: Record<MapStyle, maplibregl.StyleSpecification> = {
+  streets: STREETS_STYLE,
+  satellite: SATELLITE_STYLE,
+  terrain: TERRAIN_STYLE,
+};
+
 const SOURCE_ID = 'mapmeet-events';
 const CLUSTER_LAYER_ID = 'mapmeet-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'mapmeet-cluster-count';
-/** Long-press threshold — matches Android's default. */
+const ROUTE_SOURCE_ID = 'mapmeet-route';
+const ROUTE_CASING_LAYER_ID = 'mapmeet-route-casing';
+const ROUTE_LAYER_ID = 'mapmeet-route-line';
 const LONG_PRESS_MS = 500;
-/** How far the finger/cursor can drift and still count as a long-press. */
 const LONG_PRESS_TOLERANCE_PX = 8;
 
 function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection {
@@ -34,6 +77,19 @@ function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection 
       properties: { eventId: e.id, emoji: e.emoji, title: e.title },
       geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
     })),
+  };
+}
+
+function routeToGeoJson(
+  points: { latitude: number; longitude: number }[] | null | undefined,
+): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'LineString',
+      coordinates: (points ?? []).map((p) => [p.longitude, p.latitude]),
+    },
   };
 }
 
@@ -87,7 +143,6 @@ function buildPendingElement(): HTMLDivElement {
     animation: mm-pulse 1.6s ease-in-out infinite;
   `;
   el.textContent = '+';
-  // Register the keyframes once — repeated appends are harmless.
   if (!document.getElementById('mm-pending-keyframes')) {
     const style = document.createElement('style');
     style.id = 'mm-pending-keyframes';
@@ -100,6 +155,86 @@ function buildPendingElement(): HTMLDivElement {
   return el;
 }
 
+/** Every source/layer we add on top of a basemap needs to be re-added
+ *  after a `setStyle` swap. Runs on load AND on styledata after a swap. */
+function installCustomLayers(
+  map: maplibregl.Map,
+  events: EventWithCreator[],
+  route: { latitude: number; longitude: number }[] | null | undefined,
+) {
+  if (!map.getSource(SOURCE_ID)) {
+    map.addSource(SOURCE_ID, {
+      type: 'geojson',
+      data: eventsToGeoJson(events),
+      cluster: true,
+      clusterRadius: 60,
+      clusterMaxZoom: 18,
+    });
+  } else {
+    (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(
+      eventsToGeoJson(events),
+    );
+  }
+  if (!map.getLayer(CLUSTER_LAYER_ID)) {
+    map.addLayer({
+      id: CLUSTER_LAYER_ID,
+      type: 'circle',
+      source: SOURCE_ID,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#3757FF',
+        'circle-radius': ['step', ['get', 'point_count'], 22, 10, 28, 50, 34],
+        'circle-stroke-width': 3,
+        'circle-stroke-color': 'rgba(255,255,255,0.9)',
+      },
+    });
+  }
+  if (!map.getLayer(CLUSTER_COUNT_LAYER_ID)) {
+    map.addLayer({
+      id: CLUSTER_COUNT_LAYER_ID,
+      type: 'symbol',
+      source: SOURCE_ID,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-size': 14,
+        'text-font': ['Noto Sans Regular'],
+      },
+      paint: { 'text-color': '#fff' },
+    });
+  }
+
+  // Route source + double-stroke line (casing under, brand line on top).
+  if (!map.getSource(ROUTE_SOURCE_ID)) {
+    map.addSource(ROUTE_SOURCE_ID, {
+      type: 'geojson',
+      data: routeToGeoJson(route),
+    });
+  } else {
+    (map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource).setData(
+      routeToGeoJson(route),
+    );
+  }
+  if (!map.getLayer(ROUTE_CASING_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_CASING_LAYER_ID,
+      type: 'line',
+      source: ROUTE_SOURCE_ID,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': 'rgba(255,255,255,0.9)', 'line-width': 8 },
+    });
+  }
+  if (!map.getLayer(ROUTE_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_LAYER_ID,
+      type: 'line',
+      source: ROUTE_SOURCE_ID,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#3757FF', 'line-width': 5 },
+    });
+  }
+}
+
 export const Map = forwardRef<MapRef, MapProps>(function Map(
   {
     events,
@@ -108,6 +243,8 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     selectedEventId,
     pendingCoords,
     pickMode,
+    mapStyle = 'streets',
+    route,
     onMarkerPress,
     onPickLocation,
   },
@@ -126,6 +263,13 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   onPickLocationRef.current = onPickLocation;
   const pickModeRef = useRef(!!pickMode);
   pickModeRef.current = !!pickMode;
+  // Latest events + route are kept in a ref so the styledata handler
+  // (which re-installs layers after a style swap) can always pull the
+  // current data.
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
+  const routeRef = useRef(route);
+  routeRef.current = route;
 
   useImperativeHandle(
     ref,
@@ -137,6 +281,17 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           duration: 500,
         });
       },
+      fitToPoints: (points, padding = 60) => {
+        if (points.length === 0 || !mapRef.current) return;
+        const bounds = points.reduce(
+          (b, p) => b.extend([p.longitude, p.latitude]),
+          new maplibregl.LngLatBounds(
+            [points[0]!.longitude, points[0]!.latitude],
+            [points[0]!.longitude, points[0]!.latitude],
+          ),
+        );
+        mapRef.current.fitBounds(bounds, { padding, duration: 500 });
+      },
     }),
     [],
   );
@@ -146,7 +301,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     const styleUrl = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleUrl || OSM_RASTER_STYLE,
+      style: styleUrl || STYLE_FOR[mapStyle] || STREETS_STYLE,
       center: [initialCenter.longitude, initialCenter.latitude],
       zoom: 13,
       attributionControl: { compact: true },
@@ -154,37 +309,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     map.on('load', () => {
-      map.addSource(SOURCE_ID, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        cluster: true,
-        clusterRadius: 60,
-        clusterMaxZoom: 18,
-      });
-      map.addLayer({
-        id: CLUSTER_LAYER_ID,
-        type: 'circle',
-        source: SOURCE_ID,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': '#3757FF',
-          'circle-radius': ['step', ['get', 'point_count'], 22, 10, 28, 50, 34],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': 'rgba(255,255,255,0.9)',
-        },
-      });
-      map.addLayer({
-        id: CLUSTER_COUNT_LAYER_ID,
-        type: 'symbol',
-        source: SOURCE_ID,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-size': 14,
-          'text-font': ['Noto Sans Regular'],
-        },
-        paint: { 'text-color': '#fff' },
-      });
+      installCustomLayers(map, eventsRef.current, routeRef.current);
 
       map.on('click', CLUSTER_LAYER_ID, (e) => {
         const feature = map.queryRenderedFeatures(e.point, {
@@ -207,11 +332,15 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       });
     });
 
-    // Long-press + pickMode click handling ------------------------------
-    // MapLibre only exposes `mousedown`/`mouseup`/`touchstart`/`touchend`,
-    // not a synthetic long-press event, so we time it ourselves. If the
-    // pointer drifts more than LONG_PRESS_TOLERANCE_PX we abort — that's
-    // a drag, not a press.
+    // Re-install custom sources/layers whenever the basemap style is
+    // hot-swapped (setStyle wipes everything back to the raster tiles).
+    map.on('styledata', () => {
+      if (map.isStyleLoaded()) {
+        installCustomLayers(map, eventsRef.current, routeRef.current);
+      }
+    });
+
+    // Long-press + pickMode click handling -------------------------------
     let pressTimer: ReturnType<typeof setTimeout> | null = null;
     let pressStart: { x: number; y: number; lng: number; lat: number } | null = null;
 
@@ -250,7 +379,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.on('touchend', cancelPress);
     map.on('dragstart', cancelPress);
 
-    // Regular click: only picks when we're in explicit pickMode.
     map.on('click', (e) => {
       if (!pickModeRef.current) return;
       onPickLocationRef.current?.({
@@ -258,7 +386,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         longitude: e.lngLat.lng,
       });
     });
-    // Right-click also picks — desktop shortcut equivalent to long-press.
     map.on('contextmenu', (e) => {
       onPickLocationRef.current?.({
         latitude: e.lngLat.lat,
@@ -276,14 +403,22 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap the map canvas cursor when pickMode toggles so the affordance is obvious.
+  // Hot-swap the basemap when the caller flips mapStyle.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const styleUrl = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL;
+    if (styleUrl) return; // user-supplied styles opt out of the swap
+    map.setStyle(STYLE_FOR[mapStyle]);
+    // installCustomLayers runs from the styledata listener above.
+  }, [mapStyle]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
   }, [pickMode]);
 
-  // Reconcile point markers.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -338,7 +473,23 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     };
   }, [events, selectedEventId]);
 
-  // Pending marker (the "you're placing an event here" pin).
+  // Route geometry sync.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const src = map.getSource(ROUTE_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (src) src.setData(routeToGeoJson(route));
+    };
+    if (!map.isStyleLoaded()) {
+      map.once('load', apply);
+    } else {
+      apply();
+    }
+  }, [route]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;

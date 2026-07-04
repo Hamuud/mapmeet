@@ -2,22 +2,32 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'reac
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
+  Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
   type LongPressEvent,
   type MapPressEvent,
+  type MapType,
   type Region,
 } from 'react-native-maps';
 
 import { MapMarker, PendingMarker } from './MapMarker';
 import { useCluster } from './useCluster';
-import type { MapProps, MapRef } from './Map.types';
+import type { MapProps, MapRef, MapStyle } from './Map.types';
 
 const DEFAULT_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
 function deltaFromZoom(zoom: number) {
   const longitudeDelta = 360 / Math.pow(2, zoom);
   return { latitudeDelta: longitudeDelta, longitudeDelta };
+}
+
+/** Terrain is only supported on Apple Maps — Google Maps for Android falls
+ *  back to hybrid to still give the user something photographic. */
+function toMapType(style: MapStyle | undefined): MapType {
+  if (style === 'satellite') return 'satellite';
+  if (style === 'terrain') return Platform.OS === 'android' ? 'hybrid' : 'terrain';
+  return 'standard';
 }
 
 export const Map = forwardRef<MapRef, MapProps>(function Map(
@@ -28,6 +38,8 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     selectedEventId,
     pendingCoords,
     pickMode,
+    mapStyle = 'streets',
+    route,
     onMarkerPress,
     onPickLocation,
   },
@@ -48,6 +60,18 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           { latitude: coords.latitude, longitude: coords.longitude, ...delta },
           400,
         );
+      },
+      fitToPoints: (points, padding = 60) => {
+        if (points.length === 0) return;
+        mapRef.current?.fitToCoordinates(points, {
+          edgePadding: {
+            top: padding,
+            right: padding,
+            bottom: padding,
+            left: padding,
+          },
+          animated: true,
+        });
       },
     }),
     [],
@@ -72,6 +96,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       ref={mapRef}
       style={StyleSheet.absoluteFillObject}
       provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+      mapType={toMapType(mapStyle)}
       initialRegion={initialRegion}
       showsUserLocation
       showsMyLocationButton={false}
@@ -83,9 +108,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         onPickLocation?.({ latitude, longitude });
       }}
       onPress={(e: MapPressEvent) => {
-        // Regular tap only picks when we're in explicit pick mode —
-        // otherwise it stays a no-op so users can dismiss callouts,
-        // deselect, etc. without accidentally spawning events.
         if (!pickMode) return;
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onPickLocation?.({ latitude, longitude });
@@ -108,6 +130,27 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         >
           <PendingMarker />
         </Marker>
+      ) : null}
+
+      {route && route.length > 1 ? (
+        <>
+          {/* Casing under the primary line gives the route a Google-Maps-y
+              double-stroke look that reads on satellite + street both. */}
+          <Polyline
+            coordinates={route}
+            strokeColor="rgba(255,255,255,0.9)"
+            strokeWidth={8}
+            lineCap="round"
+            lineJoin="round"
+          />
+          <Polyline
+            coordinates={route}
+            strokeColor="#3757FF"
+            strokeWidth={5}
+            lineCap="round"
+            lineJoin="round"
+          />
+        </>
       ) : null}
 
       {clusters.map((c) =>

@@ -20,9 +20,18 @@ type Props = {
   viewerLocation?: LatLng | null;
   onClose: () => void;
   onEdit?: (event: EventWithCreator) => void;
+  /** Fire when the viewer taps "Directions". The parent orchestrates the
+   *  routing request + polyline on the map (this sheet is just a chrome). */
+  onDirections?: (event: EventWithCreator) => void;
 };
 
-export function EventPreviewSheet({ event, viewerLocation, onClose, onEdit }: Props) {
+export function EventPreviewSheet({
+  event,
+  viewerLocation,
+  onClose,
+  onEdit,
+  onDirections,
+}: Props) {
   const toast = useToast();
   const { session } = useAuth();
   const patchEvent = useEventsStore((s) => s.patchEvent);
@@ -174,6 +183,20 @@ export function EventPreviewSheet({ event, viewerLocation, onClose, onEdit }: Pr
                     fullWidth
                   />
                 </View>
+              </View>
+            ) : null}
+
+            {/* Directions is offered whenever the viewer already has skin in
+                the game — they've either created the event or joined it. */}
+            {(event.is_joined || isCreator) && onDirections ? (
+              <View className="mt-4">
+                <PrimaryButton
+                  label="Directions"
+                  variant="primary"
+                  leftIcon={<Ionicons name="navigate" size={16} color="#fff" />}
+                  onPress={() => onDirections(event)}
+                  fullWidth
+                />
               </View>
             ) : null}
 
