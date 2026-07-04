@@ -1,38 +1,47 @@
 -- =========================================================================
 -- MapMeet — events.tags
 -- =========================================================================
--- Adds a required tag array so users can search / filter by topic.
+-- Postgres rejects subqueries inside CHECK constraints. SQL functions
+-- (`language sql`) get inlined by the planner, which re-exposes any
+-- subquery hiding inside — that's why the previous attempt still hit
+-- 0A000 despite wrapping the check in a function.
 --
--- Postgres does not allow subqueries in CHECK constraints ("cannot use
--- subquery in check constraint"), so the per-element regex check lives
--- in an IMMUTABLE helper function — those *are* allowed. The client
--- normalizer (utils/tags.ts) shapes user input to match the same regex.
+-- The fix is `language plpgsql`: the planner treats those as opaque, so
+-- the CHECK only sees a bare function call.
 --
--- Idempotent: safe to re-run after a partial previous attempt.
+-- Idempotent: safe to re-run after any partial previous attempt.
 -- =========================================================================
 
 -- 1. Column ---------------------------------------------------------------
---   Backfill default satisfies both the min-length and regex checks so
---   existing rows validate cleanly.
+--   Backfill default satisfies the min-length + regex checks so existing
+--   rows validate cleanly.
 alter table public.events
   add column if not exists tags text[] not null default array['general']::text[];
 
 -- 2. Per-element validator -----------------------------------------------
---   IMMUTABLE + language sql keeps this optimizable and legal to embed
---   in a CHECK constraint. `coalesce(..., true)` covers empty arrays so
---   the length check owns the "must have at least one tag" rule.
-create or replace function public.tags_are_valid(tags text[])
+--   plpgsql + IMMUTABLE = legal inside a CHECK. FOREACH ARRAY iterates
+--   without needing a SELECT, which is what tripped the planner before.
+create or replace function public.tags_are_valid(p_tags text[])
 returns boolean
-language sql
+language plpgsql
 immutable
 as $$
-  select coalesce(bool_and(t ~ '^[a-z0-9_-]{2,24}$'), true)
-  from unnest(tags) as t;
+declare
+  t text;
+begin
+  if p_tags is null then
+    return true;
+  end if;
+  foreach t in array p_tags loop
+    if t !~ '^[a-z0-9_-]{2,24}$' then
+      return false;
+    end if;
+  end loop;
+  return true;
+end;
 $$;
 
 -- 3. Constraint ----------------------------------------------------------
---   Recreated on every run so schema drift doesn't leave stale checks
---   behind.
 alter table public.events
   drop constraint if exists events_tags_min;
 
@@ -43,7 +52,7 @@ alter table public.events
   );
 
 -- 4. Index ---------------------------------------------------------------
---   GIN over the array lets `tags @> array['coffee']` and
---   `tags && array['coffee', 'study']` stay index-backed as we grow.
+--   GIN over the array keeps `tags @> array['coffee']` and
+--   `tags && array['coffee', 'study']` index-backed as we grow.
 create index if not exists events_tags_gin_idx
   on public.events using gin (tags);
