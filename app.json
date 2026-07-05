@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "mapmeet",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#0E0E10"
