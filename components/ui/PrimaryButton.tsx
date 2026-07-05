@@ -2,7 +2,13 @@ import { forwardRef } from 'react';
 import type { PressableProps, View } from 'react-native';
 import { ActivityIndicator, Pressable, Text } from 'react-native';
 
-type Variant = 'primary' | 'accent' | 'secondary' | 'ghost' | 'destructive';
+type Variant =
+  | 'primary'
+  | 'accent'
+  | 'secondary'
+  | 'ghost'
+  | 'destructive'
+  | 'destructive-outline';
 type Size = 'sm' | 'md' | 'lg';
 
 type Props = Omit<PressableProps, 'children' | 'style'> & {
@@ -21,19 +27,24 @@ type Props = Omit<PressableProps, 'children' | 'style'> & {
 // ghost    = borderless text button
 // destructive = red action
 const container: Record<Variant, string> = {
-  primary:     'bg-text-light dark:bg-text-dark active:opacity-90',
-  accent:      'bg-accent-400 active:bg-accent-500',
-  secondary:   'bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark active:opacity-80',
-  ghost:       'bg-transparent active:opacity-60',
-  destructive: 'bg-red-600 active:bg-red-700',
+  primary:              'bg-text-light dark:bg-text-dark active:opacity-90',
+  accent:               'bg-accent-400 active:bg-accent-500',
+  secondary:            'bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark active:opacity-80',
+  ghost:                'bg-transparent active:opacity-60',
+  destructive:          'bg-red-600 active:bg-red-700',
+  // Outlined red — the redesign's "Delete" style. Reads as a
+  // ghost button but with warm red text + border so the affordance
+  // is unmistakable without shouting like a filled red button.
+  'destructive-outline':'bg-panel-light dark:bg-panel-dark border border-red-300 active:opacity-80',
 };
 
 const text: Record<Variant, string> = {
-  primary:     'text-surface-light dark:text-surface-dark',
-  accent:      'text-white',
-  secondary:   'text-text-light dark:text-text-dark',
-  ghost:       'text-text-light dark:text-text-dark',
-  destructive: 'text-white',
+  primary:              'text-surface-light dark:text-surface-dark',
+  accent:               'text-white',
+  secondary:            'text-text-light dark:text-text-dark',
+  ghost:                'text-text-light dark:text-text-dark',
+  destructive:          'text-white',
+  'destructive-outline':'text-red-700',
 };
 
 const sizing: Record<Size, string> = {
@@ -64,7 +75,11 @@ export const PrimaryButton = forwardRef<View, Props>(function PrimaryButton(
 ) {
   const isDisabled = disabled || loading;
   const spinnerColor =
-    variant === 'secondary' || variant === 'ghost' ? '#4B5FE0' : '#fff';
+    variant === 'destructive-outline'
+      ? '#B91C1C'
+      : variant === 'secondary' || variant === 'ghost'
+        ? '#4B5FE0'
+        : '#fff';
   return (
     <Pressable
       ref={ref}

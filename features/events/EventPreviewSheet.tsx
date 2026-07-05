@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -20,11 +19,14 @@ type Props = {
   viewerLocation?: LatLng | null;
   onClose: () => void;
   onEdit?: (event: EventWithCreator) => void;
-  /** Fire when the viewer taps "Directions". The parent orchestrates the
-   *  routing request + polyline on the map (this sheet is just a chrome). */
   onDirections?: (event: EventWithCreator) => void;
 };
 
+/** Compact peek preview docked at the bottom of the map. Matches the
+ *  redesigned mockup: emoji tile + primary-tinted date pill + title +
+ *  a single row of actions. Intentionally short so the map behind stays
+ *  visible — full details / participant list would live in a "More"
+ *  expanded state, deferred to a follow-up. */
 export function EventPreviewSheet({
   event,
   viewerLocation,
@@ -54,7 +56,6 @@ export function EventPreviewSheet({
   const handleJoinToggle = async () => {
     if (!event || !session) return;
     const wasJoined = event.is_joined;
-    // Optimistic patch — realtime reconciles moments later.
     patchEvent(event.id, {
       is_joined: !wasJoined,
       participant_count: Math.max(
@@ -67,7 +68,6 @@ export function EventPreviewSheet({
       if (wasJoined) await eventsService.leave(event.id, session.user.id);
       else await eventsService.join(event.id, session.user.id);
     } catch (e) {
-      // Rollback on failure.
       patchEvent(event.id, {
         is_joined: wasJoined,
         participant_count: event.participant_count,
@@ -91,153 +91,86 @@ export function EventPreviewSheet({
     }
   };
 
+  // Creator sees an extra actions row so the sheet is a hair taller.
+  const heightPct = isCreator ? 0.42 : 0.34;
+
   return (
     <>
-      <BottomSheet open={!!event} onClose={onClose} heightPct={0.62}>
+      <BottomSheet open={!!event} onClose={onClose} heightPct={heightPct}>
         {event ? (
-          <View className="flex-1">
-            <View className="flex-row items-center gap-4">
-              <View className="h-16 w-16 items-center justify-center rounded-2xl bg-brand-500/10">
-                <Text style={{ fontSize: 32 }}>{event.emoji}</Text>
+          <View className="flex-1 gap-4">
+            {/* Emoji tile + info column ---------------------------- */}
+            <View className="flex-row items-center gap-3">
+              <View className="h-14 w-14 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">
+                <Text style={{ fontSize: 26 }}>{event.emoji}</Text>
               </View>
               <View className="flex-1">
-                <View className="flex-row items-center gap-2">
-                  <Text
-                    className="flex-1 text-xl font-semibold text-text-light dark:text-text-dark"
-                    numberOfLines={2}
-                  >
-                    {event.title}
-                  </Text>
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                  <Badge
+                    tone="primary"
+                    label={`${formatEventDate(event.event_date)} · ${formatEventTime(event.event_time)}`}
+                  />
                   {event.visibility === 'private' ? (
-                    <Badge
-                      label="Private"
-                      tone="private"
-                      icon={<Ionicons name="lock-closed" size={10} color="#B45309" />}
-                    />
+                    <Badge tone="accent" label="Private" />
+                  ) : null}
+                  {distanceLabel ? (
+                    <Badge tone="neutral" label={`${distanceLabel} away`} />
                   ) : null}
                 </View>
-                <View className="mt-1 flex-row items-center gap-2">
-                  <Ionicons name="calendar-outline" size={12} color="#8E8E93" />
-                  <Text className="text-xs text-muted-light dark:text-muted-dark">
-                    {formatEventDate(event.event_date)} · {formatEventTime(event.event_time)}
-                  </Text>
-                </View>
+                <Text
+                  className="mt-1 text-base font-bold leading-tight text-text-light dark:text-text-dark"
+                  numberOfLines={2}
+                >
+                  {event.title}
+                </Text>
+                <Text
+                  className="text-xs text-muted-light dark:text-muted-dark"
+                  numberOfLines={1}
+                >
+                  hosted by {event.creator.display_name}
+                </Text>
               </View>
             </View>
 
-            {event.description ? (
-              <Text className="mt-4 text-sm text-text-light dark:text-text-dark">
-                {event.description}
-              </Text>
-            ) : null}
-
-            {event.tags && event.tags.length > 0 ? (
-              <View className="mt-3 flex-row flex-wrap gap-1.5">
-                {event.tags.map((tag) => (
-                  <View
-                    key={tag}
-                    className="rounded-full bg-brand-500/15 px-2.5 py-1"
-                  >
-                    <Text className="text-xs font-semibold text-brand-500">
-                      #{tag}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            <View className="mt-5 flex-row items-center gap-3">
-              <Avatar
-                name={event.creator.display_name}
-                uri={event.creator.avatar_url}
-                size="sm"
-              />
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-                  {event.creator.display_name}
-                </Text>
-                <Text className="text-xs text-muted-light dark:text-muted-dark">
-                  @{event.creator.username}
+            {/* Stats row -------------------------------------------- */}
+            <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="people" size={12} color="#8B8880" />
+                <Text className="text-xs font-medium text-ink2-light dark:text-ink2-dark">
+                  {event.participant_count} going
                 </Text>
               </View>
-              {distanceLabel ? (
-                <View className="rounded-full bg-elevated-light px-3 py-1 dark:bg-elevated-dark">
-                  <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
-                    {distanceLabel}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View className="mt-4 flex-row items-center gap-4">
-              <Stat icon="people-outline" label={`${event.participant_count} going`} />
               {event.max_participants ? (
-                <Stat icon="ribbon-outline" label={`Cap ${event.max_participants}`} />
+                <>
+                  <Text className="text-xs text-muted-light">·</Text>
+                  <Text className="text-xs font-medium text-ink2-light dark:text-ink2-dark">
+                    cap {event.max_participants}
+                  </Text>
+                </>
               ) : null}
             </View>
 
-            {isCreator ? (
-              <View className="mt-4 flex-row gap-2">
-                <View className="flex-1">
-                  <PrimaryButton
-                    label="Edit"
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Ionicons name="create-outline" size={14} color="#3757FF" />}
-                    onPress={() => onEdit?.(event)}
-                    fullWidth
-                  />
-                </View>
-                <View className="flex-1">
-                  <PrimaryButton
-                    label="Delete"
-                    variant="destructive"
-                    size="sm"
-                    leftIcon={<Ionicons name="trash-outline" size={14} color="#fff" />}
-                    onPress={() => setConfirmDelete(true)}
-                    fullWidth
-                  />
-                </View>
-              </View>
-            ) : null}
-
-            {/* Directions is offered whenever the viewer already has skin in
-                the game — they've either created the event or joined it. */}
-            {(event.is_joined || isCreator) && onDirections ? (
-              <View className="mt-4">
+            {/* Primary actions ------------------------------------- */}
+            <View className="flex-row gap-2">
+              <View className="flex-1">
                 <PrimaryButton
                   label="Directions"
-                  variant="primary"
-                  leftIcon={<Ionicons name="navigate" size={16} color="#fff" />}
-                  onPress={() => onDirections(event)}
-                  fullWidth
-                />
-              </View>
-            ) : null}
-
-            <View className="mt-auto flex-row gap-3 pt-4">
-              <View className="flex-1">
-                <PrimaryButton
-                  label="Close"
                   variant="secondary"
-                  onPress={onClose}
+                  onPress={() => onDirections?.(event)}
                   fullWidth
                 />
               </View>
-              <View className="flex-1">
+              <View style={{ flex: 1.2 }}>
                 {isCreator ? (
-                  // Creators are implicit attendees — joining their own event
-                  // was possible before and just looked buggy. Give them a
-                  // status chip instead.
-                  <View className="h-12 flex-row items-center justify-center gap-2 rounded-2xl bg-brand-500/10">
-                    <Ionicons name="star" size={14} color="#3757FF" />
+                  <View className="h-11 flex-row items-center justify-center gap-2 rounded-xl bg-brand-500/10">
+                    <Ionicons name="star" size={13} color="#4B5FE0" />
                     <Text className="text-sm font-semibold text-brand-500">
                       You're hosting
                     </Text>
                   </View>
                 ) : (
                   <PrimaryButton
-                    label={event.is_joined ? 'Joined ✓' : 'Join'}
+                    label={event.is_joined ? 'Joined ✓' : 'Join event'}
                     variant={event.is_joined ? 'secondary' : 'primary'}
                     loading={busy}
                     onPress={handleJoinToggle}
@@ -246,6 +179,32 @@ export function EventPreviewSheet({
                 )}
               </View>
             </View>
+
+            {/* Creator-only row ------------------------------------ */}
+            {isCreator ? (
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <PrimaryButton
+                    label="Edit"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Ionicons name="create-outline" size={13} color="#4B5FE0" />}
+                    onPress={() => onEdit?.(event)}
+                    fullWidth
+                  />
+                </View>
+                <View className="flex-1">
+                  <PrimaryButton
+                    label="Delete"
+                    variant="destructive-outline"
+                    size="sm"
+                    leftIcon={<Ionicons name="trash-outline" size={13} color="#B91C1C" />}
+                    onPress={() => setConfirmDelete(true)}
+                    fullWidth
+                  />
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </BottomSheet>
@@ -263,11 +222,3 @@ export function EventPreviewSheet({
   );
 }
 
-function Stat({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
-  return (
-    <View className="flex-row items-center gap-1.5">
-      <Ionicons name={icon} size={14} color="#8E8E93" />
-      <Text className="text-xs text-muted-light dark:text-muted-dark">{label}</Text>
-    </View>
-  );
-}

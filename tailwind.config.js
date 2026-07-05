@@ -61,6 +61,12 @@ module.exports = {
           light: '#0E0E10',
           dark:  '#F5F5F2',
         },
+        // Secondary text — softer than `text` but not muted-grey.
+        // Design uses `--ink2` for participant counts, meta rows, etc.
+        ink2: {
+          light: '#2A2A2E',
+          dark:  '#D6D6D0',
+        },
       },
       fontFamily: {
         // Load via <link> in app/+html.tsx (see handoff/+html.tsx).
