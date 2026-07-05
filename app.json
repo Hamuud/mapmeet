@@ -35,8 +35,9 @@
       "package": "com.mapmeet.app",
       "versionCode": 1,
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
       "config": {
         "googleMaps": {
@@ -72,7 +73,14 @@
     },
     "extra": {
       "supabaseUrl": "",
-      "supabaseAnonKey": ""
-    }
+      "supabaseAnonKey": "",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "90246480-e1e3-4baa-b2e1-c4380f49f6f5"
+      }
+    },
+    "owner": "hamud_habibi"
   }
 }
