@@ -1,8 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Input } from '@/components/ui/Input';
@@ -15,6 +23,7 @@ import { signUpSchema, type SignUpInput } from '@/utils/validators';
 export default function SignUpScreen() {
   const toast = useToast();
   const setSession = useAuthStore((s) => s.setSession);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     control,
     handleSubmit,
@@ -47,14 +56,29 @@ export default function SignUpScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 20 }}
+          contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 24 }}
         >
-          <View className="mt-6">
-            <Text className="text-4xl font-bold text-text-light dark:text-text-dark">
-              Create account
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={() => router.canGoBack() && router.back()}
+              accessibilityLabel="Back"
+              hitSlop={8}
+            >
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="chevron-back" size={14} color="#0E0E10" />
+                <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
+                  Back
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          <View>
+            <Text className="font-display text-5xl leading-[1.05] text-text-light dark:text-text-dark">
+              Set up your{'\n'}profile.
             </Text>
-            <Text className="mt-2 text-base text-muted-light dark:text-muted-dark">
-              Drop your first pin in under a minute.
+            <Text className="mt-3 text-sm text-muted-light">
+              This is what people see when you host or join.
             </Text>
           </View>
 
@@ -65,7 +89,7 @@ export default function SignUpScreen() {
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
                   label="Display name"
-                  placeholder="Alex Ryder"
+                  placeholder="Alex Kowalski"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -81,8 +105,10 @@ export default function SignUpScreen() {
                   label="Username"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder="alex"
-                  leftAdornment={<Text className="text-muted-light">@</Text>}
+                  placeholder="alexk"
+                  leftAdornment={
+                    <Text className="text-sm text-muted-light">@</Text>
+                  }
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -101,7 +127,6 @@ export default function SignUpScreen() {
                   keyboardType="email-address"
                   autoComplete="email"
                   placeholder="you@example.com"
-                  leftAdornment={<Ionicons name="mail-outline" size={16} color="#8E8E93" />}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -115,34 +140,41 @@ export default function SignUpScreen() {
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
                   label="Password"
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   placeholder="At least 8 characters"
-                  leftAdornment={
-                    <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" />
-                  }
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   error={errors.password?.message}
+                  rightAdornment={
+                    <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={6}>
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={16}
+                        color="#8B8880"
+                      />
+                    </Pressable>
+                  }
                 />
               )}
             />
           </View>
 
           <PrimaryButton
-            label="Create account"
+            label="Continue"
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             fullWidth
             size="lg"
           />
 
-          <View className="flex-row justify-center gap-1 pt-2">
-            <Text className="text-sm text-muted-light dark:text-muted-dark">
-              Already have an account?
-            </Text>
-            <Link href="/(auth)/login" className="text-sm font-semibold text-brand-500">
-              Sign in
+          <View className="mt-2 flex-row justify-center gap-1">
+            <Text className="text-sm text-muted-light">Already have an account?</Text>
+            <Link
+              href="/(auth)/login"
+              className="text-sm font-semibold text-text-light dark:text-text-dark"
+            >
+              Sign in →
             </Link>
           </View>
         </ScrollView>

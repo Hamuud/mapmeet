@@ -326,7 +326,9 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       zoom: 13,
       attributionControl: { compact: true },
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // The built-in NavigationControl was drawing its own +/− buttons on
+    // top-right — duplicating our custom MapZoomStack. Ours is fed by
+    // MapRef.zoomIn/zoomOut, so no library control is needed.
 
     map.on('load', () => {
       installCustomLayers(map, eventsRef.current);

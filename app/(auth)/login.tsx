@@ -1,8 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Input } from '@/components/ui/Input';
@@ -15,6 +23,7 @@ import { signInSchema, type SignInInput } from '@/utils/validators';
 export default function LoginScreen() {
   const toast = useToast();
   const setSession = useAuthStore((s) => s.setSession);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     control,
     handleSubmit,
@@ -34,6 +43,9 @@ export default function LoginScreen() {
     }
   };
 
+  const oauthComingSoon = () =>
+    toast.show('OAuth providers land in the next update.', 'info');
+
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <KeyboardAvoidingView
@@ -42,17 +54,45 @@ export default function LoginScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 20 }}
+          contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 24 }}
         >
-          <View className="mt-6">
-            <Text className="text-4xl font-bold text-text-light dark:text-text-dark">
-              Welcome back
+          {/* Back arrow — for symmetry with the redesign, even though the
+              root layout swallows the pop when there's no history. */}
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={() => router.canGoBack() && router.back()}
+              accessibilityLabel="Back"
+              hitSlop={8}
+            >
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="chevron-back" size={14} color="#0E0E10" />
+                <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
+                  Back
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Monogram */}
+          <View className="mt-2">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-text-light dark:bg-text-dark">
+              <Text className="font-display text-2xl text-surface-light dark:text-surface-dark">
+                M
+              </Text>
+            </View>
+          </View>
+
+          {/* Display title */}
+          <View>
+            <Text className="font-display text-5xl leading-[1.05] text-text-light dark:text-text-dark">
+              Welcome{'\n'}back.
             </Text>
-            <Text className="mt-2 text-base text-muted-light dark:text-muted-dark">
-              Sign in to see what's happening around you.
+            <Text className="mt-3 text-sm text-muted-light">
+              Sign in to meet friends on the map today.
             </Text>
           </View>
 
+          {/* Form */}
           <View className="gap-4">
             <Controller
               control={control}
@@ -66,7 +106,6 @@ export default function LoginScreen() {
                   autoComplete="email"
                   textContentType="emailAddress"
                   placeholder="you@example.com"
-                  leftAdornment={<Ionicons name="mail-outline" size={16} color="#8E8E93" />}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -74,34 +113,47 @@ export default function LoginScreen() {
                 />
               )}
             />
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { value, onChange, onBlur } }) => (
-                <Input
-                  label="Password"
-                  secureTextEntry
-                  autoComplete="password"
-                  textContentType="password"
-                  placeholder="At least 8 characters"
-                  leftAdornment={
-                    <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" />
-                  }
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.password?.message}
-                />
-              )}
-            />
+            <View>
+              <View className="mb-1.5 flex-row items-center justify-between">
+                <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
+                  Password
+                </Text>
+                <Link href="/(auth)/forgot-password" className="text-xs text-text-light dark:text-text-dark">
+                  Forgot?
+                </Link>
+              </View>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    secureTextEntry={!showPassword}
+                    autoComplete="password"
+                    textContentType="password"
+                    placeholder="••••••••"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.password?.message}
+                    rightAdornment={
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        hitSlop={6}
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={16}
+                          color="#8B8880"
+                        />
+                      </Pressable>
+                    }
+                  />
+                )}
+              />
+            </View>
           </View>
 
-          <View className="items-end">
-            <Link href="/(auth)/forgot-password" className="text-sm text-brand-500">
-              Forgot password?
-            </Link>
-          </View>
-
+          {/* Primary action */}
           <PrimaryButton
             label="Sign in"
             onPress={handleSubmit(onSubmit)}
@@ -110,12 +162,37 @@ export default function LoginScreen() {
             size="lg"
           />
 
-          <View className="flex-row justify-center gap-1 pt-2">
-            <Text className="text-sm text-muted-light dark:text-muted-dark">
-              New to MapMeet?
+          {/* Divider */}
+          <View className="flex-row items-center gap-3">
+            <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
+            <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+              or
             </Text>
-            <Link href="/(auth)/signup" className="text-sm font-semibold text-brand-500">
-              Create an account
+            <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
+          </View>
+
+          {/* OAuth ghosts — placeholders until we wire them up. */}
+          <View className="gap-3">
+            <PrimaryButton
+              label="Continue with Google"
+              variant="secondary"
+              onPress={oauthComingSoon}
+              leftIcon={<Ionicons name="logo-google" size={14} color="#0E0E10" />}
+              fullWidth
+            />
+            <PrimaryButton
+              label="Continue with Apple"
+              variant="secondary"
+              onPress={oauthComingSoon}
+              leftIcon={<Ionicons name="logo-apple" size={16} color="#0E0E10" />}
+              fullWidth
+            />
+          </View>
+
+          <View className="mt-2 flex-row justify-center gap-1">
+            <Text className="text-sm text-muted-light">New here?</Text>
+            <Link href="/(auth)/signup" className="text-sm font-semibold text-text-light dark:text-text-dark">
+              Create an account →
             </Link>
           </View>
         </ScrollView>
