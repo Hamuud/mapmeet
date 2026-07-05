@@ -11,9 +11,13 @@ type EventsState = {
   events: EventWithCreator[];
   status: Status;
   error: string | null;
+  /** Picked from the map — opens the EventPreviewSheet AND flies camera. */
   selectedEventId: string | null;
+  /** Picked from a list ("View on map") — flies camera only. Cleared by
+   *  the map screen after the fly-to lands, so re-entering the tab
+   *  doesn't re-focus. */
+  focusedEventId: string | null;
 
-  /** Track the active channel + viewer so re-mounts don't stack subscriptions. */
   _channel: RealtimeChannel | null;
   _viewerId: string | null;
 
@@ -25,6 +29,7 @@ type EventsState = {
   patchEvent: (id: string, patch: Partial<EventWithCreator>) => void;
 
   selectEvent: (id: string | null) => void;
+  focusEvent: (id: string | null) => void;
   reset: () => void;
 };
 
@@ -33,6 +38,7 @@ export const useEventsStore = create<EventsState>((set, get) => ({
   status: 'idle',
   error: null,
   selectedEventId: null,
+  focusedEventId: null,
   _channel: null,
   _viewerId: null,
 
@@ -127,6 +133,7 @@ export const useEventsStore = create<EventsState>((set, get) => ({
     }),
 
   selectEvent: (id) => set({ selectedEventId: id }),
+  focusEvent: (id) => set({ focusedEventId: id }),
 
   reset: () => {
     const ch = get()._channel;
@@ -136,6 +143,7 @@ export const useEventsStore = create<EventsState>((set, get) => ({
       status: 'idle',
       error: null,
       selectedEventId: null,
+      focusedEventId: null,
       _channel: null,
       _viewerId: null,
     });

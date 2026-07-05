@@ -27,6 +27,8 @@ export default function MapScreen() {
   const events = useEventsStore((s) => s.events);
   const selectedEventId = useEventsStore((s) => s.selectedEventId);
   const selectEvent = useEventsStore((s) => s.selectEvent);
+  const focusedEventId = useEventsStore((s) => s.focusedEventId);
+  const focusEvent = useEventsStore((s) => s.focusEvent);
 
   const query = useFiltersStore((s) => s.query);
   const setQuery = useFiltersStore((s) => s.setQuery);
@@ -43,7 +45,12 @@ export default function MapScreen() {
   // camera to that pin, and we shouldn't wrestle it back).
   const hasCenteredOnUser = useRef(false);
   useEffect(() => {
-    if (!coords || hasCenteredOnUser.current || selectedEventId) return;
+    // Skip the auto-recenter if the user just tapped a marker or asked
+    // for a focused fly-to from My Events — both drive the camera to
+    // somewhere specific, and we shouldn't wrestle it back.
+    if (!coords || hasCenteredOnUser.current || selectedEventId || focusedEventId) {
+      return;
+    }
     // Small timeout so the map has committed its initial region first —
     // animating during the same tick as mount is a no-op on iOS.
     const t = setTimeout(() => {
@@ -51,7 +58,24 @@ export default function MapScreen() {
       hasCenteredOnUser.current = true;
     }, 250);
     return () => clearTimeout(t);
-  }, [coords, selectedEventId]);
+  }, [coords, selectedEventId, focusedEventId]);
+
+  // "View on map" from My Events sets focusedEventId. Fly the camera to
+  // it without opening the preview sheet, then clear the focus so the
+  // next tab visit doesn't refocus.
+  useEffect(() => {
+    if (!focusedEventId) return;
+    const target = events.find((e) => e.id === focusedEventId);
+    if (!target) return;
+    const t = setTimeout(() => {
+      mapRef.current?.animateTo(
+        { latitude: target.latitude, longitude: target.longitude },
+        15,
+      );
+      focusEvent(null);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [focusedEventId, events, focusEvent]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<LatLng | null>(null);
@@ -160,11 +184,15 @@ export default function MapScreen() {
         <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} />
       </View>
 
-      {/* Locate — neutral ghost button. */}
+      {/* Bottom-right cluster — sits directly above the tab bar so the
+          user's thumb doesn't stretch. Tab bar height is 64pt on top
+          of insets.bottom (home indicator on newer iPhones), so
+          anchoring the Create FAB at insets.bottom + 78 puts it
+          ~14pt above the tab bar's top edge. Locate stacks 8pt above. */}
       <View
         pointerEvents="box-none"
         className="absolute right-4"
-        style={{ bottom: insets.bottom + 160 }}
+        style={{ bottom: insets.bottom + 144 }}
       >
         <Pressable
           onPress={() => {
@@ -177,11 +205,10 @@ export default function MapScreen() {
         </Pressable>
       </View>
 
-      {/* Create FAB — the ONE coral touchpoint. */}
       <View
         pointerEvents="box-none"
         className="absolute right-4"
-        style={{ bottom: insets.bottom + 96 }}
+        style={{ bottom: insets.bottom + 78 }}
       >
         <Pressable
           onPress={() => {

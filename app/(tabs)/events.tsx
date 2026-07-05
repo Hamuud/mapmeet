@@ -24,7 +24,10 @@ type Tab = 'created' | 'joined';
  *  bypasses the context entirely and hands you the same navigation
  *  API. */
 function openMapWithEvent(id: string) {
-  useEventsStore.getState().selectEvent(id);
+  // "focus" — the map screen animates its camera to the event, but the
+  // preview sheet stays closed. selectEvent would ALSO open the sheet,
+  // which is the wrong behaviour for a "just show me where it is" tap.
+  useEventsStore.getState().focusEvent(id);
   router.push('/(tabs)/map');
 }
 
