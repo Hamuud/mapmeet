@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 /** Small curated set — enough for MVP without pulling a 1MB emoji index.
  *  Users can also type any single emoji via the "custom" field. */
@@ -19,6 +19,11 @@ type Props = {
   onChange: (emoji: string) => void;
 };
 
+/** Emoji picker rendered as a plain wrapped View instead of FlatList.
+ *  A nested FlatList (scrollEnabled=false) inside a ScrollView on iOS
+ *  intermittently measures at 0 or overflow height, which capped the
+ *  outer scroll of CreateEventSheet at the tags row. Plain flex wrap
+ *  measures correctly and is fine performance-wise for ~80 emojis. */
 export function EmojiPicker({ value, onChange }: Props) {
   const [custom, setCustom] = useState('');
   return (
@@ -45,31 +50,24 @@ export function EmojiPicker({ value, onChange }: Props) {
         </View>
       </View>
 
-      <FlatList
-        data={CURATED}
-        numColumns={8}
-        keyExtractor={(e, idx) => `${e}-${idx}`}
-        scrollEnabled={false}
-        columnWrapperStyle={{ gap: 6 }}
-        contentContainerStyle={{ gap: 6 }}
-        renderItem={({ item }) => {
+      <View className="flex-row flex-wrap gap-1.5">
+        {CURATED.map((item, idx) => {
           const active = item === value;
           return (
             <Pressable
+              key={`${item}-${idx}`}
               onPress={() => onChange(item)}
               className={[
-                'h-10 flex-1 items-center justify-center rounded-xl',
-                active
-                  ? 'bg-brand-500/20'
-                  : 'bg-elevated-light dark:bg-elevated-dark',
+                'h-10 items-center justify-center rounded-xl',
+                active ? 'bg-brand-500/20' : 'bg-elevated-light dark:bg-elevated-dark',
               ].join(' ')}
-              style={{ maxWidth: 46 }}
+              style={{ width: 40 }}
             >
               <Text style={{ fontSize: 20 }}>{item}</Text>
             </Pressable>
           );
-        }}
-      />
+        })}
+      </View>
     </View>
   );
 }

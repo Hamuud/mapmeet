@@ -97,7 +97,11 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 60, gap: 18, flexGrow: 1 }}
+          showsVerticalScrollIndicator
+        >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Edit event
           </Text>

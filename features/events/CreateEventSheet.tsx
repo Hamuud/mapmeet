@@ -161,8 +161,10 @@ export function CreateEventSheet({
         className="flex-1"
       >
         <ScrollView
+          className="flex-1"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 24, gap: 18 }}
+          contentContainerStyle={{ paddingBottom: 60, gap: 18, flexGrow: 1 }}
+          showsVerticalScrollIndicator
         >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Pin an event

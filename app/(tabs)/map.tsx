@@ -133,8 +133,21 @@ export default function MapScreen() {
         pendingCoords={pendingCoords}
         pickMode={pickMode}
         mapStyle={mapStyle}
-        onMarkerPress={selectEvent}
-        onClusterTap={setClusterEvents}
+        onMarkerPress={(id) => {
+          // Close any other sheet before opening the preview — two
+          // overlapping sheets rendered fragments in weird positions.
+          setCreateOpen(false);
+          setEditEvent(null);
+          setClusterEvents(null);
+          setDirectionsTarget(null);
+          selectEvent(id);
+        }}
+        onClusterTap={(list) => {
+          setCreateOpen(false);
+          setEditEvent(null);
+          selectEvent(null);
+          setClusterEvents(list);
+        }}
         onPickLocation={handlePickLocation}
       />
 
@@ -228,6 +241,12 @@ export default function MapScreen() {
             </View>
             <Pressable
               onPress={() => {
+                // Close any other overlay first so we never end up with
+                // two sheets fighting for the same bottom position.
+                selectEvent(null);
+                setClusterEvents(null);
+                setEditEvent(null);
+                setDirectionsTarget(null);
                 setPendingCoords((prev) => prev ?? coords ?? null);
                 setCreateOpen(true);
               }}
@@ -272,6 +291,12 @@ export default function MapScreen() {
           >
             <Pressable
               onPress={() => {
+                // Close any other overlay first so we never end up with
+                // two sheets fighting for the same bottom position.
+                selectEvent(null);
+                setClusterEvents(null);
+                setEditEvent(null);
+                setDirectionsTarget(null);
                 setPendingCoords((prev) => prev ?? coords ?? null);
                 setCreateOpen(true);
               }}
