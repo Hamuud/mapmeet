@@ -9,7 +9,7 @@
     "newArchEnabled": true,
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#0B0B0F"
+      "backgroundColor": "#0E0E10"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -17,19 +17,23 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mapmeet.app",
+      "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map.",
+        "NSPhotoLibraryUsageDescription": "MapMeet needs access to your photo library so you can set a profile picture.",
+        "NSCameraUsageDescription": "MapMeet uses the camera so you can take a profile picture."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0F"
+        "backgroundColor": "#0E0E10"
       },
       "package": "com.mapmeet.app",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
@@ -52,7 +56,15 @@
           "locationAlwaysAndWhenInUsePermission": "MapMeet uses your location to show nearby events on the map."
         }
       ],
-      "expo-asset"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MapMeet needs access to your photo library so you can set a profile picture.",
+          "cameraPermission": "MapMeet uses the camera so you can take a profile picture."
+        }
+      ],
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
