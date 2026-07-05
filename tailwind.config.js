@@ -10,47 +10,69 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Semantic tokens (auto-adapt via CSS variables where possible)
+        // ── Semantic ink-on-paper palette ─────────────────────────────
+        // Kept the `brand.500` key so any code that still imports
+        // `#3757FF` via a class keeps compiling — but it now points at
+        // the new refined indigo.
         brand: {
-          50: '#EEF1FF',
-          100: '#DDE3FF',
-          200: '#BAC7FF',
-          300: '#8FA3FF',
-          400: '#5F7CFF',
-          500: '#3757FF',
-          600: '#2340F0',
-          700: '#1A31C4',
-          800: '#182A9E',
-          900: '#182878',
+          50:  '#EEF0FB',
+          100: '#DDE2F7',
+          200: '#B8C1EF',
+          300: '#8E9BE6',
+          400: '#6A78DE',
+          500: '#4B5FE0', // primary indigo (oklch 0.52 0.16 268)
+          600: '#3B4CC4',
+          700: '#2E3CA0',
+          800: '#25307E',
+          900: '#1C2560',
+        },
+        // NEW — single warm accent, reserved for the create-event CTA.
+        accent: {
+          50:  '#FBEFE8',
+          100: '#F6DDCC',
+          200: '#EEBB9A',
+          300: '#E89A70',
+          400: '#E68A5E', // primary coral (oklch 0.70 0.16 44)
+          500: '#D9744A',
+          600: '#B85A34',
+          700: '#8F4326',
         },
         surface: {
-          light: '#FFFFFF',
-          dark: '#0B0B0F',
+          light: '#F6F4EE',  // warm paper
+          dark:  '#0E0E10',
+        },
+        panel: {
+          light: '#FDFCF8',  // cards / rails / sheets
+          dark:  '#16161C',
         },
         elevated: {
-          light: '#F7F7FA',
-          dark: '#16161C',
+          light: '#EDEAE1',
+          dark:  '#1C1C24',
         },
         border: {
-          light: '#E5E5EA',
-          dark: '#2A2A32',
+          light: '#E4E1D8',
+          dark:  '#2A2A32',
         },
         muted: {
-          light: '#8E8E93',
-          dark: '#8A8A94',
+          light: '#8B8880',
+          dark:  '#8A8A94',
         },
         text: {
-          light: '#0B0B0F',
-          dark: '#F5F5F7',
+          light: '#0E0E10',
+          dark:  '#F5F5F2',
         },
       },
       fontFamily: {
-        sans: ['System'],
+        // Load via <link> in app/+html.tsx (see handoff/+html.tsx).
+        sans:    ['Manrope', 'System', 'sans-serif'],
+        display: ['"Instrument Serif"', 'Georgia', 'serif'],
+        mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        xl: '16px',
-        '2xl': '20px',
-        '3xl': '28px',
+        lg: '10px',
+        xl: '14px',
+        '2xl': '18px',
+        '3xl': '24px',
       },
       spacing: {
         18: '4.5rem',

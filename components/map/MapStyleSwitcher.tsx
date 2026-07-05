@@ -33,9 +33,9 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityLabel="Change map style"
-        className="h-11 flex-row items-center gap-2 rounded-full border border-border-light bg-white/95 px-3 shadow-md shadow-black/25 dark:border-border-dark dark:bg-elevated-dark"
+        className="h-10 flex-row items-center gap-2 rounded-full border border-border-light bg-panel-light/92 px-3 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark/92"
       >
-        <Ionicons name="layers" size={16} color="#3757FF" />
+        <Ionicons name="layers" size={14} color="#0E0E10" />
         <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
           {current.label}
         </Text>
@@ -44,7 +44,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
   }
 
   return (
-    <View className="flex-row items-center rounded-full border border-border-light bg-white/95 p-1 shadow-md shadow-black/25 dark:border-border-dark dark:bg-elevated-dark">
+    <View className="flex-row items-center rounded-full border border-border-light bg-panel-light/92 p-1 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark/92">
       {OPTIONS.map((opt) => {
         const active = opt.value === value;
         return (
@@ -55,22 +55,24 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
               setOpen(false);
             }}
             className={[
-              'h-9 flex-row items-center gap-1.5 rounded-full px-3',
+              'h-8 flex-row items-center gap-1.5 rounded-full px-3',
               active
-                ? 'bg-brand-500'
+                ? 'bg-text-light dark:bg-text-dark'
                 : 'bg-transparent',
             ].join(' ')}
             accessibilityLabel={opt.label}
           >
             <Ionicons
               name={opt.icon}
-              size={14}
-              color={active ? '#fff' : '#3757FF'}
+              size={12}
+              color={active ? '#F6F4EE' : '#0E0E10'}
             />
             <Text
               className={[
                 'text-xs font-semibold',
-                active ? 'text-white' : 'text-text-light dark:text-text-dark',
+                active
+                  ? 'text-surface-light dark:text-surface-dark'
+                  : 'text-text-light dark:text-text-dark',
               ].join(' ')}
             >
               {opt.label}

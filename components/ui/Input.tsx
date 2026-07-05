@@ -17,27 +17,25 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   return (
     <View className="w-full">
       {label ? (
-        <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
+        <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
           {label}
         </Text>
       ) : null}
       <View
         className={[
-          'flex-row items-center rounded-2xl border px-4',
-          'bg-elevated-light dark:bg-elevated-dark',
+          'h-11 flex-row items-center rounded-xl border px-4',
+          'bg-panel-light dark:bg-panel-dark',
           error
             ? 'border-red-500'
             : 'border-border-light dark:border-border-dark',
-          'h-12',
         ].join(' ')}
       >
         {leftAdornment ? <View className="mr-2">{leftAdornment}</View> : null}
         <TextInput
           ref={ref}
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor="#8B8880"
           className={[
-            'flex-1 text-base text-text-light dark:text-text-dark',
-            // react-native-web needs this to remove the default focus ring.
+            'flex-1 text-[15px] text-text-light dark:text-text-dark',
             'outline-none',
             className ?? '',
           ].join(' ')}

@@ -74,38 +74,86 @@ function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection 
   };
 }
 
-/** Marker geometry as inline styles. Kept in one place so update-in-place
- *  in the effect below stays perfectly aligned with initial creation. */
+// ── Design system tokens (mirror of tailwind.config.js) ────────────────
+// The web map builds its markers as raw DOM so it can't lean on
+// NativeWind classes. Keeping the token values here means changes to
+// the palette / radii only need to happen in tailwind.config.js + this
+// tiny block.
+const DS = {
+  paper: '#F6F4EE',
+  panel: '#FDFCF8',
+  ink: '#0E0E10',
+  border: '#E4E1D8',
+  accent: '#E68A5E',
+  mutedText: '#8B8880',
+};
+
+/** Style the "tag" body — rounded rect with a pin-corner clip. Kept as
+ *  a helper so the reconcile-in-place update path renders identically
+ *  to a fresh construction. */
+function styleMarkerBody(
+  body: HTMLDivElement,
+  emoji: string,
+  selected: boolean,
+  isPrivate: boolean,
+) {
+  const size = selected ? 48 : 44;
+  const rot = selected ? '0deg' : '-4deg';
+  body.style.cssText = `
+    position:relative;
+    width:${size}px;height:${size}px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:18px;
+    border-bottom-left-radius:4px;
+    transform:rotate(${rot});
+    background:${selected ? DS.ink : DS.panel};
+    border:1px solid ${selected ? DS.ink : DS.border};
+    box-shadow:0 ${selected ? 12 : 8}px ${selected ? 20 : 16}px rgba(0,0,0,${selected ? 0.4 : 0.2});
+    font-size:${selected ? 24 : 22}px;line-height:1;
+    cursor:pointer;
+    transition:transform 160ms ease, background 160ms ease;
+  `;
+  body.textContent = emoji;
+  if (isPrivate) {
+    const lock = document.createElement('div');
+    lock.style.cssText = `
+      position:absolute;top:-4px;right:-4px;
+      width:16px;height:16px;border-radius:9999px;
+      background:${DS.ink};border:1px solid ${DS.panel};
+      color:${DS.paper};
+      display:flex;align-items:center;justify-content:center;
+      font-size:8px;line-height:1;
+    `;
+    lock.textContent = '🔒';
+    body.appendChild(lock);
+  }
+}
+
+/** Rebuild the whole marker element (tag + underdot). Assumes the caller
+ *  will attach the returned element to a new maplibregl.Marker — mutating
+ *  the tag body in-place is fine, but appending the underdot fresh keeps
+ *  the layering trivial. */
 function styleMarkerElement(
   el: HTMLDivElement,
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
 ) {
-  const size = selected ? 56 : 48;
   el.style.cssText = `
-    position:relative;
-    width:${size}px;height:${size}px;border-radius:9999px;
-    background:rgba(255,255,255,0.95);
-    display:flex;align-items:center;justify-content:center;
-    border:2px solid white;
-    box-shadow:0 6px 16px rgba(0,0,0,${selected ? 0.35 : 0.2});
-    font-size:${selected ? 26 : 22}px;cursor:pointer;
-    transition:transform 160ms ease;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
   `;
-  // We want the emoji only — clear any prior lock badge before mutating.
-  el.textContent = emoji;
-  if (isPrivate) {
-    const lock = document.createElement('div');
-    lock.style.cssText = `
-      position:absolute;top:-4px;right:-4px;
-      width:18px;height:18px;border-radius:9999px;
-      background:#F59E0B;border:1.5px solid #fff;
-      color:#fff;font-size:10px;line-height:15px;text-align:center;
-    `;
-    lock.textContent = '🔒';
-    el.appendChild(lock);
-  }
+  el.textContent = '';
+
+  const body = document.createElement('div');
+  styleMarkerBody(body, emoji, selected, isPrivate);
+  el.appendChild(body);
+
+  const dot = document.createElement('div');
+  dot.style.cssText = `
+    width:6px;height:6px;border-radius:9999px;
+    background:${selected ? DS.ink : 'rgba(14,14,16,0.8)'};
+  `;
+  el.appendChild(dot);
 }
 
 function buildMarkerElement(
@@ -124,24 +172,49 @@ function buildMarkerElement(
 }
 
 function buildPendingElement(): HTMLDivElement {
+  // Composite element: tag + underdot + "New event here" pill, coral.
+  // Coral is the ONE accent — reserved for this + the create-event FAB.
   const el = document.createElement('div');
   el.style.cssText = `
-    position:relative;
-    width:48px;height:48px;border-radius:9999px;
-    background:#3757FF;color:#fff;
-    display:flex;align-items:center;justify-content:center;
-    border:2px solid #fff;
-    box-shadow:0 8px 20px rgba(55,87,255,0.55);
-    font-size:26px;line-height:1;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
     animation: mm-pulse 1.6s ease-in-out infinite;
   `;
-  el.textContent = '+';
+
+  const body = document.createElement('div');
+  body.style.cssText = `
+    width:44px;height:44px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:18px;
+    border-bottom-left-radius:4px;
+    background:${DS.accent};
+    border:1px solid ${DS.accent};
+    color:#fff;font-size:22px;line-height:1;
+    box-shadow:0 12px 20px rgba(0,0,0,0.3);
+  `;
+  body.textContent = '+';
+  el.appendChild(body);
+
+  const dot = document.createElement('div');
+  dot.style.cssText = `
+    width:6px;height:6px;border-radius:9999px;background:${DS.accent};
+  `;
+  el.appendChild(dot);
+
+  const pill = document.createElement('div');
+  pill.style.cssText = `
+    padding:2px 8px;border-radius:9999px;background:${DS.accent};
+    color:#fff;font-size:10px;font-weight:600;line-height:1.2;
+    font-family: Manrope, -apple-system, sans-serif;
+  `;
+  pill.textContent = 'New event here';
+  el.appendChild(pill);
+
   if (!document.getElementById('mm-pending-keyframes')) {
     const style = document.createElement('style');
     style.id = 'mm-pending-keyframes';
     style.textContent = `@keyframes mm-pulse {
       0%,100% { transform: translateY(0) scale(1); }
-      50% { transform: translateY(-3px) scale(1.05); }
+      50% { transform: translateY(-3px) scale(1.03); }
     }`;
     document.head.appendChild(style);
   }
@@ -169,10 +242,12 @@ function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
       source: SOURCE_ID,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': '#3757FF',
+        // Ink on paper — matches the new PrimaryButton primary + active
+        // FilterBar chip. Coral is reserved for the create CTA.
+        'circle-color': '#0E0E10',
         'circle-radius': ['step', ['get', 'point_count'], 22, 10, 28, 50, 34],
-        'circle-stroke-width': 3,
-        'circle-stroke-color': 'rgba(255,255,255,0.9)',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'rgba(253,252,248,0.95)',
       },
     });
   }
@@ -505,10 +580,11 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     }
     if (!userMarkerRef.current) {
       const el = document.createElement('div');
+      // Refined indigo — new brand-500 token.
       el.style.cssText = `
-        width:16px;height:16px;border-radius:9999px;
-        background:#3757FF;border:3px solid white;
-        box-shadow:0 0 0 6px rgba(55,87,255,0.25);
+        width:14px;height:14px;border-radius:9999px;
+        background:#4B5FE0;border:3px solid #FDFCF8;
+        box-shadow:0 0 0 6px rgba(75,95,224,0.22);
       `;
       userMarkerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([userLocation.longitude, userLocation.latitude])
