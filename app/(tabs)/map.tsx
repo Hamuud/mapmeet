@@ -240,17 +240,19 @@ export default function MapScreen() {
         </>
       ) : null}
 
-      {/* Mobile bottom-right cluster — sits directly above the tab bar so
-          the user's thumb doesn't stretch. Tab bar height is 64pt on top
-          of insets.bottom (home indicator on newer iPhones), so anchoring
-          the Create FAB at insets.bottom + 78 puts it ~14pt above the
-          tab bar's top edge. Locate stacks 8pt above. */}
+      {/* Mobile bottom-right cluster. Inside a Tabs child screen,
+          `bottom: 0` already sits at the tab bar's top edge — React
+          Navigation offsets the child's coordinate system by the tab
+          bar height. So we DON'T add insets.bottom here (doing so
+          double-counted and floated the buttons up into mid-screen).
+          Create FAB sits 12pt above the tab bar; Locate stacks 8pt
+          above that. */}
       {!isDesktop ? (
         <>
           <View
             pointerEvents="box-none"
             className="absolute right-4"
-            style={{ bottom: insets.bottom + 144 }}
+            style={{ bottom: 76 }}
           >
             <Pressable
               onPress={() => {
@@ -266,7 +268,7 @@ export default function MapScreen() {
           <View
             pointerEvents="box-none"
             className="absolute right-4"
-            style={{ bottom: insets.bottom + 78 }}
+            style={{ bottom: 12 }}
           >
             <Pressable
               onPress={() => {

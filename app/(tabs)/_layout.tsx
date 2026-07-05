@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
@@ -11,6 +12,7 @@ import { useAuthStore } from '@/store/auth.store';
  *  state, 64pt content height. Four tabs: Map · Events · Chat · You. */
 export default function TabsLayout() {
   const scheme = useColorScheme() ?? 'light';
+  const insets = useSafeAreaInsets();
   const status = useAuthStore((s) => s.status);
   const session = useAuthStore((s) => s.session);
   const isDark = scheme === 'dark';
@@ -32,8 +34,12 @@ export default function TabsLayout() {
           borderTopWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
-          height: 64,
-          paddingBottom: 8,
+          // Grow the tab bar by the device's bottom inset so the labels
+          // sit above the home indicator instead of on top of it.
+          // Setting `height` explicitly means RN doesn't add the safe
+          // area for us — we have to fold it in ourselves.
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 6,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.1 },
