@@ -4,8 +4,10 @@ import {
   BackHandler,
   Easing,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -13,26 +15,32 @@ type Props = {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  /** Height as a fraction of the container. 0..1 */
+  /** Height as a fraction of the viewport. 0..1 */
   heightPct?: number;
 };
 
-/** Bottom sheet that renders in-tree, not inside a `<Modal>`.
+/** Bottom sheet — in-tree, not inside `<Modal>`.
  *
- *  Position is set with explicit `position: absolute; bottom: 0` on the
- *  sheet body (rather than a flex `justify-end`) — combining `%` height
- *  with a flex layout inside an absolute-positioned parent was letting
- *  iOS render the sheet in the top-left instead of the bottom. Being
- *  explicit removes the ambiguity.
+ *  Native path uses RN's Animated for slide + backdrop fade and a
+ *  PanResponder on the handle for swipe-to-dismiss.
  *
- *  Also supports swipe-down to dismiss: a PanResponder attached to the
- *  handle area translates the sheet down as the user drags; on release,
- *  a threshold either commits the close or springs back. */
+ *  Web path skips Animated entirely — react-native-web's Animated
+ *  interpolation on `translateY` + `opacity` doesn't reliably run and
+ *  we saw the peek rendering at translateY=initial with a 0-opacity
+ *  backdrop (sheet stuck near the top of the viewport, backdrop
+ *  transparent, layout showing through the map). Web gets a solid
+ *  rgba backdrop and an explicit pixel-height sheet — visually identical,
+ *  no animation drift. */
 export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props) {
+  const isWeb = Platform.OS === 'web';
+  const { height: winHeight } = useWindowDimensions();
+  const sheetHeightPx = Math.round(winHeight * heightPct);
+
   const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (isWeb) return; // web bypasses Animated entirely
     Animated.timing(progress, {
       toValue: open ? 1 : 0,
       duration: 220,
@@ -40,7 +48,7 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
       useNativeDriver: true,
     }).start();
     if (open) dragY.setValue(0);
-  }, [open, progress, dragY]);
+  }, [open, progress, dragY, isWeb]);
 
   useEffect(() => {
     if (!open) return;
@@ -51,8 +59,6 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
     return () => sub.remove();
   }, [open, onClose]);
 
-  // Drag-to-close. Fires from the handle area only — we don't want to
-  // hijack the ScrollView's vertical pan inside the sheet body.
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -61,7 +67,6 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
         if (g.dy > 0) dragY.setValue(g.dy);
       },
       onPanResponderRelease: (_, g) => {
-        // Either far enough (100pt) or fast enough (flick down) commits.
         if (g.dy > 100 || g.vy > 0.6) {
           onClose();
         } else {
@@ -77,6 +82,49 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
 
   if (!open) return null;
 
+  // ── Web path — no Animated, solid inline styles ────────────────────
+  if (isWeb) {
+    return (
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+        <Pressable
+          onPress={onClose}
+          accessibilityLabel="Close sheet"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(14, 14, 16, 0.45)',
+          }}
+        />
+        <View
+          className="border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: sheetHeightPx,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            overflow: 'hidden',
+            // Belt-and-braces solid fill for the panel — some
+            // NativeWind CSS ordering on web has bg-panel-light lose to
+            // an inherited transparent background.
+            backgroundColor: '#FDFCF8',
+          }}
+        >
+          <View className="items-center pt-3 pb-2">
+            <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+          </View>
+          <View className="flex-1 px-5 pb-6">{children}</View>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Native path — Animated slide + fade + PanResponder ─────────────
   const backdropOpacity = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 0.55],
@@ -89,7 +137,6 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
 
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
-      {/* Backdrop */}
       <Animated.View
         style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}
       >
@@ -100,24 +147,18 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
         />
       </Animated.View>
 
-      {/* Sheet body — explicit bottom-of-parent placement so iOS lays it
-          out consistently regardless of any NativeWind flex quirks. */}
       <Animated.View
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: `${heightPct * 100}%`,
+          height: sheetHeightPx,
           transform: [{ translateY: combinedTranslate }],
         }}
         className="overflow-hidden rounded-t-3xl border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
       >
-        {/* Handle — pan target for swipe-down-to-close. */}
-        <View
-          className="items-center pt-3 pb-2"
-          {...panResponder.panHandlers}
-        >
+        <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
           <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
         </View>
         <View className="flex-1 px-5 pb-6">{children}</View>
