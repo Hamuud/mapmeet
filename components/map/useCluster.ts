@@ -1,5 +1,5 @@
 import Supercluster from 'supercluster';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import type { EventWithCreator, LatLng } from '@/types';
 
@@ -27,16 +27,12 @@ export type Region = {
   longitudeDelta: number;
 };
 
-/** Approx zoom from a lat delta. supercluster wants an integer zoom;
- *  react-native-maps exposes region deltas. This is the standard trick. */
 function zoomFromRegion(region: Region): number {
   const zoom = Math.round(Math.log2(360 / region.longitudeDelta));
   return Math.max(1, Math.min(20, zoom));
 }
 
-function regionBBox(
-  region: Region,
-): [number, number, number, number] {
+function regionBBox(region: Region): [number, number, number, number] {
   const minLng = region.longitude - region.longitudeDelta;
   const maxLng = region.longitude + region.longitudeDelta;
   const minLat = region.latitude - region.latitudeDelta;
@@ -50,18 +46,22 @@ type EventFeature = {
   geometry: { type: 'Point'; coordinates: [number, number] };
 };
 
-/** Returns clustered points for the current visible region.
- *  Native-only — the web map uses MapLibre's own clustering. */
+/** Returns clustered points for the current visible region. Native-only —
+ *  the web map uses MapLibre's own clustering.
+ *
+ *  The supercluster index and the id→event lookup are built inside
+ *  useMemo (synchronously) rather than a useEffect. The effect-based
+ *  version created a subtle bug: on the very first render with real
+ *  events, useMemo ran before the new index was ready and returned
+ *  clusters from the stale (empty) index. React doesn't re-render on
+ *  ref updates, so markers stayed invisible until an unrelated state
+ *  change (e.g. tapping a filter) forced another render pass. */
 export function useCluster(
   events: EventWithCreator[],
   region: Region | null,
 ): ClusterPoint[] {
-  const indexRef = useRef<Supercluster<EventFeature['properties']> | null>(null);
-  const eventsMapRef = useRef(new Map<string, EventWithCreator>());
-
-  // Rebuild the index whenever the events array changes identity.
-  useEffect(() => {
-    const index = new Supercluster<EventFeature['properties']>({
+  const index = useMemo(() => {
+    const idx = new Supercluster<EventFeature['properties']>({
       radius: 60,
       maxZoom: 18,
       minPoints: 3,
@@ -71,17 +71,18 @@ export function useCluster(
       properties: { eventId: e.id },
       geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
     }));
-    index.load(features);
-    indexRef.current = index;
+    idx.load(features);
+    return idx;
+  }, [events]);
 
-    const map = new Map<string, EventWithCreator>();
-    for (const e of events) map.set(e.id, e);
-    eventsMapRef.current = map;
+  const eventsById = useMemo(() => {
+    const m = new Map<string, EventWithCreator>();
+    for (const e of events) m.set(e.id, e);
+    return m;
   }, [events]);
 
   return useMemo(() => {
-    const index = indexRef.current;
-    if (!index || !region) {
+    if (!region) {
       return events.map<ClusterPoint>((event) => ({
         kind: 'point',
         id: event.id,
@@ -112,12 +113,26 @@ export function useCluster(
           leaves: () =>
             index
               .getLeaves(clusterId, Infinity)
-              .map((leaf) => eventsMapRef.current.get(leaf.properties.eventId)!)
+              .map((leaf) => eventsById.get(leaf.properties.eventId)!)
               .filter(Boolean),
         };
       }
       const eventId = props.eventId!;
-      const event = eventsMapRef.current.get(eventId)!;
+      const event = eventsById.get(eventId);
+      // Defensive: if the id vanished between index build + cluster fetch
+      // (extremely unlikely, but nice to be safe), silently drop it.
+      if (!event) {
+        return {
+          kind: 'point',
+          id: eventId,
+          event: {
+            id: eventId,
+            latitude: lat!,
+            longitude: lng!,
+          } as unknown as EventWithCreator,
+          coordinate: { latitude: lat!, longitude: lng! },
+        };
+      }
       return {
         kind: 'point',
         id: eventId,
@@ -125,5 +140,5 @@ export function useCluster(
         coordinate: { latitude: lat!, longitude: lng! },
       };
     });
-  }, [events, region]);
+  }, [events, region, index, eventsById]);
 }
