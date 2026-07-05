@@ -5,7 +5,6 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
-import { Badge } from '@/components/ui/Badge';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
@@ -30,9 +29,13 @@ export default function MyEventsScreen() {
 
   const filtered = useMemo(() => {
     if (!profile) return [];
+    // Defensive: filter out anything with a missing id — the FlatList
+    // keyExtractor would blow up on undefined ids, which we saw
+    // manifest as "blank screen after switching to Joined".
+    const safe = events.filter((e): e is EventWithCreator => !!e && !!e.id);
     return tab === 'created'
-      ? events.filter((e) => e.creator_id === profile.id)
-      : events.filter((e) => e.is_joined);
+      ? safe.filter((e) => e.creator_id === profile.id)
+      : safe.filter((e) => e.is_joined === true);
   }, [events, profile, tab]);
 
   const openOnMap = (event: EventWithCreator) => {
@@ -56,7 +59,7 @@ export default function MyEventsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <View className="px-5 pb-3 pt-2">
-        <Text className="text-3xl font-bold text-text-light dark:text-text-dark">
+        <Text className="font-display text-4xl text-text-light dark:text-text-dark">
           My events
         </Text>
         <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
@@ -80,7 +83,7 @@ export default function MyEventsScreen() {
         ListEmptyComponent={
           <EmptyState
             emoji={tab === 'created' ? '📍' : '🙋'}
-            title={tab === 'created' ? 'No events yet' : 'Not joined anything yet'}
+            title={tab === 'created' ? 'No events yet' : "You haven't joined any events"}
             description={
               tab === 'created'
                 ? 'Drop your first pin from the map tab.'
@@ -95,44 +98,32 @@ export default function MyEventsScreen() {
             <EventCard event={item} onPress={() => openOnMap(item)} />
             {tab === 'created' ? (
               <View className="flex-row items-center gap-2 pl-3">
-                {item.visibility === 'private' ? (
-                  <Badge
-                    label="Private"
-                    tone="private"
-                    icon={<Ionicons name="lock-closed" size={10} color="#B45309" />}
-                  />
-                ) : null}
-                <Pressable
-                  onPress={() => setEditEvent(item)}
-                  className="rounded-full bg-elevated-light px-3 py-1 dark:bg-elevated-dark"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons name="create-outline" size={12} color="#3757FF" />
-                    <Text className="text-[11px] font-semibold text-brand-500">Edit</Text>
-                  </View>
-                </Pressable>
-                <Pressable
-                  onPress={() => setPendingDelete(item)}
-                  className="rounded-full bg-red-500/10 px-3 py-1"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons name="trash-outline" size={12} color="#ef4444" />
-                    <Text className="text-[11px] font-semibold text-red-500">Delete</Text>
-                  </View>
-                </Pressable>
-                <Pressable
+                <ActionChip
+                  icon="location"
+                  label="View on map"
                   onPress={() => openOnMap(item)}
-                  className="rounded-full bg-elevated-light px-3 py-1 dark:bg-elevated-dark"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons name="map-outline" size={12} color="#3757FF" />
-                    <Text className="text-[11px] font-semibold text-brand-500">
-                      Open on map
-                    </Text>
-                  </View>
-                </Pressable>
+                />
+                <ActionChip
+                  icon="create-outline"
+                  label="Edit"
+                  onPress={() => setEditEvent(item)}
+                />
+                <ActionChip
+                  icon="trash-outline"
+                  label="Delete"
+                  tone="danger"
+                  onPress={() => setPendingDelete(item)}
+                />
               </View>
-            ) : null}
+            ) : (
+              <View className="flex-row items-center pl-3">
+                <ActionChip
+                  icon="location"
+                  label="View on map"
+                  onPress={() => openOnMap(item)}
+                />
+              </View>
+            )}
           </View>
         )}
       />
@@ -170,7 +161,9 @@ function SegmentButton({
       onPress={onPress}
       className={[
         'flex-1 items-center justify-center rounded-xl py-2',
-        active ? 'bg-surface-light shadow dark:bg-surface-dark' : '',
+        active
+          ? 'bg-panel-light shadow-sm shadow-black/10 dark:bg-panel-dark'
+          : '',
       ].join(' ')}
     >
       <Text
@@ -179,6 +172,43 @@ function SegmentButton({
           active
             ? 'text-text-light dark:text-text-dark'
             : 'text-muted-light dark:text-muted-dark',
+        ].join(' ')}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+type ActionChipProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  tone?: 'default' | 'danger';
+};
+
+function ActionChip({ icon, label, onPress, tone = 'default' }: ActionChipProps) {
+  const isDanger = tone === 'danger';
+  return (
+    <Pressable
+      onPress={onPress}
+      className={[
+        'flex-row items-center gap-1 rounded-full px-3 py-1',
+        isDanger
+          ? 'bg-red-500/10'
+          : 'bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark',
+      ].join(' ')}
+      hitSlop={4}
+    >
+      <Ionicons
+        name={icon}
+        size={12}
+        color={isDanger ? '#EF4444' : '#4B5FE0'}
+      />
+      <Text
+        className={[
+          'text-[11px] font-semibold',
+          isDanger ? 'text-red-500' : 'text-brand-500',
         ].join(' ')}
       >
         {label}

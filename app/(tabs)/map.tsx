@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +35,23 @@ export default function MapScreen() {
 
   const { coords } = useLocation();
   const mapRef = useRef<MapRef | null>(null);
+
+  // Auto-recenter on the user's location as soon as we get it. Ref-guarded
+  // so we only do this on the first fix per session — after that we
+  // respect any manual panning the user has done. Also fires only when
+  // the user hasn't already selected an event (a marker tap will fly the
+  // camera to that pin, and we shouldn't wrestle it back).
+  const hasCenteredOnUser = useRef(false);
+  useEffect(() => {
+    if (!coords || hasCenteredOnUser.current || selectedEventId) return;
+    // Small timeout so the map has committed its initial region first —
+    // animating during the same tick as mount is a no-op on iOS.
+    const t = setTimeout(() => {
+      mapRef.current?.animateTo(coords, 14);
+      hasCenteredOnUser.current = true;
+    }, 250);
+    return () => clearTimeout(t);
+  }, [coords, selectedEventId]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<LatLng | null>(null);
