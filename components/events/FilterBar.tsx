@@ -34,7 +34,7 @@ export function FilterBar({ value, onChange }: Props) {
               'h-8 flex-row items-center justify-center rounded-full px-3.5',
               active
                 ? 'bg-text-light dark:bg-text-dark'
-                : 'bg-panel-light/92 dark:bg-panel-dark/92 border border-border-light dark:border-border-dark',
+                : 'bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark',
             ].join(' ')}
           >
             {active ? (

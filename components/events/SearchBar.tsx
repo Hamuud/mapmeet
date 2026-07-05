@@ -18,9 +18,11 @@ export function SearchBar({
     <View
       className={[
         'h-11 flex-row items-center rounded-xl px-3.5',
-        'bg-panel-light/92 dark:bg-panel-dark/92',
+        // Solid panel so the search bar stays readable on top of the
+        // native Apple Maps / Google Maps tile mosaic. The /92 alpha
+        // was rendering much lighter than intended on iOS.
+        'bg-panel-light dark:bg-panel-dark',
         'border border-border-light dark:border-border-dark',
-        // Web-only soft shadow.
         'shadow-sm shadow-black/10',
       ].join(' ')}
     >

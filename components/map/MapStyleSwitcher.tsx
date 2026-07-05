@@ -33,7 +33,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityLabel="Change map style"
-        className="h-10 flex-row items-center gap-2 rounded-full border border-border-light bg-panel-light/92 px-3 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark/92"
+        className="h-10 flex-row items-center gap-2 rounded-full border border-border-light bg-panel-light px-3 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark"
       >
         <Ionicons name="layers" size={14} color="#0E0E10" />
         <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
@@ -44,7 +44,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
   }
 
   return (
-    <View className="flex-row items-center rounded-full border border-border-light bg-panel-light/92 p-1 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark/92">
+    <View className="flex-row items-center rounded-full border border-border-light bg-panel-light p-1 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark">
       {OPTIONS.map((opt) => {
         const active = opt.value === value;
         return (
