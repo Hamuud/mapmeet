@@ -17,4 +17,8 @@ export type MapProps = {
 
 export type MapRef = {
   animateTo: (coords: LatLng, zoom?: number) => void;
+  /** Nudge the camera one zoom step in / out. Used by the custom zoom
+   *  stack in the desktop layout — mobile uses pinch. */
+  zoomIn: () => void;
+  zoomOut: () => void;
 };

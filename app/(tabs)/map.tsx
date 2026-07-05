@@ -13,7 +13,10 @@ import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
 import { filterEvents } from '@/features/events/filterEvents';
 import { DEMO_CENTER } from '@/features/map/demo-events';
+import { MapSidebar } from '@/features/map/MapSidebar';
+import { MapZoomStack } from '@/features/map/MapZoomStack';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useLocation } from '@/hooks/useLocation';
 import { useEventsStore } from '@/store/events.store';
 import { useFiltersStore } from '@/store/filters.store';
@@ -21,6 +24,7 @@ import type { EventWithCreator, LatLng } from '@/types';
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
 
@@ -134,8 +138,21 @@ export default function MapScreen() {
         onPickLocation={handlePickLocation}
       />
 
-      {/* Top overlay: search + filters (hidden during pickMode). */}
-      {!pickMode ? (
+      {/* Desktop left rail — replaces the mobile top overlay. */}
+      {isDesktop && !pickMode ? (
+        <MapSidebar
+          query={query}
+          onQuery={setQuery}
+          filter={filter}
+          onFilter={setFilter}
+          events={visibleEvents}
+          selectedEventId={selectedEventId}
+          onEventPress={selectEvent}
+        />
+      ) : null}
+
+      {/* Mobile top overlay: search + filters (hidden during pickMode). */}
+      {!isDesktop && !pickMode ? (
         <View
           pointerEvents="box-none"
           style={{ paddingTop: insets.top + 8 }}
@@ -178,49 +195,92 @@ export default function MapScreen() {
       {/* Map style switcher */}
       <View
         pointerEvents="box-none"
-        style={{ top: insets.top + (pickMode ? 68 : 104) }}
-        className="absolute right-4"
+        style={{ top: isDesktop ? 20 : insets.top + (pickMode ? 68 : 104) }}
+        className={isDesktop ? 'absolute right-5' : 'absolute right-4'}
       >
         <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} />
       </View>
 
-      {/* Bottom-right cluster — sits directly above the tab bar so the
-          user's thumb doesn't stretch. Tab bar height is 64pt on top
-          of insets.bottom (home indicator on newer iPhones), so
-          anchoring the Create FAB at insets.bottom + 78 puts it
-          ~14pt above the tab bar's top edge. Locate stacks 8pt above. */}
-      <View
-        pointerEvents="box-none"
-        className="absolute right-4"
-        style={{ bottom: insets.bottom + 144 }}
-      >
-        <Pressable
-          onPress={() => {
-            if (coords) mapRef.current?.animateTo(coords, 14);
-          }}
-          className="h-11 w-11 items-center justify-center rounded-xl border border-border-light bg-panel-light shadow-md shadow-black/20 dark:border-border-dark dark:bg-panel-dark"
-          accessibilityLabel="Recenter"
-        >
-          <Ionicons name="navigate" size={18} color="#0E0E10" />
-        </Pressable>
-      </View>
+      {/* Desktop: custom zoom stack on the right, coral create FAB
+          bottom-right with a "Drop a pin to create" hint pill. */}
+      {isDesktop ? (
+        <>
+          <View
+            pointerEvents="box-none"
+            className="absolute right-5"
+            style={{ top: 72 }}
+          >
+            <MapZoomStack
+              onZoomIn={() => mapRef.current?.zoomIn()}
+              onZoomOut={() => mapRef.current?.zoomOut()}
+              onLocate={() => coords && mapRef.current?.animateTo(coords, 14)}
+            />
+          </View>
 
-      <View
-        pointerEvents="box-none"
-        className="absolute right-4"
-        style={{ bottom: insets.bottom + 78 }}
-      >
-        <Pressable
-          onPress={() => {
-            setPendingCoords((prev) => prev ?? coords ?? null);
-            setCreateOpen(true);
-          }}
-          className="h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 shadow-lg shadow-accent-400/50 active:opacity-90"
-          accessibilityLabel="Create event"
-        >
-          <Ionicons name="add" size={26} color="#fff" />
-        </Pressable>
-      </View>
+          <View
+            pointerEvents="box-none"
+            className="absolute bottom-6 right-6 flex-row items-center gap-3"
+          >
+            <View className="rounded-lg border border-border-light bg-panel-light px-3 py-2 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark">
+              <Text className="font-mono text-[11px] text-ink2-light dark:text-ink2-dark">
+                Drop a pin to create
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                setPendingCoords((prev) => prev ?? coords ?? null);
+                setCreateOpen(true);
+              }}
+              className="h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 shadow-lg shadow-accent-400/50 active:opacity-90"
+              accessibilityLabel="Create event"
+            >
+              <Ionicons name="add" size={26} color="#fff" />
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+
+      {/* Mobile bottom-right cluster — sits directly above the tab bar so
+          the user's thumb doesn't stretch. Tab bar height is 64pt on top
+          of insets.bottom (home indicator on newer iPhones), so anchoring
+          the Create FAB at insets.bottom + 78 puts it ~14pt above the
+          tab bar's top edge. Locate stacks 8pt above. */}
+      {!isDesktop ? (
+        <>
+          <View
+            pointerEvents="box-none"
+            className="absolute right-4"
+            style={{ bottom: insets.bottom + 144 }}
+          >
+            <Pressable
+              onPress={() => {
+                if (coords) mapRef.current?.animateTo(coords, 14);
+              }}
+              className="h-11 w-11 items-center justify-center rounded-xl border border-border-light bg-panel-light shadow-md shadow-black/20 dark:border-border-dark dark:bg-panel-dark"
+              accessibilityLabel="Recenter"
+            >
+              <Ionicons name="navigate" size={18} color="#0E0E10" />
+            </Pressable>
+          </View>
+
+          <View
+            pointerEvents="box-none"
+            className="absolute right-4"
+            style={{ bottom: insets.bottom + 78 }}
+          >
+            <Pressable
+              onPress={() => {
+                setPendingCoords((prev) => prev ?? coords ?? null);
+                setCreateOpen(true);
+              }}
+              className="h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 shadow-lg shadow-accent-400/50 active:opacity-90"
+              accessibilityLabel="Create event"
+            >
+              <Ionicons name="add" size={26} color="#fff" />
+            </Pressable>
+          </View>
+        </>
+      ) : null}
 
       <EventPreviewSheet
         event={selectedEvent}

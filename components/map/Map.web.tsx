@@ -310,6 +310,8 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           duration: 500,
         });
       },
+      zoomIn: () => mapRef.current?.zoomIn({ duration: 250 }),
+      zoomOut: () => mapRef.current?.zoomOut({ duration: 250 }),
     }),
     [],
   );

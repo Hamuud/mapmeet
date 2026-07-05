@@ -58,6 +58,18 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           400,
         );
       },
+      // Native uses pinch — desktop-only stack doesn't call these on iOS.
+      // Kept in the shape for MapRef type coherence.
+      zoomIn: () => {
+        mapRef.current?.getCamera().then((cam) => {
+          if (cam.zoom != null) mapRef.current?.animateCamera({ zoom: cam.zoom + 1 });
+        });
+      },
+      zoomOut: () => {
+        mapRef.current?.getCamera().then((cam) => {
+          if (cam.zoom != null) mapRef.current?.animateCamera({ zoom: cam.zoom - 1 });
+        });
+      },
     }),
     [],
   );
