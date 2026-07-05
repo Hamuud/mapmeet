@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,6 @@ import { useAuthStore } from '@/store/auth.store';
 import { useEventsStore } from '@/store/events.store';
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const toast = useToast();
   const { profile, signOut } = useAuth();
   const setProfile = useAuthStore((s) => s.setProfile);

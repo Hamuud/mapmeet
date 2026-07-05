@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventCard } from '@/components/events/EventCard';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useToast } from '@/components/ui/Toast';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,32 +17,45 @@ import type { EventWithCreator } from '@/types';
 
 type Tab = 'created' | 'joined';
 
+/** Cross-tab navigation via the singleton — `useRouter()` reaches for a
+ *  React context that a bunch of Modal-portalled children (BottomSheet,
+ *  ConfirmationDialog) render outside of, and on iOS that lookup fails
+ *  during the render pass right after a segment tap. The singleton
+ *  bypasses the context entirely and hands you the same navigation
+ *  API. */
+function openMapWithEvent(id: string) {
+  useEventsStore.getState().selectEvent(id);
+  router.push('/(tabs)/map');
+}
+
+function goToMap() {
+  router.push('/(tabs)/map');
+}
+
 export default function MyEventsScreen() {
-  const router = useRouter();
+  return (
+    <ErrorBoundary where="My Events">
+      <MyEventsBody />
+    </ErrorBoundary>
+  );
+}
+
+function MyEventsBody() {
   const toast = useToast();
   const { profile } = useAuth();
   const events = useEventsStore((s) => s.events);
   const removeEvent = useEventsStore((s) => s.removeEvent);
-  const selectEvent = useEventsStore((s) => s.selectEvent);
   const [tab, setTab] = useState<Tab>('created');
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EventWithCreator | null>(null);
 
   const filtered = useMemo(() => {
     if (!profile) return [];
-    // Defensive: filter out anything with a missing id — the FlatList
-    // keyExtractor would blow up on undefined ids, which we saw
-    // manifest as "blank screen after switching to Joined".
     const safe = events.filter((e): e is EventWithCreator => !!e && !!e.id);
     return tab === 'created'
       ? safe.filter((e) => e.creator_id === profile.id)
       : safe.filter((e) => e.is_joined === true);
   }, [events, profile, tab]);
-
-  const openOnMap = (event: EventWithCreator) => {
-    selectEvent(event.id);
-    router.push('/(tabs)/map');
-  };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -90,18 +104,18 @@ export default function MyEventsScreen() {
                 : 'Tap a marker on the map to join.'
             }
             actionLabel="Open map"
-            onAction={() => router.push('/(tabs)/map')}
+            onAction={goToMap}
           />
         }
         renderItem={({ item }) => (
           <View className="gap-2">
-            <EventCard event={item} onPress={() => openOnMap(item)} />
+            <EventCard event={item} onPress={() => openMapWithEvent(item.id)} />
             {tab === 'created' ? (
               <View className="flex-row items-center gap-2 pl-3">
                 <ActionChip
                   icon="location"
                   label="View on map"
-                  onPress={() => openOnMap(item)}
+                  onPress={() => openMapWithEvent(item.id)}
                 />
                 <ActionChip
                   icon="create-outline"
@@ -120,7 +134,7 @@ export default function MyEventsScreen() {
                 <ActionChip
                   icon="location"
                   label="View on map"
-                  onPress={() => openOnMap(item)}
+                  onPress={() => openMapWithEvent(item.id)}
                 />
               </View>
             )}
@@ -147,6 +161,12 @@ export default function MyEventsScreen() {
   );
 }
 
+// ── Local building blocks ────────────────────────────────────────────
+
+const segmentActive =
+  'flex-1 items-center justify-center rounded-xl py-2 bg-panel-light dark:bg-panel-dark';
+const segmentInactive = 'flex-1 items-center justify-center rounded-xl py-2';
+
 function SegmentButton({
   label,
   active,
@@ -157,15 +177,7 @@ function SegmentButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      className={[
-        'flex-1 items-center justify-center rounded-xl py-2',
-        active
-          ? 'bg-panel-light shadow-sm shadow-black/10 dark:bg-panel-dark'
-          : '',
-      ].join(' ')}
-    >
+    <Pressable onPress={onPress} className={active ? segmentActive : segmentInactive}>
       <Text
         className={[
           'text-sm font-semibold',
