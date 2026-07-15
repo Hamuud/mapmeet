@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,9 +15,10 @@ import { useLocation } from '@/hooks/useLocation';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { distanceKm, formatDistance } from '@/utils/distance';
+import { isEventPast } from '@/utils/eventTime';
 import type { EventWithCreator } from '@/types';
 
-type Tab = 'created' | 'joined' | 'nearby';
+type Tab = 'created' | 'joined' | 'nearby' | 'past';
 
 const RADII_KM = [1, 5, 10, 25, 50] as const;
 type Radius = (typeof RADII_KM)[number];
@@ -50,12 +51,27 @@ function MyEventsBody() {
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EventWithCreator | null>(null);
 
+  // Ticks every minute so the "past" bucket re-partitions without
+  // requiring a full re-fetch — an event that crosses the 1h grace
+  // cutoff while the tab is open moves into Past within a minute.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const valid = useMemo(
+    () => events.filter((e): e is EventWithCreator => !!e && !!e.id),
+    [events],
+  );
+
   /** For nearby: pair every event with its distance so we can sort +
-   *  filter + render distance labels off the same pass. */
+   *  filter + render distance labels off the same pass. Past events
+   *  are dropped here too — they're only useful in the Past bucket. */
   const nearby = useMemo(() => {
     if (!coords) return [];
-    return events
-      .filter((e): e is EventWithCreator => !!e && !!e.id)
+    return valid
+      .filter((e) => !isEventPast(e, now))
       .map((event) => ({
         event,
         km: distanceKm(coords, {
@@ -65,20 +81,37 @@ function MyEventsBody() {
       }))
       .filter(({ km }) => km <= radius)
       .sort((a, b) => a.km - b.km);
-  }, [events, coords, radius]);
+  }, [valid, coords, radius, now]);
 
   const created = useMemo(() => {
     if (!profile) return [];
-    return events
-      .filter((e): e is EventWithCreator => !!e && !!e.id)
-      .filter((e) => e.creator_id === profile.id);
-  }, [events, profile]);
+    return valid
+      .filter((e) => e.creator_id === profile.id)
+      .filter((e) => !isEventPast(e, now));
+  }, [valid, profile, now]);
 
   const joined = useMemo(() => {
-    return events
-      .filter((e): e is EventWithCreator => !!e && !!e.id)
-      .filter((e) => e.is_joined === true);
-  }, [events]);
+    return valid
+      .filter((e) => e.is_joined === true)
+      .filter((e) => !isEventPast(e, now));
+  }, [valid, now]);
+
+  /** Past bucket = anything the viewer created OR joined that's now
+   *  past the 1h grace. Sorted newest-first so the last thing that
+   *  ended sits at the top. */
+  const past = useMemo(() => {
+    if (!profile) return [];
+    return valid
+      .filter(
+        (e) => (e.creator_id === profile.id || e.is_joined) && isEventPast(e, now),
+      )
+      .sort((a, b) => {
+        const k = `${b.event_date}T${b.event_time}`.localeCompare(
+          `${a.event_date}T${a.event_time}`,
+        );
+        return k;
+      });
+  }, [valid, profile, now]);
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -100,26 +133,42 @@ function MyEventsBody() {
         <Text className="font-display text-4xl text-text-light dark:text-text-dark">
           My events
         </Text>
-        <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
-          <SegmentButton
-            label="Created"
-            count={created.length}
-            active={tab === 'created'}
-            onPress={() => setTab('created')}
-          />
-          <SegmentButton
-            label="Joined"
-            count={joined.length}
-            active={tab === 'joined'}
-            onPress={() => setTab('joined')}
-          />
-          <SegmentButton
-            label="Nearby"
-            count={coords ? nearby.length : null}
-            active={tab === 'nearby'}
-            onPress={() => setTab('nearby')}
-          />
-        </View>
+        {/* Segments scroll horizontally now that a fourth ("Past") is
+            in the row — on narrow phones four ~equal chips get too
+            cramped for the count numerals. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-4"
+          contentContainerStyle={{ paddingRight: 4 }}
+        >
+          <View className="flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
+            <SegmentButton
+              label="Created"
+              count={created.length}
+              active={tab === 'created'}
+              onPress={() => setTab('created')}
+            />
+            <SegmentButton
+              label="Joined"
+              count={joined.length}
+              active={tab === 'joined'}
+              onPress={() => setTab('joined')}
+            />
+            <SegmentButton
+              label="Nearby"
+              count={coords ? nearby.length : null}
+              active={tab === 'nearby'}
+              onPress={() => setTab('nearby')}
+            />
+            <SegmentButton
+              label="Past"
+              count={past.length}
+              active={tab === 'past'}
+              onPress={() => setTab('past')}
+            />
+          </View>
+        </ScrollView>
       </View>
 
       {/* Nearby subheader — radius chips + status. */}
@@ -223,20 +272,32 @@ function MyEventsBody() {
         />
       ) : (
         <FlatList
-          data={tab === 'created' ? created : joined}
+          data={
+            tab === 'created' ? created : tab === 'joined' ? joined : past
+          }
           keyExtractor={(e) => e.id}
           contentContainerStyle={{ padding: 20, gap: 12, flexGrow: 1 }}
           ListEmptyComponent={
             <EmptyState
-              emoji={tab === 'created' ? '📍' : '🙋'}
-              title={tab === 'created' ? 'No events yet' : "You haven't joined any events"}
+              emoji={
+                tab === 'created' ? '📍' : tab === 'joined' ? '🙋' : '🕰️'
+              }
+              title={
+                tab === 'created'
+                  ? 'No events yet'
+                  : tab === 'joined'
+                    ? "You haven't joined any events"
+                    : 'No past events yet'
+              }
               description={
                 tab === 'created'
                   ? 'Drop your first pin from the map tab.'
-                  : 'Tap a marker on the map to join.'
+                  : tab === 'joined'
+                    ? 'Tap a marker on the map to join.'
+                    : 'Events you host or join land here an hour after they wrap.'
               }
-              actionLabel="Open map"
-              onAction={goToMap}
+              actionLabel={tab === 'past' ? undefined : 'Open map'}
+              onAction={tab === 'past' ? undefined : goToMap}
             />
           }
           renderItem={({ item }) => (
@@ -260,6 +321,22 @@ function MyEventsBody() {
                     tone="danger"
                     onPress={() => setPendingDelete(item)}
                   />
+                </View>
+              ) : tab === 'past' ? (
+                <View className="flex-row items-center gap-2 pl-3">
+                  <ActionChip
+                    icon="ellipse-outline"
+                    label="Ended"
+                    onPress={() => {}}
+                  />
+                  {profile && item.creator_id === profile.id ? (
+                    <ActionChip
+                      icon="trash-outline"
+                      label="Delete"
+                      tone="danger"
+                      onPress={() => setPendingDelete(item)}
+                    />
+                  ) : null}
                 </View>
               ) : (
                 <View className="flex-row items-center pl-3">

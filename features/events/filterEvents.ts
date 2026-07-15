@@ -1,4 +1,5 @@
 import { distanceKm } from '@/utils/distance';
+import { excludePast } from '@/utils/eventTime';
 import type { EventFilter, EventWithCreator, LatLng } from '@/types';
 
 const NEARBY_KM = 5;
@@ -47,7 +48,10 @@ export function filterEvents({
   const tm = tomorrow();
   const eow = endOfWeek();
 
-  let out = events;
+  // Past events (start + 1h grace) never render on the map — they're
+  // only useful to the creator, in their "Past" list. Stripping here
+  // means every downstream filter branch stays past-free.
+  let out = excludePast(events);
 
   switch (filter) {
     case 'today':

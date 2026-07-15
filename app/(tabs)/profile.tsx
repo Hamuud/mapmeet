@@ -12,6 +12,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useEventsStore } from '@/store/events.store';
+import { isEventPast } from '@/utils/eventTime';
 import type { EventWithCreator } from '@/types';
 
 type Tab = 'hosting' | 'attending' | 'past';
@@ -32,20 +33,20 @@ export default function YouScreen() {
     if (!profile) {
       return { hostingCount: 0, attendingCount: 0, hosting: [], attending: [], past: [] };
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isPast = (e: EventWithCreator) => {
-      const d = new Date(`${e.event_date}T${e.event_time}`);
-      return d < today;
-    };
+    // "Past" = start + 1h grace already gone. Same rule as the map
+    // filter and the My Events tab, so an event moves out of all
+    // three views at the same moment.
+    const now = new Date();
     const mine = events.filter((e) => e.creator_id === profile.id);
     const joined = events.filter((e) => e.is_joined);
     return {
       hostingCount: mine.length,
       attendingCount: joined.filter((e) => e.creator_id !== profile.id).length,
-      hosting: mine.filter((e) => !isPast(e)),
-      attending: joined.filter((e) => e.creator_id !== profile.id && !isPast(e)),
-      past: [...mine, ...joined].filter(isPast),
+      hosting: mine.filter((e) => !isEventPast(e, now)),
+      attending: joined.filter(
+        (e) => e.creator_id !== profile.id && !isEventPast(e, now),
+      ),
+      past: [...mine, ...joined].filter((e) => isEventPast(e, now)),
     };
   }, [events, profile]);
 
