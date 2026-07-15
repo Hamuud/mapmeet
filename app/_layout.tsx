@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme as useNwColorScheme } from 'nativewind';
 import { useEffect } from 'react';
+import { useColorScheme as useOsColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -25,18 +26,31 @@ export default function RootLayout() {
   // theme on cold launch without a flash.
   const appearance = usePreferencesStore((s) => s.appearance);
   const { setColorScheme, colorScheme } = useNwColorScheme();
+
+  // Auto → resolve to the current OS scheme HERE, then push a concrete
+  // 'light' | 'dark' to NativeWind. Passing 'system' looks correct but
+  // doesn't stamp the `.dark` class under Tailwind's `darkMode: 'class'`
+  // config, so dark: variants never activate and the app stays
+  // visually light while `useColorScheme()` still reports the OS's
+  // actual value — that mismatch is why chrome icons were white on a
+  // light background whenever OS was dark and Auto was picked. Reading
+  // the OS via `react-native`'s `useColorScheme` also gets us live
+  // updates when the user flips their OS theme mid-session.
+  const osScheme = useOsColorScheme() ?? 'light';
+  const effective = appearance === 'auto' ? osScheme : appearance;
   useEffect(() => {
-    // 'auto' maps to 'system' — NativeWind then follows the OS setting;
-    // otherwise pin to the explicit choice. This runs whenever the
-    // Settings toggle changes, so the theme flips instantly.
-    setColorScheme(appearance === 'auto' ? 'system' : appearance);
-  }, [appearance, setColorScheme]);
+    setColorScheme(effective);
+  }, [effective, setColorScheme]);
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
 
-  const effective = colorScheme ?? 'light';
+  // Silence unused-import warning: nativewind's `colorScheme` is still
+  // useful for asserting the store/hook agreed after `setColorScheme`
+  // ran, but we don't need it here — StatusBar + Stack background key
+  // off `effective` computed above, which is the source of truth.
+  void colorScheme;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
