@@ -88,14 +88,34 @@ export const useEventsStore = create<EventsState>((set, get) => ({
             payload.eventType === 'DELETE'
               ? (payload.old as { user_id: string }).user_id
               : (payload.new as { user_id: string }).user_id;
-          const delta = payload.eventType === 'DELETE' ? -1 : 1;
-          const patch: Partial<EventWithCreator> = {};
+          const isJoinPayload = payload.eventType !== 'DELETE';
           const current = get().events.find((e) => e.id === eventId);
           if (!current) return;
-          patch.participant_count = Math.max(0, current.participant_count + delta);
-          if (viewerId && userId === viewerId) {
-            patch.is_joined = payload.eventType !== 'DELETE';
-          }
+
+          // Viewer's own join/leave: `handleJoinToggle` (and the
+          // creator's auto-join at create time) already flipped
+          // `is_joined` + bumped `participant_count` optimistically.
+          // Re-applying the delta here would double-count — inflating
+          // the participants row on the joiner's own screen while
+          // everyone else's screen (which never ran an optimistic
+          // path) stayed correct.
+          //
+          // Use `is_joined` as an idempotency marker: if it already
+          // matches this payload, we've applied it locally. If it
+          // doesn't (e.g. the viewer joined from another device or
+          // session), apply the delta so cross-device state
+          // converges.
+          const isOwnAction = !!viewerId && userId === viewerId;
+          const alreadyApplied = isOwnAction && current.is_joined === isJoinPayload;
+          if (alreadyApplied) return;
+
+          const patch: Partial<EventWithCreator> = {
+            participant_count: Math.max(
+              0,
+              current.participant_count + (isJoinPayload ? 1 : -1),
+            ),
+          };
+          if (isOwnAction) patch.is_joined = isJoinPayload;
           get().patchEvent(eventId, patch);
         },
       )
