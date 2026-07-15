@@ -103,7 +103,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} heightPct={0.9}>
+    <BottomSheet open={open} onClose={onClose} heightPct={0.9} desktopRail>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
