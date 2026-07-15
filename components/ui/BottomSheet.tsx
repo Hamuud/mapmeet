@@ -1,3 +1,4 @@
+import { useColorScheme } from 'nativewind';
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import {
@@ -62,6 +63,11 @@ export function BottomSheet({
   const { height: winHeight, width: winWidth } = useWindowDimensions();
   const sheetHeightPx = Math.round(winHeight * heightPct);
   const useDesktopRail = isWeb && desktopRail && winWidth >= desktopWidth;
+  // Panel fill switches with the app theme. Hardcoded warm-paper
+  // ignored the Dark preference and made web sheets look broken; the
+  // NativeWind class fallback still handles the border/color tokens.
+  const { colorScheme } = useColorScheme();
+  const panelBg = colorScheme === 'dark' ? '#16161C' : '#FDFCF8';
 
   // Web slide-in state. `mounted` controls presence in the tree,
   // `entered` controls the transform + opacity — flipping `entered`
@@ -185,7 +191,7 @@ export function BottomSheet({
               width: railWidth,
               borderRadius: 24,
               overflow: 'hidden',
-              backgroundColor: '#FDFCF8',
+              backgroundColor: panelBg,
               transform: entered
                 ? ([{ translateY: 0 }] as any)
                 : ([{ translateY: winHeight }] as any),
@@ -230,7 +236,7 @@ export function BottomSheet({
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             overflow: 'hidden',
-            backgroundColor: '#FDFCF8',
+            backgroundColor: panelBg,
             transform: entered
               ? ([{ translateY: 0 }] as any)
               : ([{ translateY: winHeight }] as any),

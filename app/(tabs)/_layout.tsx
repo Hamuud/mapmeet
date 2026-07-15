@@ -1,6 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
+// NativeWind's useColorScheme — respects `setColorScheme` from the
+// theme preference; RN's builtin only reads the OS setting and would
+// ignore the user's Light/Dark/Auto toggle in Settings.
+import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -11,7 +14,8 @@ import { useAuthStore } from '@/store/auth.store';
  *  background, hairline top border, ink active state, muted inactive
  *  state, 64pt content height. Four tabs: Map · Events · Chat · You. */
 export default function TabsLayout() {
-  const scheme = useColorScheme() ?? 'light';
+  const { colorScheme } = useColorScheme();
+  const scheme = colorScheme ?? 'light';
   const insets = useSafeAreaInsets();
   const status = useAuthStore((s) => s.status);
   const session = useAuthStore((s) => s.session);
