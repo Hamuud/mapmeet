@@ -208,18 +208,30 @@ export function BottomSheet({
         }}
         className="overflow-hidden rounded-t-3xl border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
       >
-        <View onLayout={autoHeight ? onContentLayout : undefined}>
-          <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
-            <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+        {autoHeight ? (
+          // AutoHeight branch: wrap in an onLayout probe so we can
+          // measure handle + content together and snap the animated
+          // container to that height.
+          <View onLayout={onContentLayout}>
+            <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
+              <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+            </View>
+            <View className="px-5 pb-6">{children}</View>
           </View>
-          {/* `flex-1` fills a fixed-height sheet — the historical
-              native path. For autoHeight, drop it so the wrapper
-              sizes to its intrinsic content and the enclosing
-              onLayout captures the real total (handle + content). */}
-          <View className={autoHeight ? 'px-5 pb-6' : 'flex-1 px-5 pb-6'}>
-            {children}
-          </View>
-        </View>
+        ) : (
+          // Fixed-height branch: children are direct children of the
+          // Animated.View so `flex-1` on the content wrapper actually
+          // fills the sheet. Wrapping them in an extra <View> with no
+          // flex-1 (as we do for autoHeight) collapses the child, and
+          // the sheet ends up rendering blank — nothing but the close
+          // button pokes through.
+          <>
+            <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
+              <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+            </View>
+            <View className="flex-1 px-5 pb-6">{children}</View>
+          </>
+        )}
       </Animated.View>
     </View>
   );

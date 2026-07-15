@@ -6,6 +6,7 @@ import { Linking, Platform, Pressable, ScrollView, Switch, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -270,59 +271,50 @@ export default function SettingsScreen() {
         onCancel={() => setLangOpen(false)}
       />
 
-      {/* Radius picker */}
-      {radiusOpen ? (
-        <View
-          pointerEvents="box-none"
-          className="absolute inset-0 items-center justify-end"
-          style={{ paddingBottom: 24 }}
-        >
-          <Pressable
-            onPress={() => setRadiusOpen(false)}
-            className="absolute inset-0"
-            style={{ backgroundColor: 'rgba(14,14,16,0.45)' }}
-          />
-          <View className="mx-4 w-full max-w-md rounded-3xl border border-border-light bg-panel-light p-5 dark:border-border-dark dark:bg-panel-dark">
-            <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-              Search radius
-            </Text>
-            <Text className="mt-1 text-xs text-muted-light dark:text-muted-dark">
-              Used by the Nearby filter to show events around you.
-            </Text>
-            <View className="mt-4 flex-row flex-wrap gap-2">
-              {RADII_KM.map((r) => {
-                const active = r === searchRadiusKm;
-                return (
-                  <Pressable
-                    key={r}
-                    onPress={() => {
-                      setSearchRadiusKm(r);
-                      setRadiusOpen(false);
-                    }}
-                    className={[
-                      'rounded-full border px-4 py-2',
-                      active
-                        ? 'border-text-light bg-text-light dark:border-text-dark dark:bg-text-dark'
-                        : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
-                    ].join(' ')}
-                  >
-                    <Text
-                      className={[
-                        'text-xs font-semibold',
-                        active
-                          ? 'text-surface-light dark:text-surface-dark'
-                          : 'text-text-light dark:text-text-dark',
-                      ].join(' ')}
-                    >
-                      {r} km
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+      {/* Radius picker — same BottomSheet component the rest of the
+          app uses, so it slides up from the bottom, dims the backdrop,
+          and closes on outside tap / swipe-down / value pick. */}
+      <BottomSheet open={radiusOpen} onClose={() => setRadiusOpen(false)} autoHeight>
+        <View className="gap-1 pb-2">
+          <Text className="text-lg font-bold text-text-light dark:text-text-dark">
+            Search radius
+          </Text>
+          <Text className="text-xs text-muted-light dark:text-muted-dark">
+            Used by the Nearby filter to show events around you.
+          </Text>
         </View>
-      ) : null}
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {RADII_KM.map((r) => {
+            const active = r === searchRadiusKm;
+            return (
+              <Pressable
+                key={r}
+                onPress={() => {
+                  setSearchRadiusKm(r);
+                  setRadiusOpen(false);
+                }}
+                className={[
+                  'rounded-full border px-4 py-2',
+                  active
+                    ? 'border-text-light bg-text-light dark:border-text-dark dark:bg-text-dark'
+                    : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
+                ].join(' ')}
+              >
+                <Text
+                  className={[
+                    'text-xs font-semibold',
+                    active
+                      ? 'text-surface-light dark:text-surface-dark'
+                      : 'text-text-light dark:text-text-dark',
+                  ].join(' ')}
+                >
+                  {r} km
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
