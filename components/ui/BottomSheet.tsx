@@ -17,6 +17,11 @@ type Props = {
   children: React.ReactNode;
   /** Height as a fraction of the viewport. 0..1 */
   heightPct?: number;
+  /** Web only: shrink the sheet to its content (capped at `heightPct`)
+   *  instead of always filling `heightPct` of the viewport. Use on short
+   *  peek-style sheets so the primary actions dock right above the tab
+   *  bar without a huge empty gap below on tall/wide viewports. */
+  autoHeight?: boolean;
 };
 
 /** Bottom sheet — in-tree, not inside `<Modal>`.
@@ -31,7 +36,13 @@ type Props = {
  *  transparent, layout showing through the map). Web gets a solid
  *  rgba backdrop and an explicit pixel-height sheet — visually identical,
  *  no animation drift. */
-export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props) {
+export function BottomSheet({
+  open,
+  onClose,
+  children,
+  heightPct = 0.6,
+  autoHeight = false,
+}: Props) {
   const isWeb = Platform.OS === 'web';
   const { height: winHeight } = useWindowDimensions();
   const sheetHeightPx = Math.round(winHeight * heightPct);
@@ -105,7 +116,11 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
             left: 0,
             right: 0,
             bottom: 0,
-            height: sheetHeightPx,
+            // autoHeight: shrink to content, cap at heightPct so long lists
+            // still get a scroll region. Fixed: always exactly heightPct.
+            ...(autoHeight
+              ? { maxHeight: sheetHeightPx }
+              : { height: sheetHeightPx }),
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             overflow: 'hidden',
@@ -118,7 +133,15 @@ export function BottomSheet({ open, onClose, children, heightPct = 0.6 }: Props)
           <View className="items-center pt-3 pb-2">
             <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
           </View>
-          <View className="flex-1 px-5 pb-6">{children}</View>
+          {/* When shrinking to content, don't force the inner column to
+              flex-1 — that would re-stretch it to the parent's max-height
+              (which the browser measures as the fallback) and reintroduce
+              the empty gap we're trying to kill. */}
+          <View
+            className={autoHeight ? 'px-5 pb-6' : 'flex-1 px-5 pb-6'}
+          >
+            {children}
+          </View>
         </View>
       </View>
     );

@@ -96,9 +96,13 @@ export function EventPreviewSheet({
 
   return (
     <>
-      <BottomSheet open={!!event} onClose={onClose} heightPct={heightPct}>
+      <BottomSheet open={!!event} onClose={onClose} heightPct={heightPct} autoHeight>
         {event ? (
-          <View className="flex-1 gap-4">
+          // No `flex-1`: with `autoHeight` the BottomSheet's inner wrapper
+          // sizes to content, and a `flex-1` child of a content-sized
+          // flex parent collapses to 0. Natural stacking + `gap-4` is
+          // enough — the peek is a short row of blocks either way.
+          <View className="gap-4">
             {/* Emoji tile + info column ---------------------------- */}
             <View className="flex-row items-center gap-3">
               <View className="h-14 w-14 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">

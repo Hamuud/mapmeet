@@ -78,9 +78,11 @@ export function DirectionsSheet({ event, onClose }: Props) {
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} heightPct={0.52}>
+    <BottomSheet open={open} onClose={onClose} heightPct={0.52} autoHeight>
       {event ? (
-        <View className="flex-1">
+        // No `flex-1`: BottomSheet uses `autoHeight` for the directions
+        // peek, so content sizes the sheet, not the other way around.
+        <View>
           <View className="flex-row items-center gap-3">
             <View className="h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10">
               <Text style={{ fontSize: 26 }}>{event.emoji}</Text>
