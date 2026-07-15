@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmojiPicker } from '@/components/events/EmojiPicker';
 import { TagsField } from '@/components/events/TagsField';
@@ -32,6 +33,7 @@ type Props = {
 
 export function EditEventSheet({ event, open, onClose }: Props) {
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const patchEvent = useEventsStore((s) => s.patchEvent);
 
   const {
@@ -106,7 +108,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <View className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark">
+        <View
+          className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark"
+          style={{ paddingTop: insets.top }}
+        >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Edit event
           </Text>

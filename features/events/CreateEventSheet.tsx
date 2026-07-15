@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddressField } from '@/components/events/AddressField';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
@@ -75,6 +76,7 @@ export function CreateEventSheet({
 }: Props) {
   const toast = useToast();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
   const upsertEvent = useEventsStore((s) => s.upsertEvent);
   const { coords: currentCoords, request } = useLocation();
 
@@ -168,9 +170,15 @@ export function CreateEventSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        {/* Sticky header — always visible even as the form scrolls, so the
-            user knows which sheet they're in and can bail out with the ×. */}
-        <View className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark">
+        {/* Sticky header — always visible even as the form scrolls, so
+            the user knows which sheet they're in and can bail out with
+            the ×. Pad from the top by `insets.top` so the title clears
+            the status bar / dynamic island — at heightPct=0.92 the
+            sheet's top edge otherwise sits right under the notch. */}
+        <View
+          className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark"
+          style={{ paddingTop: insets.top }}
+        >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Pin an event
           </Text>
