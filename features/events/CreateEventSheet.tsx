@@ -306,28 +306,26 @@ export function CreateEventSheet({
                 }}
               />
 
-              {/* Actions */}
-              <View className="flex-row flex-wrap gap-2">
-                <View className="min-w-[45%] flex-1">
-                  <PrimaryButton
-                    label="Add new position"
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Ionicons name="map" size={14} color="#3757FF" />}
-                    onPress={onRequestPickLocation}
-                    fullWidth
-                  />
-                </View>
-                <View className="min-w-[45%] flex-1">
-                  <PrimaryButton
-                    label="Current location"
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Ionicons name="navigate" size={14} color="#3757FF" />}
-                    onPress={useCurrentLocation}
-                    fullWidth
-                  />
-                </View>
+              {/* Actions — stacked full-width so labels never wrap. Side-by-
+                  side "Add new position" / "Current location" wrapped to
+                  two lines each inside the 380px desktop rail. */}
+              <View className="gap-2">
+                <PrimaryButton
+                  label="Pick on map"
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Ionicons name="map" size={14} color="#3757FF" />}
+                  onPress={onRequestPickLocation}
+                  fullWidth
+                />
+                <PrimaryButton
+                  label="Use my location"
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Ionicons name="navigate" size={14} color="#3757FF" />}
+                  onPress={useCurrentLocation}
+                  fullWidth
+                />
               </View>
 
               <Text className="text-[11px] text-muted-light dark:text-muted-dark">
