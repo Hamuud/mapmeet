@@ -77,8 +77,8 @@ export function TagsField({ value, onChange, error }: Props) {
                 onChange(value.slice(0, -1));
               }
             }}
-            placeholder={value.length === 0 ? 'e.g. coffee' : 'Add another'}
-            placeholderTextColor="#8E8E93"
+            placeholder={value.length === 0 ? 'e.g. coffee, кава, 咖啡' : 'Add another'}
+            placeholderTextColor="#8B8880"
             autoCapitalize="none"
             autoCorrect={false}
             className="min-w-[80px] flex-1 text-sm text-text-light outline-none dark:text-text-dark"

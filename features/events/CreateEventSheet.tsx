@@ -2,7 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import { AddressField } from '@/components/events/AddressField';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
@@ -160,16 +168,28 @@ export function CreateEventSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView
-          className="flex-1"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 60, gap: 18, flexGrow: 1 }}
-          showsVerticalScrollIndicator
-        >
+        {/* Sticky header — always visible even as the form scrolls, so the
+            user knows which sheet they're in and can bail out with the ×. */}
+        <View className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark">
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Pin an event
           </Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityLabel="Close"
+            hitSlop={10}
+            className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+          >
+            <Ionicons name="close" size={18} color="#0E0E10" />
+          </Pressable>
+        </View>
 
+        <ScrollView
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingTop: 16, paddingBottom: 60, gap: 18, flexGrow: 1 }}
+          showsVerticalScrollIndicator
+        >
           <Controller
             control={control}
             name="title"

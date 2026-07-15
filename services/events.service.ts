@@ -100,4 +100,24 @@ export const eventsService = {
       .eq('user_id', userId);
     if (error) throw error;
   },
+
+  /** Fetch attendee profiles for the preview sheet's avatar row. Limits
+   *  to the first N so we don't pay for a giant list on popular events —
+   *  the +N overflow chip in the UI covers the rest. */
+  async listAttendees(
+    eventId: string,
+    limit = 8,
+  ): Promise<Array<{ id: string; username: string; display_name: string; avatar_url: string | null }>> {
+    const { data, error } = await supabase
+      .from('participants')
+      .select('profile:profiles!participants_user_id_fkey(id, username, display_name, avatar_url)')
+      .eq('event_id', eventId)
+      .order('joined_at', { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    // PostgREST returns { profile: {...} } per row; unwrap.
+    return (data ?? [])
+      .map((row: any) => row.profile)
+      .filter((p): p is NonNullable<typeof p> => p != null);
+  },
 };

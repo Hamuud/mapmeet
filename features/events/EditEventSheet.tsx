@@ -1,7 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import { EmojiPicker } from '@/components/events/EmojiPicker';
 import { TagsField } from '@/components/events/TagsField';
@@ -97,15 +106,25 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: 60, gap: 18, flexGrow: 1 }}
-          showsVerticalScrollIndicator
-        >
+        <View className="flex-row items-center justify-between border-b border-border-light pb-3 dark:border-border-dark">
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
             Edit event
           </Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityLabel="Close"
+            hitSlop={10}
+            className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+          >
+            <Ionicons name="close" size={18} color="#0E0E10" />
+          </Pressable>
+        </View>
 
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingTop: 16, paddingBottom: 60, gap: 18, flexGrow: 1 }}
+          showsVerticalScrollIndicator
+        >
           <Controller
             control={control}
             name="title"

@@ -1,39 +1,29 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-/** Small curated set — enough for MVP without pulling a 1MB emoji index.
- *  Users can also type any single emoji via the "custom" field. */
-const CURATED = [
-  '🎉','🥳','🍕','🍺','🍻','☕','🍜','🍣','🍩','🥂',
-  '🎮','🎲','🎯','🎨','🎬','🎤','🎧','🎸','🎹','🎺',
-  '⚽','🏀','🏈','⚾','🎾','🏐','🏓','🏸','🏒','⛳',
-  '🚴','🏃','🧘','🏊','🏋️','🤸','⛹️','🤾','🤺','🏇',
-  '📚','💻','🧠','💡','🖥️','📱','🧑‍💻','🔬','🧪','📈',
-  '🐕','🐈','🐰','🐶','🦊','🐼','🐨','🦁','🐯','🐮',
-  '🌳','🌲','🏔️','🏖️','🏕️','🌊','🌅','🌇','🏝️','🌋',
-  '🎂','🎁','🎈','🎊','🪩','🕺','💃','🎆','🎇','✨',
-];
+/** Just the crowd-favourites. The old ~80-emoji grid took up more than a
+ *  screen height in the "Pin an event" sheet — users kept scrolling
+ *  past it. Anything not in this quick row can be pasted via the
+ *  right-hand "any emoji" field. */
+const QUICK_PICKS = ['🎉', '🍕', '🍺', '☕', '⚽'];
 
 type Props = {
   value: string;
   onChange: (emoji: string) => void;
 };
 
-/** Emoji picker rendered as a plain wrapped View instead of FlatList.
- *  A nested FlatList (scrollEnabled=false) inside a ScrollView on iOS
- *  intermittently measures at 0 or overflow height, which capped the
- *  outer scroll of CreateEventSheet at the tags row. Plain flex wrap
- *  measures correctly and is fine performance-wise for ~80 emojis. */
 export function EmojiPicker({ value, onChange }: Props) {
   const [custom, setCustom] = useState('');
+
   return (
     <View className="gap-3">
+      {/* Selected emoji + free-form paste input side-by-side */}
       <View className="flex-row items-center gap-3">
         <View className="h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10">
-          <Text style={{ fontSize: 32 }}>{value || '❓'}</Text>
+          <Text style={{ fontSize: 30 }}>{value || '❓'}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-medium text-text-light dark:text-text-dark">
+          <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
             Or paste any emoji
           </Text>
           <TextInput
@@ -43,27 +33,30 @@ export function EmojiPicker({ value, onChange }: Props) {
               if (t.trim().length > 0) onChange(t.trim());
             }}
             placeholder="🚀"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor="#8B8880"
             maxLength={4}
-            className="mt-1 h-10 rounded-xl border border-border-light bg-elevated-light px-3 text-lg text-text-light outline-none dark:border-border-dark dark:bg-elevated-dark dark:text-text-dark"
+            className="h-11 rounded-xl border border-border-light bg-panel-light px-4 text-lg text-text-light outline-none dark:border-border-dark dark:bg-panel-dark dark:text-text-dark"
           />
         </View>
       </View>
 
-      <View className="flex-row flex-wrap gap-1.5">
-        {CURATED.map((item, idx) => {
+      {/* Quick picks — five tap targets. Keeps the sheet short. */}
+      <View className="flex-row gap-2">
+        {QUICK_PICKS.map((item) => {
           const active = item === value;
           return (
             <Pressable
-              key={`${item}-${idx}`}
+              key={item}
               onPress={() => onChange(item)}
               className={[
-                'h-10 items-center justify-center rounded-xl',
-                active ? 'bg-brand-500/20' : 'bg-elevated-light dark:bg-elevated-dark',
+                'h-12 flex-1 items-center justify-center rounded-2xl border',
+                active
+                  ? 'border-brand-500 bg-brand-500/15'
+                  : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
               ].join(' ')}
-              style={{ width: 40 }}
+              accessibilityLabel={`Pick ${item}`}
             >
-              <Text style={{ fontSize: 20 }}>{item}</Text>
+              <Text style={{ fontSize: 22 }}>{item}</Text>
             </Pressable>
           );
         })}
