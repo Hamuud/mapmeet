@@ -224,63 +224,90 @@ export default function ProfileEditScreen() {
             helperText={`${bio.length}/240`}
           />
 
-          {/* Phone + verify chip. Number is stored in `profiles.phone`
-              only after Supabase confirms it via SMS OTP. If the user
-              edits the field so it no longer matches the verified
-              number, the "Verified" badge disappears and the Verify
-              chip flips back so they can re-verify the new one. */}
+          {/* Phone + verify chip.
+              - Unverified: input is editable, Verify chip on the right
+                fires the OTP flow. If the user edits the field so it no
+                longer matches `auth.users.phone`, they land back here.
+              - Verified: input is read-only, a full-width green
+                "Verified" pill replaces the Verify chip, and a
+                "Change the number" affordance sits below. Tapping the
+                affordance shows a toast — number-change lands in a
+                follow-up because it needs a re-verify + delete path
+                on the auth side. */}
           <View>
-            <View className="mb-1.5 flex-row items-baseline justify-between">
-              <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-                Phone
-              </Text>
-              {isVerified ? (
-                <View className="flex-row items-center gap-1">
-                  <Ionicons name="checkmark-circle" size={12} color="#22C55E" />
-                  <Text className="text-[11px] font-semibold text-green-600">
-                    Verified
+            <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
+              Phone
+            </Text>
+            {isVerified ? (
+              <>
+                <View className="h-11 flex-row items-center rounded-xl border border-border-light bg-elevated-light px-4 dark:border-border-dark dark:bg-elevated-dark">
+                  <Text className="text-[15px] text-text-light dark:text-text-dark">
+                    {phone}
                   </Text>
                 </View>
-              ) : null}
-            </View>
-            <View className="flex-row items-center gap-2">
-              <View className="flex-1">
-                <Input
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+15551234567"
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                />
-              </View>
-              {!isVerified ? (
+                <View className="mt-2">
+                  <View className="h-11 flex-row items-center justify-center gap-1.5 rounded-xl border border-green-600/40 bg-green-600/10">
+                    <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                    <Text className="text-sm font-semibold text-green-700">
+                      Verified
+                    </Text>
+                  </View>
+                </View>
                 <Pressable
-                  onPress={handleSendOtp}
-                  disabled={!phoneLooksValid || sendingOtp}
-                  className={[
-                    'h-11 flex-row items-center rounded-xl px-3',
-                    !phoneLooksValid || sendingOtp
-                      ? 'bg-elevated-light dark:bg-elevated-dark'
-                      : 'bg-text-light dark:bg-text-dark',
-                  ].join(' ')}
+                  onPress={() =>
+                    toast.show(
+                      'Changing the phone number is not available in the current version.',
+                      'info',
+                    )
+                  }
+                  className="mt-2 self-start"
+                  hitSlop={6}
                 >
-                  <Text
-                    className={[
-                      'text-xs font-semibold',
-                      !phoneLooksValid || sendingOtp
-                        ? 'text-muted-light'
-                        : 'text-surface-light dark:text-surface-dark',
-                    ].join(' ')}
-                  >
-                    {sendingOtp ? 'Sending…' : 'Verify'}
+                  <Text className="text-xs font-semibold text-brand-500 underline">
+                    Change the number
                   </Text>
                 </Pressable>
-              ) : null}
-            </View>
-            <Text className="mt-1.5 text-xs text-muted-light dark:text-muted-dark">
-              Include country code (e.g. +1 for US, +380 for UA). We
-              text a 6-digit code to confirm the number.
-            </Text>
+              </>
+            ) : (
+              <>
+                <View className="flex-row items-center gap-2">
+                  <View className="flex-1">
+                    <Input
+                      value={phone}
+                      onChangeText={setPhone}
+                      placeholder="+15551234567"
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <Pressable
+                    onPress={handleSendOtp}
+                    disabled={!phoneLooksValid || sendingOtp}
+                    className={[
+                      'h-11 flex-row items-center rounded-xl px-3',
+                      !phoneLooksValid || sendingOtp
+                        ? 'bg-elevated-light dark:bg-elevated-dark'
+                        : 'bg-text-light dark:bg-text-dark',
+                    ].join(' ')}
+                  >
+                    <Text
+                      className={[
+                        'text-xs font-semibold',
+                        !phoneLooksValid || sendingOtp
+                          ? 'text-muted-light'
+                          : 'text-surface-light dark:text-surface-dark',
+                      ].join(' ')}
+                    >
+                      {sendingOtp ? 'Sending…' : 'Verify'}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Text className="mt-1.5 text-xs text-muted-light dark:text-muted-dark">
+                  Include country code (e.g. +1 for US, +380 for UA). We
+                  text a 6-digit code to confirm the number.
+                </Text>
+              </>
+            )}
           </View>
 
           {/* Interests */}
