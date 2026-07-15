@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { appendTag } from '@/utils/tags';
+import { useToast } from '@/components/ui/Toast';
+import { appendTag, normalizeTag } from '@/utils/tags';
 
 type Props = {
   value: string[];
@@ -15,10 +16,37 @@ type Props = {
  *  We normalize (lowercase + dash) inside `appendTag` so what the user
  *  sees is what actually lands in Postgres. */
 export function TagsField({ value, onChange, error }: Props) {
+  const toast = useToast();
   const [draft, setDraft] = useState('');
   const atMax = value.length >= 5;
 
   const commit = (raw: string) => {
+    // Explain to the user why a tag wasn't added instead of silently
+    // eating the input. Silent-fail was the root cause of the
+    // "mixed-language tags don't add" reports — the user typed the
+    // second tag, hit space, and nothing visible happened, so it
+    // looked broken. Now they get a toast explaining the constraint
+    // (too short, duplicate, hit the 5-cap, wrong shape).
+    const normalized = normalizeTag(raw);
+    if (!normalized) {
+      // Only show the "too short" toast if the user actually typed
+      // something — a bare separator press with an empty draft is a
+      // no-op, not an error.
+      if (raw.trim().length > 0) {
+        toast.show('Tags need at least 2 characters.', 'info');
+      }
+      setDraft('');
+      return;
+    }
+    if (value.includes(normalized)) {
+      toast.show(`"${normalized}" is already on the list.`, 'info');
+      setDraft('');
+      return;
+    }
+    if (value.length >= 5) {
+      toast.show('Up to 5 tags per event.', 'info');
+      return;
+    }
     const next = appendTag(value, raw);
     if (next !== value) onChange(next);
     setDraft('');
