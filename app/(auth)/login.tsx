@@ -16,12 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useIconColor } from '@/hooks/useIconColor';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 import { signInSchema, type SignInInput } from '@/utils/validators';
 
 export default function LoginScreen() {
   const toast = useToast();
+  const iconColor = useIconColor();
   const setSession = useAuthStore((s) => s.setSession);
   const [showPassword, setShowPassword] = useState(false);
   const {
@@ -65,7 +67,7 @@ export default function LoginScreen() {
               hitSlop={8}
             >
               <View className="flex-row items-center gap-1">
-                <Ionicons name="chevron-back" size={14} color="#0E0E10" />
+                <Ionicons name="chevron-back" size={14} color={iconColor} />
                 <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
                   Back
                 </Text>
@@ -177,14 +179,14 @@ export default function LoginScreen() {
               label="Continue with Google"
               variant="secondary"
               onPress={oauthComingSoon}
-              leftIcon={<Ionicons name="logo-google" size={14} color="#0E0E10" />}
+              leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
               fullWidth
             />
             <PrimaryButton
               label="Continue with Apple"
               variant="secondary"
               onPress={oauthComingSoon}
-              leftIcon={<Ionicons name="logo-apple" size={16} color="#0E0E10" />}
+              leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
               fullWidth
             />
           </View>

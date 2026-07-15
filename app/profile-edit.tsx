@@ -17,6 +17,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { AvatarUpload } from '@/features/profile/AvatarUpload';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor } from '@/hooks/useIconColor';
 import { authService } from '@/services/auth.service';
 import { profilesService } from '@/services/profiles.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -30,6 +31,7 @@ export default function ProfileEditScreen() {
   const toast = useToast();
   const { profile, session } = useAuth();
   const setProfile = useAuthStore((s) => s.setProfile);
+  const iconColor = useIconColor();
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -177,7 +179,7 @@ export default function ProfileEditScreen() {
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
-            <Ionicons name="chevron-back" size={18} color="#0E0E10" />
+            <Ionicons name="chevron-back" size={18} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
             Edit profile

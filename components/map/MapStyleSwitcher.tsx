@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useIconColor } from '@/hooks/useIconColor';
 import type { MapStyle } from './Map.types';
 
 type Option = {
@@ -26,6 +27,7 @@ type Props = {
  *  so it doesn't crowd the map on phone-width. */
 export function MapStyleSwitcher({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const iconColor = useIconColor();
   const current = OPTIONS.find((o) => o.value === value) ?? OPTIONS[0]!;
 
   if (!open) {
@@ -35,7 +37,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
         accessibilityLabel="Change map style"
         className="h-10 flex-row items-center gap-2 rounded-full border border-border-light bg-panel-light px-3 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark"
       >
-        <Ionicons name="layers" size={14} color="#0E0E10" />
+        <Ionicons name="layers" size={14} color={iconColor} />
         <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
           {current.label}
         </Text>
@@ -65,7 +67,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
             <Ionicons
               name={opt.icon}
               size={12}
-              color={active ? '#F6F4EE' : '#0E0E10'}
+              color={active ? '#F6F4EE' : iconColor}
             />
             <Text
               className={[

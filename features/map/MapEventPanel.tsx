@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { useToast } from '@/components/ui/Toast';
 import { EventPreviewBody } from '@/features/events/EventPreviewBody';
+import { useIconColor } from '@/hooks/useIconColor';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import type { EventWithCreator, LatLng } from '@/types';
@@ -32,6 +33,7 @@ export function MapEventPanel({
   onViewHost,
 }: Props) {
   const toast = useToast();
+  const iconColor = useIconColor();
   const removeEvent = useEventsStore((s) => s.removeEvent);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -64,7 +66,7 @@ export function MapEventPanel({
             hitSlop={8}
             className="h-8 w-8 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
           >
-            <Ionicons name="close" size={14} color="#0E0E10" />
+            <Ionicons name="close" size={14} color={iconColor} />
           </Pressable>
         </View>
 

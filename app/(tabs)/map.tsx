@@ -18,6 +18,7 @@ import { MapEventPanel } from '@/features/map/MapEventPanel';
 import { MapSidebar } from '@/features/map/MapSidebar';
 import { MapZoomStack } from '@/features/map/MapZoomStack';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor } from '@/hooks/useIconColor';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useLocation } from '@/hooks/useLocation';
 import { useEventsStore } from '@/store/events.store';
@@ -28,6 +29,7 @@ import type { EventWithCreator, LatLng } from '@/types';
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const isDesktop = useIsDesktop();
+  const iconColor = useIconColor();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
 
@@ -301,7 +303,7 @@ export default function MapScreen() {
               className="h-11 w-11 items-center justify-center rounded-xl border border-border-light bg-panel-light shadow-md shadow-black/20 dark:border-border-dark dark:bg-panel-dark"
               accessibilityLabel="Recenter"
             >
-              <Ionicons name="navigate" size={18} color="#0E0E10" />
+              <Ionicons name="navigate" size={18} color={iconColor} />
             </Pressable>
           </View>
 

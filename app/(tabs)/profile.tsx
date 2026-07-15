@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor } from '@/hooks/useIconColor';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
@@ -22,6 +23,7 @@ type Tab = 'hosting' | 'attending' | 'past';
  *  behind the ⚙️ button in the header; Edit profile is its own screen. */
 export default function YouScreen() {
   const { profile } = useAuth();
+  const iconColor = useIconColor();
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
   const [tab, setTab] = useState<Tab>('hosting');
@@ -95,7 +97,7 @@ export default function YouScreen() {
                 hitSlop={8}
                 className="h-9 w-9 items-center justify-center rounded-full border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
               >
-                <Ionicons name="ellipsis-horizontal" size={18} color="#0E0E10" />
+                <Ionicons name="ellipsis-horizontal" size={18} color={iconColor} />
               </Pressable>
             </View>
 
@@ -132,7 +134,7 @@ export default function YouScreen() {
                   label="Settings"
                   variant="secondary"
                   leftIcon={
-                    <Ionicons name="settings-outline" size={14} color="#0E0E10" />
+                    <Ionicons name="settings-outline" size={14} color={iconColor} />
                   }
                   onPress={() => router.push('/settings')}
                   fullWidth

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor } from '@/hooks/useIconColor';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventFilter, EventWithCreator } from '@/types';
 
@@ -40,6 +41,7 @@ export function MapSidebar({
   onEventPress,
 }: Props) {
   const { profile } = useAuth();
+  const iconColor = useIconColor();
   const initials = (profile?.display_name ?? 'AK')
     .split(/\s+/)
     .map((w) => w[0])
@@ -69,7 +71,7 @@ export function MapSidebar({
             className="h-9 w-9 items-center justify-center rounded-xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
             accessibilityLabel="Notifications"
           >
-            <Ionicons name="notifications-outline" size={16} color="#0E0E10" />
+            <Ionicons name="notifications-outline" size={16} color={iconColor} />
           </Pressable>
           <Avatar name={profile?.display_name ?? initials} uri={profile?.avatar_url} size="sm" />
         </View>

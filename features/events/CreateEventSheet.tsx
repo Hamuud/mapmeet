@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
@@ -77,6 +78,7 @@ export function CreateEventSheet({
   const toast = useToast();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
+  const iconColor = useIconColor();
   const upsertEvent = useEventsStore((s) => s.upsertEvent);
   const { coords: currentCoords, request } = useLocation();
 
@@ -188,7 +190,7 @@ export function CreateEventSheet({
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
-            <Ionicons name="close" size={18} color="#0E0E10" />
+            <Ionicons name="close" size={18} color={iconColor} />
           </Pressable>
         </View>
 

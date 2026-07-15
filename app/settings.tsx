@@ -11,6 +11,7 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
 
@@ -23,6 +24,7 @@ const RADII_KM = [1, 3, 5, 10, 25, 50] as const;
  *  legal). Sign-out at the bottom, version footer. */
 export default function SettingsScreen() {
   const toast = useToast();
+  const iconColor = useIconColor();
   const { profile, signOut } = useAuth();
   const { status: locStatus, request: requestLocation } = useLocation();
 
@@ -78,7 +80,7 @@ export default function SettingsScreen() {
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
-          <Ionicons name="chevron-back" size={18} color="#0E0E10" />
+          <Ionicons name="chevron-back" size={18} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
           Settings
@@ -357,10 +359,12 @@ function SettingsRow({
   rightSlot,
   onPress,
 }: SettingsRowProps) {
+  const iconColor = useIconColor();
+  const mutedIconColor = useMutedIconColor();
   const content = (
     <View className="flex-row items-center gap-3 border-b border-border-light px-4 py-3 last:border-b-0 dark:border-border-dark">
       <View className="h-9 w-9 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
-        <Ionicons name={icon} size={16} color="#0E0E10" />
+        <Ionicons name={icon} size={16} color={iconColor} />
       </View>
       <View className="flex-1">
         <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
@@ -380,7 +384,7 @@ function SettingsRow({
         </Text>
       ) : null}
       {onPress ? (
-        <Ionicons name="chevron-forward" size={16} color="#8B8880" />
+        <Ionicons name="chevron-forward" size={16} color={mutedIconColor} />
       ) : null}
     </View>
   );

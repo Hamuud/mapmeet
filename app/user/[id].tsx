@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { useIconColor } from '@/hooks/useIconColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { eventsService } from '@/services/events.service';
@@ -225,6 +226,7 @@ export default function UserProfileScreen() {
 }
 
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
+  const iconColor = useIconColor();
   return (
     <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
       <Pressable
@@ -233,7 +235,7 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
         hitSlop={10}
         className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
       >
-        <Ionicons name="chevron-back" size={18} color="#0E0E10" />
+        <Ionicons name="chevron-back" size={18} color={iconColor} />
       </Pressable>
       <Text className="text-lg font-bold text-text-light dark:text-text-dark">
         {title}

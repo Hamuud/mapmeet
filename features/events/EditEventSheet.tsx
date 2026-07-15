@@ -20,6 +20,7 @@ import { DateTimeField } from '@/components/ui/DateTimeField';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useIconColor } from '@/hooks/useIconColor';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { eventSchema, type EventInput } from '@/utils/validators';
@@ -34,6 +35,7 @@ type Props = {
 export function EditEventSheet({ event, open, onClose }: Props) {
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const iconColor = useIconColor();
   const patchEvent = useEventsStore((s) => s.patchEvent);
 
   const {
@@ -121,7 +123,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
-            <Ionicons name="close" size={18} color="#0E0E10" />
+            <Ionicons name="close" size={18} color={iconColor} />
           </Pressable>
         </View>
 
