@@ -76,6 +76,31 @@ export const authService = {
     if (error) throw error;
   },
 
+  /** Kick off phone-number verification by asking Supabase to attach a
+   *  new phone to the current user. Supabase's SMS provider (Twilio /
+   *  MessageBird / Vonage) sends a 6-digit code to `phone`; the user
+   *  then confirms it via `verifyPhoneOtp` below. Requires the SMS
+   *  provider to be enabled in Supabase → Auth → Providers → Phone. */
+  async requestPhoneOtp(phone: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ phone });
+    if (error) throw error;
+  },
+
+  /** Confirm the 6-digit OTP the user typed back into the app. On
+   *  success Supabase writes `auth.users.phone` + `phone_confirmed_at`,
+   *  and the auth-state listener refetches the profile so the UI
+   *  reflects the verified number. */
+  async verifyPhoneOtp(phone: string, token: string): Promise<Session> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'phone_change',
+    });
+    if (error) throw error;
+    if (!data.session) throw new Error('No session returned after phone verification.');
+    return data.session;
+  },
+
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
