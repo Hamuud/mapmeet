@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { geocodingService, type GeocodeResult } from '@/services/geocoding.service';
-import type { LatLng } from '@/types';
 
 type Props = {
   onSelect: (result: GeocodeResult) => void;
@@ -75,30 +74,37 @@ export function AddressField({ onSelect }: Props) {
       </View>
 
       {expanded && results.length > 0 ? (
-        <View className="mt-2 max-h-56 overflow-hidden rounded-2xl border border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark">
-          <FlatList
-            data={results}
-            keyExtractor={(item, idx) => `${item.coords.latitude}-${item.coords.longitude}-${idx}`}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  onSelect(item);
-                  setQuery(item.label);
-                  setExpanded(false);
-                  setResults([]);
-                }}
-                className="border-b border-border-light px-4 py-3 active:opacity-70 dark:border-border-dark"
+        // Plain stacked <View>s — not a FlatList — because the sheet's
+        // outer ScrollView is vertical and RN's virtualization
+        // (FlatList / SectionList) inside a same-orientation ScrollView
+        // both breaks windowing and warns the user with a big red
+        // console error. Nominatim caps at 5 results anyway, so there's
+        // nothing to virtualize.
+        <View className="mt-2 overflow-hidden rounded-2xl border border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark">
+          {results.map((item, idx) => (
+            <Pressable
+              key={`${item.coords.latitude}-${item.coords.longitude}-${idx}`}
+              onPress={() => {
+                onSelect(item);
+                setQuery(item.label);
+                setExpanded(false);
+                setResults([]);
+              }}
+              className={[
+                'px-4 py-3 active:opacity-70',
+                idx < results.length - 1
+                  ? 'border-b border-border-light dark:border-border-dark'
+                  : '',
+              ].join(' ')}
+            >
+              <Text
+                className="text-sm text-text-light dark:text-text-dark"
+                numberOfLines={2}
               >
-                <Text
-                  className="text-sm text-text-light dark:text-text-dark"
-                  numberOfLines={2}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            )}
-          />
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
     </View>
