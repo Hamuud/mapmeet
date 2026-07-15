@@ -1,4 +1,4 @@
-import { Text, useColorScheme, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 export type DateTimeFieldProps = {
   mode: 'date' | 'time';
@@ -8,16 +8,19 @@ export type DateTimeFieldProps = {
   error?: string;
 };
 
-/** Web uses the native HTML picker. `color-scheme` tells the browser to
- *  paint the picker chrome (icons, spinners) with the right palette, and
- *  we set `color` explicitly because react-native-web's parent styles
- *  don't cascade through to a raw <input>. Without that the selected
- *  value renders as white-on-white in light mode and vice versa. */
+/** Web uses the native HTML picker.
+ *
+ *  Text color used to key off `useColorScheme()` — which reads the OS's
+ *  `prefers-color-scheme`. That mismatched the actual rendered theme:
+ *  Tailwind is set to `darkMode: 'class'` (not `media`), so the field's
+ *  background stays light regardless of OS. On an OS-dark user, the OS
+ *  reported "dark" and the input text turned near-white — invisible
+ *  against the still-light input background.
+ *
+ *  Until dark mode is wired end-to-end via the preferences store, pin
+ *  text + color-scheme to light. That matches the app's actual palette
+ *  everywhere the input is rendered right now. */
 export function DateTimeField({ mode, label, value, onChange, error }: DateTimeFieldProps) {
-  const scheme = useColorScheme() ?? 'light';
-  const isDark = scheme === 'dark';
-  const textColor = isDark ? '#F5F5F7' : '#0B0B0F';
-
   return (
     <View className="w-full">
       <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
@@ -38,8 +41,8 @@ export function DateTimeField({ mode, label, value, onChange, error }: DateTimeF
             border: 'none',
             outline: 'none',
             background: 'transparent',
-            color: textColor,
-            colorScheme: isDark ? 'dark' : 'light',
+            color: '#0B0B0F',
+            colorScheme: 'light',
             fontSize: 16,
             width: '100%',
             fontFamily: 'inherit',

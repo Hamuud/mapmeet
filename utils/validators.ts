@@ -32,7 +32,14 @@ const TAG_REGEX = /^\S{2,24}$/;
 export const eventSchema = z.object({
   title: z.string().min(1, 'Title is required.').max(80),
   description: z.string().max(500).optional().or(z.literal('')),
-  emoji: z.string().min(1, 'Pick an emoji.').max(8),
+  // Cap matches the DB CHECK `char_length(emoji) between 1 and 8`,
+  // which counts Unicode code points. Flag emojis (🏳️‍🌈 = 4) and
+  // families (👨‍👩‍👧‍👦 = 7) both fit — the previous 8-UTF-16-unit
+  // conflation was cutting complex ZWJ sequences.
+  emoji: z.string().min(1, 'Pick an emoji.').refine(
+    (v) => Array.from(v).length <= 8,
+    'Emoji is too long — pick a single one.',
+  ),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date.'),

@@ -34,7 +34,14 @@ export function EmojiPicker({ value, onChange }: Props) {
             }}
             placeholder="🚀"
             placeholderTextColor="#8B8880"
-            maxLength={4}
+            // maxLength counts UTF-16 code units in JS/RN, not user-
+            // perceived emoji. A rainbow flag 🏳️‍🌈 is 6 units and a
+            // family 👨‍👩‍👧‍👦 is 11 — the old cap of 4 chopped ZWJ
+            // sequences mid-pair and the map showed either garbage
+            // or nothing. 32 comfortably fits any single emoji cluster
+            // while the DB CHECK (char_length between 1 and 8) still
+            // gates absurd input at the storage layer.
+            maxLength={32}
             className="h-11 rounded-xl border border-border-light bg-panel-light px-4 text-lg text-text-light outline-none dark:border-border-dark dark:bg-panel-dark dark:text-text-dark"
           />
         </View>
