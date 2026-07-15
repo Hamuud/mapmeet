@@ -97,20 +97,23 @@ function MyEventsBody() {
   }, [valid, now]);
 
   /** Past bucket = anything the viewer created OR joined that's now
-   *  past the 1h grace. Sorted newest-first so the last thing that
-   *  ended sits at the top. */
+   *  past the 1h grace. `valid` is already unique by id, so filtering
+   *  on the OR predicate can't produce duplicates — earlier versions
+   *  built this from `[...mine, ...joined]`, which double-counted the
+   *  creator's own events (they auto-join at create time) and blew up
+   *  the FlatList with two children under the same key. Sorted
+   *  newest-first so the last thing that ended sits at the top. */
   const past = useMemo(() => {
     if (!profile) return [];
     return valid
       .filter(
         (e) => (e.creator_id === profile.id || e.is_joined) && isEventPast(e, now),
       )
-      .sort((a, b) => {
-        const k = `${b.event_date}T${b.event_time}`.localeCompare(
+      .sort((a, b) =>
+        `${b.event_date}T${b.event_time}`.localeCompare(
           `${a.event_date}T${a.event_time}`,
-        );
-        return k;
-      });
+        ),
+      );
   }, [valid, profile, now]);
 
   const confirmDelete = async () => {
@@ -133,42 +136,36 @@ function MyEventsBody() {
         <Text className="font-display text-4xl text-text-light dark:text-text-dark">
           My events
         </Text>
-        {/* Segments scroll horizontally now that a fourth ("Past") is
-            in the row — on narrow phones four ~equal chips get too
-            cramped for the count numerals. */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-4"
-          contentContainerStyle={{ paddingRight: 4 }}
-        >
-          <View className="flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
-            <SegmentButton
-              label="Created"
-              count={created.length}
-              active={tab === 'created'}
-              onPress={() => setTab('created')}
-            />
-            <SegmentButton
-              label="Joined"
-              count={joined.length}
-              active={tab === 'joined'}
-              onPress={() => setTab('joined')}
-            />
-            <SegmentButton
-              label="Nearby"
-              count={coords ? nearby.length : null}
-              active={tab === 'nearby'}
-              onPress={() => setTab('nearby')}
-            />
-            <SegmentButton
-              label="Past"
-              count={past.length}
-              active={tab === 'past'}
-              onPress={() => setTab('past')}
-            />
-          </View>
-        </ScrollView>
+        {/* Four equal-width segments spanning the full row. Count
+            renders only on the active pill so labels stay legible even
+            on narrow phones where four chips + four numerals would
+            crowd the text off-center. */}
+        <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
+          <SegmentButton
+            label="Created"
+            count={tab === 'created' ? created.length : null}
+            active={tab === 'created'}
+            onPress={() => setTab('created')}
+          />
+          <SegmentButton
+            label="Joined"
+            count={tab === 'joined' ? joined.length : null}
+            active={tab === 'joined'}
+            onPress={() => setTab('joined')}
+          />
+          <SegmentButton
+            label="Nearby"
+            count={tab === 'nearby' && coords ? nearby.length : null}
+            active={tab === 'nearby'}
+            onPress={() => setTab('nearby')}
+          />
+          <SegmentButton
+            label="Past"
+            count={tab === 'past' ? past.length : null}
+            active={tab === 'past'}
+            onPress={() => setTab('past')}
+          />
+        </View>
       </View>
 
       {/* Nearby subheader — radius chips + status. */}
@@ -374,8 +371,8 @@ function MyEventsBody() {
 // ── Local building blocks ────────────────────────────────────────────
 
 const segmentActive =
-  'flex-1 items-center justify-center rounded-xl py-2 bg-panel-light dark:bg-panel-dark';
-const segmentInactive = 'flex-1 items-center justify-center rounded-xl py-2';
+  'flex-1 items-center justify-center rounded-xl py-2 px-1 bg-panel-light dark:bg-panel-dark';
+const segmentInactive = 'flex-1 items-center justify-center rounded-xl py-2 px-1';
 
 function SegmentButton({
   label,
@@ -390,10 +387,11 @@ function SegmentButton({
 }) {
   return (
     <Pressable onPress={onPress} className={active ? segmentActive : segmentInactive}>
-      <View className="flex-row items-center gap-1.5">
+      <View className="flex-row items-center gap-1">
         <Text
+          numberOfLines={1}
           className={[
-            'text-sm font-semibold',
+            'text-[13px] font-semibold',
             active
               ? 'text-text-light dark:text-text-dark'
               : 'text-muted-light dark:text-muted-dark',

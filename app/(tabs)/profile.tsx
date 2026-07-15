@@ -33,6 +33,15 @@ export default function YouScreen() {
     const now = new Date();
     const mine = events.filter((e) => e.creator_id === profile.id);
     const joined = events.filter((e) => e.is_joined);
+    // Dedupe by id when computing the "past" bucket. The creator
+    // auto-joins their own event at create time, so anything they
+    // hosted also appears in `joined` — `[...mine, ...joined]` would
+    // hand the FlatList two children with the same key and React
+    // threw "Encountered two children with the same key" errors on
+    // every past event.
+    const pastById = new Map<string, EventWithCreator>();
+    for (const e of mine) if (isEventPast(e, now)) pastById.set(e.id, e);
+    for (const e of joined) if (isEventPast(e, now)) pastById.set(e.id, e);
     return {
       hostingCount: mine.length,
       attendingCount: joined.filter((e) => e.creator_id !== profile.id).length,
@@ -40,7 +49,11 @@ export default function YouScreen() {
       attending: joined.filter(
         (e) => e.creator_id !== profile.id && !isEventPast(e, now),
       ),
-      past: [...mine, ...joined].filter((e) => isEventPast(e, now)),
+      past: Array.from(pastById.values()).sort((a, b) =>
+        `${b.event_date}T${b.event_time}`.localeCompare(
+          `${a.event_date}T${a.event_time}`,
+        ),
+      ),
     };
   }, [events, profile]);
 

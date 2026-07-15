@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { LayoutChangeEvent } from 'react-native';
 import {
   Animated,
   BackHandler,
@@ -17,10 +18,12 @@ type Props = {
   children: React.ReactNode;
   /** Height as a fraction of the viewport. 0..1 */
   heightPct?: number;
-  /** Web only: shrink the sheet to its content (capped at `heightPct`)
-   *  instead of always filling `heightPct` of the viewport. Use on short
-   *  peek-style sheets so the primary actions dock right above the tab
-   *  bar without a huge empty gap below on tall/wide viewports. */
+  /** Shrink the sheet to its content, capped at `heightPct`. On web
+   *  this uses `max-height` and content-flow sizing; on native we
+   *  measure the content via `onLayout` and clamp the animated
+   *  container's height to the measured value. Use on short peek-style
+   *  sheets so the primary actions dock right above the tab bar
+   *  without a huge empty gap below on tall viewports. */
   autoHeight?: boolean;
 };
 
@@ -46,6 +49,21 @@ export function BottomSheet({
   const isWeb = Platform.OS === 'web';
   const { height: winHeight } = useWindowDimensions();
   const sheetHeightPx = Math.round(winHeight * heightPct);
+
+  // Native autoHeight: measured content height, capped at
+  // sheetHeightPx. Start unset so the first frame doesn't flash a
+  // stale value from a previous open; we render the sheet with
+  // opacity: 0 until we have a measurement, then reveal it.
+  const [measuredContentPx, setMeasuredContentPx] = useState<number | null>(null);
+  useEffect(() => {
+    // Reset when the sheet is reopened so a taller/shorter payload
+    // (e.g. attendees now loaded) triggers a fresh measurement.
+    if (!open) setMeasuredContentPx(null);
+  }, [open]);
+  const onContentLayout = (e: LayoutChangeEvent) => {
+    const h = Math.ceil(e.nativeEvent.layout.height);
+    if (h > 0 && h !== measuredContentPx) setMeasuredContentPx(h);
+  };
 
   const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
@@ -176,15 +194,32 @@ export function BottomSheet({
           left: 0,
           right: 0,
           bottom: 0,
-          height: sheetHeightPx,
+          // autoHeight (native): once onLayout has reported the
+          // intrinsic content height, snap the animated container to
+          // that. Before we have a measurement, use the full slot but
+          // render with opacity: 0 so the measurement pass isn't
+          // visible (avoids a one-frame flash of the tall sheet).
+          height:
+            autoHeight && measuredContentPx != null
+              ? Math.min(measuredContentPx, sheetHeightPx)
+              : sheetHeightPx,
           transform: [{ translateY: combinedTranslate }],
+          opacity: autoHeight && measuredContentPx == null ? 0 : 1,
         }}
         className="overflow-hidden rounded-t-3xl border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
       >
-        <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
-          <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+        <View onLayout={autoHeight ? onContentLayout : undefined}>
+          <View className="items-center pt-3 pb-2" {...panResponder.panHandlers}>
+            <View className="h-1.5 w-10 rounded-full bg-border-light dark:bg-border-dark" />
+          </View>
+          {/* `flex-1` fills a fixed-height sheet — the historical
+              native path. For autoHeight, drop it so the wrapper
+              sizes to its intrinsic content and the enclosing
+              onLayout captures the real total (handle + content). */}
+          <View className={autoHeight ? 'px-5 pb-6' : 'flex-1 px-5 pb-6'}>
+            {children}
+          </View>
         </View>
-        <View className="flex-1 px-5 pb-6">{children}</View>
       </Animated.View>
     </View>
   );
