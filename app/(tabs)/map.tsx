@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
 import { filterEvents } from '@/features/events/filterEvents';
 import { DEMO_CENTER } from '@/features/map/demo-events';
+import { MapEventPanel } from '@/features/map/MapEventPanel';
 import { MapSidebar } from '@/features/map/MapSidebar';
 import { MapZoomStack } from '@/features/map/MapZoomStack';
 import { useAuth } from '@/hooks/useAuth';
@@ -153,8 +155,25 @@ export default function MapScreen() {
         onPickLocation={handlePickLocation}
       />
 
-      {/* Desktop left rail — replaces the mobile top overlay. */}
-      {isDesktop && !pickMode ? (
+      {/* Desktop left rail — either the events list (default) or the
+          event details panel (when a pin is picked). Swapping in place
+          keeps the rail from doubling up with an overlay sheet, which
+          is what the pre-change layout did. */}
+      {isDesktop && !pickMode && selectedEvent ? (
+        <MapEventPanel
+          event={selectedEvent}
+          viewerLocation={coords}
+          onClose={() => selectEvent(null)}
+          onEdit={(e) => {
+            selectEvent(null);
+            setEditEvent(e);
+          }}
+          onDirections={handleDirections}
+          onViewHost={(e) => {
+            router.push({ pathname: '/user/[id]', params: { id: e.creator_id } });
+          }}
+        />
+      ) : isDesktop && !pickMode ? (
         <MapSidebar
           query={query}
           onQuery={setQuery}
@@ -311,8 +330,11 @@ export default function MapScreen() {
         </>
       ) : null}
 
+      {/* Mobile / narrow-desktop bottom peek. On wide desktop the
+          left-rail MapEventPanel above owns the preview instead, so
+          we suppress the bottom sheet to avoid double render. */}
       <EventPreviewSheet
-        event={selectedEvent}
+        event={isDesktop ? null : selectedEvent}
         viewerLocation={coords}
         onClose={() => selectEvent(null)}
         onEdit={(e) => {
@@ -320,6 +342,9 @@ export default function MapScreen() {
           setEditEvent(e);
         }}
         onDirections={handleDirections}
+        onViewHost={(e) => {
+          router.push({ pathname: '/user/[id]', params: { id: e.creator_id } });
+        }}
       />
 
       <CreateEventSheet
