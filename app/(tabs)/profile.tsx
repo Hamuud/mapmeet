@@ -6,36 +6,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { Avatar } from '@/components/ui/Avatar';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
+import { INTERESTS_BY_KEY } from '@/utils/interests';
 import type { EventWithCreator } from '@/types';
 
 type Tab = 'hosting' | 'attending' | 'past';
 
 /** "You" tab — the redesigned profile screen. Big avatar + display
- *  name + @handle line, mono uppercase stats row (Events / Joined),
- *  segmented Hosting / Attending / Past control with a matching
- *  event list beneath. */
+ *  name + @handle line, optional bio + interest chips, Events / Joined
+ *  stats, and a Hosting / Attending / Past event list. Settings live
+ *  behind the ⚙️ button in the header; Edit profile is its own screen. */
 export default function YouScreen() {
-  const toast = useToast();
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('hosting');
 
   const { hostingCount, attendingCount, hosting, attending, past } = useMemo(() => {
     if (!profile) {
       return { hostingCount: 0, attendingCount: 0, hosting: [], attending: [], past: [] };
     }
-    // "Past" = start + 1h grace already gone. Same rule as the map
-    // filter and the My Events tab, so an event moves out of all
-    // three views at the same moment.
     const now = new Date();
     const mine = events.filter((e) => e.creator_id === profile.id);
     const joined = events.filter((e) => e.is_joined);
@@ -57,16 +51,6 @@ export default function YouScreen() {
     router.push('/(tabs)/map');
   };
 
-  const handleSignOut = async () => {
-    setConfirmOpen(false);
-    try {
-      await signOut();
-      router.replace('/(auth)/login');
-    } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not sign out', 'error');
-    }
-  };
-
   if (!profile) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -79,72 +63,102 @@ export default function YouScreen() {
     );
   }
 
+  const interests = (profile.interests ?? [])
+    .map((k) => INTERESTS_BY_KEY[k])
+    .filter((i): i is NonNullable<typeof i> => !!i);
+
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <FlatList
         data={list}
         keyExtractor={(e) => e.id}
         ListHeaderComponent={
-          <View className="gap-6 px-5 pt-2 pb-4">
-            {/* Kebab row — reserved for future edit / settings menu. */}
-            <View className="flex-row items-center justify-between">
-              <View />
+          <View className="gap-5 px-5 pt-2 pb-4">
+            {/* Header row — settings on the right */}
+            <View className="flex-row items-center justify-end">
               <Pressable
-                onPress={() => setConfirmOpen(true)}
-                accessibilityLabel="Sign out"
+                onPress={() => router.push('/settings')}
+                accessibilityLabel="Settings"
                 hitSlop={8}
-                className="h-9 w-9 items-center justify-center rounded-xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
+                className="h-9 w-9 items-center justify-center rounded-full border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
               >
-                <Ionicons name="log-out-outline" size={16} color="#0E0E10" />
+                <Ionicons name="ellipsis-horizontal" size={18} color="#0E0E10" />
               </Pressable>
             </View>
 
-            {/* Identity */}
-            <View className="items-center gap-3">
+            {/* Identity block */}
+            <View className="flex-row items-center gap-4">
               <Avatar name={profile.display_name} uri={profile.avatar_url} size="xl" />
-              <View className="items-center">
-                <Text className="font-display text-4xl leading-tight text-text-light dark:text-text-dark">
+              <View className="flex-1">
+                <Text
+                  className="font-display text-3xl leading-tight text-text-light dark:text-text-dark"
+                  numberOfLines={1}
+                >
                   {profile.display_name}
                 </Text>
-                <Text className="text-sm text-muted-light">@{profile.username}</Text>
+                <Text
+                  className="text-sm text-muted-light dark:text-muted-dark"
+                  numberOfLines={1}
+                >
+                  @{profile.username}
+                </Text>
               </View>
             </View>
 
-            {/* Actions (own profile) */}
+            {/* Actions */}
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <PrimaryButton
                   label="Edit profile"
-                  variant="secondary"
-                  onPress={() =>
-                    toast.show('Profile editing lands in the next update.', 'info')
-                  }
+                  onPress={() => router.push('/profile-edit')}
                   fullWidth
                 />
               </View>
               <View className="flex-1">
                 <PrimaryButton
-                  label="Share"
+                  label="Settings"
                   variant="secondary"
                   leftIcon={
-                    <Ionicons name="share-outline" size={14} color="#0E0E10" />
+                    <Ionicons name="settings-outline" size={14} color="#0E0E10" />
                   }
-                  onPress={() =>
-                    toast.show('Sharing lands in the next update.', 'info')
-                  }
+                  onPress={() => router.push('/settings')}
                   fullWidth
                 />
               </View>
             </View>
 
-            {/* Stats row — mono uppercase, matches the PDF */}
-            <View className="flex-row items-center justify-around rounded-2xl border border-border-light bg-panel-light py-4 dark:border-border-dark dark:bg-panel-dark">
-              <Stat value={hostingCount} label="Hosted" />
-              <View className="h-8 w-px bg-border-light dark:bg-border-dark" />
-              <Stat value={attendingCount} label="Attending" />
+            {/* Stats */}
+            <View className="flex-row items-stretch gap-3">
+              <StatTile value={hostingCount} label="Events" />
+              <StatTile value={attendingCount} label="Attending" />
+              <StatTile value={past.length} label="Past" />
             </View>
 
-            {/* Segmented control — Hosting / Attending / Past */}
+            {/* Bio */}
+            {profile.bio ? (
+              <Text className="text-[15px] leading-snug text-text-light dark:text-text-dark">
+                {profile.bio}
+              </Text>
+            ) : null}
+
+            {/* Interest chips */}
+            {interests.length > 0 ? (
+              <View className="flex-row flex-wrap gap-2">
+                {interests.map((i) => (
+                  <View
+                    key={i.key}
+                    className="flex-row items-center gap-1.5 rounded-xl border border-border-light bg-panel-light px-2.5 py-1.5 dark:border-border-dark dark:bg-panel-dark"
+                  >
+                    <Text style={{ fontSize: 12 }}>{i.emoji}</Text>
+                    <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
+                      {i.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Segmented control */}
             <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
               <SegmentTab
                 label={`Hosting · ${hosting.length}`}
@@ -188,27 +202,17 @@ export default function YouScreen() {
           />
         }
       />
-
-      <ConfirmationDialog
-        open={confirmOpen}
-        title="Sign out?"
-        message="You'll need to sign back in to see your events."
-        confirmLabel="Sign out"
-        destructive
-        onConfirm={handleSignOut}
-        onCancel={() => setConfirmOpen(false)}
-      />
     </SafeAreaView>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function StatTile({ value, label }: { value: number; label: string }) {
   return (
-    <View className="items-center gap-1">
+    <View className="flex-1 rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
       <Text className="font-display text-2xl leading-none text-text-light dark:text-text-dark">
         {value}
       </Text>
-      <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+      <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
         {label}
       </Text>
     </View>

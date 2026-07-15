@@ -11,6 +11,9 @@ export type Database = {
           username: string;
           display_name: string;
           avatar_url: string | null;
+          bio: string | null;
+          phone: string | null;
+          interests: string[];
           created_at: string;
           updated_at: string;
         };
@@ -19,11 +22,17 @@ export type Database = {
           username: string;
           display_name: string;
           avatar_url?: string | null;
+          bio?: string | null;
+          phone?: string | null;
+          interests?: string[];
         };
         Update: {
           username?: string;
           display_name?: string;
           avatar_url?: string | null;
+          bio?: string | null;
+          phone?: string | null;
+          interests?: string[];
         };
       };
       events: {

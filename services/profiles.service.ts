@@ -14,7 +14,12 @@ export const profilesService = {
 
   async update(
     id: string,
-    patch: Partial<Pick<Profile, 'display_name' | 'username' | 'avatar_url'>>,
+    patch: Partial<
+      Pick<
+        Profile,
+        'display_name' | 'username' | 'avatar_url' | 'bio' | 'phone' | 'interests'
+      >
+    >,
   ): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')

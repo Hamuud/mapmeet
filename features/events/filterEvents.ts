@@ -2,7 +2,8 @@ import { distanceKm } from '@/utils/distance';
 import { excludePast } from '@/utils/eventTime';
 import type { EventFilter, EventWithCreator, LatLng } from '@/types';
 
-const NEARBY_KM = 5;
+/** Default nearby-filter radius when no viewer preference is passed. */
+const DEFAULT_NEARBY_KM = 5;
 
 /** Local UTC-day helper — event_date is stored as a plain date so we
  *  compare against the viewer's calendar day, not the server's. */
@@ -35,6 +36,10 @@ type FilterInput = {
   filter: EventFilter;
   query: string;
   coords: LatLng | null;
+  /** Radius (km) used by the Nearby filter. Sourced from the user's
+   *  preferences store when the map calls in; falls back to a sane
+   *  default so unit-test callers don't have to plumb it through. */
+  nearbyRadiusKm?: number;
 };
 
 export function filterEvents({
@@ -43,6 +48,7 @@ export function filterEvents({
   filter,
   query,
   coords,
+  nearbyRadiusKm = DEFAULT_NEARBY_KM,
 }: FilterInput): EventWithCreator[] {
   const t = today();
   const tm = tomorrow();
@@ -70,7 +76,7 @@ export function filterEvents({
           event: e,
           km: distanceKm(coords, { latitude: e.latitude, longitude: e.longitude }),
         }))
-        .filter(({ km }) => km <= NEARBY_KM)
+        .filter(({ km }) => km <= nearbyRadiusKm)
         .sort((a, b) => a.km - b.km)
         .map(({ event }) => event);
       break;

@@ -20,6 +20,7 @@ import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useLocation } from '@/hooks/useLocation';
 import { useEventsStore } from '@/store/events.store';
 import { useFiltersStore } from '@/store/filters.store';
+import { usePreferencesStore } from '@/store/preferences.store';
 import type { EventWithCreator, LatLng } from '@/types';
 
 export default function MapScreen() {
@@ -38,6 +39,7 @@ export default function MapScreen() {
   const setQuery = useFiltersStore((s) => s.setQuery);
   const filter = useFiltersStore((s) => s.filter);
   const setFilter = useFiltersStore((s) => s.setFilter);
+  const nearbyRadiusKm = usePreferencesStore((s) => s.searchRadiusKm);
 
   const { coords } = useLocation();
   const mapRef = useRef<MapRef | null>(null);
@@ -90,8 +92,8 @@ export default function MapScreen() {
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
 
   const visibleEvents = useMemo(
-    () => filterEvents({ events, viewerId, filter, query, coords }),
-    [events, viewerId, filter, query, coords],
+    () => filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm }),
+    [events, viewerId, filter, query, coords, nearbyRadiusKm],
   );
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
