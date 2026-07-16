@@ -30,9 +30,26 @@ export function formatRelativeTime(iso: string): string {
   const now = Date.now();
   const diff = Math.round((then - now) / 1000);
   const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  if (abs < 60) return rtf.format(diff, 'second');
-  if (abs < 3600) return rtf.format(Math.round(diff / 60), 'minute');
-  if (abs < 86_400) return rtf.format(Math.round(diff / 3600), 'hour');
-  return rtf.format(Math.round(diff / 86_400), 'day');
+
+  // Hermes on iOS ships without Intl.RelativeTimeFormat (only part of
+  // Intl is compiled in) — constructing it crashes the whole screen.
+  // Feature-detect and fall back to compact hand-rolled labels, which
+  // is also closer to what a chat list wants ("5m ago" beats
+  // "5 minutes ago" in a one-line preview row).
+  const RTF = (Intl as { RelativeTimeFormat?: typeof Intl.RelativeTimeFormat })
+    .RelativeTimeFormat;
+  if (typeof RTF === 'function') {
+    const rtf = new RTF(undefined, { numeric: 'auto' });
+    if (abs < 60) return rtf.format(diff, 'second');
+    if (abs < 3600) return rtf.format(Math.round(diff / 60), 'minute');
+    if (abs < 86_400) return rtf.format(Math.round(diff / 3600), 'hour');
+    return rtf.format(Math.round(diff / 86_400), 'day');
+  }
+
+  const suffix = diff <= 0 ? ' ago' : '';
+  if (abs < 60) return 'now';
+  if (abs < 3600) return `${Math.floor(abs / 60)}m${suffix}`;
+  if (abs < 86_400) return `${Math.floor(abs / 3600)}h${suffix}`;
+  if (abs < 604_800) return `${Math.floor(abs / 86_400)}d${suffix}`;
+  return new Date(iso).toLocaleDateString();
 }
