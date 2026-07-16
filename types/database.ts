@@ -14,6 +14,7 @@ export type Database = {
           bio: string | null;
           phone: string | null;
           interests: string[];
+          push_token: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export type Database = {
           bio?: string | null;
           phone?: string | null;
           interests?: string[];
+          push_token?: string | null;
         };
         Update: {
           username?: string;
@@ -33,6 +35,7 @@ export type Database = {
           bio?: string | null;
           phone?: string | null;
           interests?: string[];
+          push_token?: string | null;
         };
         Relationships: [];
       };
@@ -51,6 +54,7 @@ export type Database = {
           max_participants: number | null;
           visibility: 'public' | 'private';
           tags: string[];
+          archive_warned: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -147,6 +151,10 @@ export type Database = {
       };
       toggle_reaction: {
         Args: { p_message_id: string; p_emoji: string };
+        Returns: undefined;
+      };
+      post_archive_warning: {
+        Args: { p_event_id: string };
         Returns: undefined;
       };
     };

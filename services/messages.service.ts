@@ -194,6 +194,16 @@ export const messagesService = {
     if (error) throw error;
   },
 
+  /** Post the one-time "this chat will be archived soon" system message.
+   *  The RPC dedups via `events.archive_warned`, so calling it from
+   *  multiple clients (or repeatedly) posts at most once. */
+  async postArchiveWarning(eventId: string): Promise<void> {
+    const { error } = await supabase.rpc('post_archive_warning', {
+      p_event_id: eventId,
+    });
+    if (error) throw error;
+  },
+
   /** Host-only: kick a member out of the event + chat. The DB trigger
    *  posts the "<name> was removed from the event" system message. */
   async removeParticipant(eventId: string, userId: string): Promise<void> {

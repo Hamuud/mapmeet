@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
-import { messagesService, type ChatPreview } from '@/services/messages.service';
+import { type ChatPreview } from '@/services/messages.service';
+import { useChatStore } from '@/store/chat.store';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
 import { formatRelativeTime } from '@/utils/format';
-import type { EventWithCreator, Message } from '@/types';
+import type { EventWithCreator } from '@/types';
 
 type Folder = 'active' | 'archive';
 
@@ -54,42 +55,10 @@ function ChatListBody() {
 
   const chats = folder === 'active' ? active : archive;
 
-  // Previews cover BOTH folders so switching tabs is instant and the
-  // archive still shows its last messages.
-  const allChats = useMemo(() => [...active, ...archive], [active, archive]);
-  const chatIdsKey = useMemo(
-    () => allChats.map((c) => c.id).sort().join(','),
-    [allChats],
-  );
-
-  const [previews, setPreviews] = useState<Map<string, ChatPreview>>(new Map());
-  const chatsRef = useRef(allChats);
-  chatsRef.current = allChats;
-
-  const refreshPreviews = useCallback(async () => {
-    if (!viewerId || chatsRef.current.length === 0) return;
-    try {
-      const map = await messagesService.previews(
-        chatsRef.current.map((c) => c.id),
-        viewerId,
-      );
-      setPreviews(map);
-    } catch {
-      // messages table not reachable (e.g. migration not applied yet) —
-      // the list still renders event rows without previews.
-    }
-  }, [viewerId]);
-
-  useEffect(() => {
-    void refreshPreviews();
-    // Live previews: any INSERT the viewer is allowed to see (RLS scopes
-    // the feed to their chats) refreshes the preview map. Coarse but
-    // correct — previews are one bounded query.
-    const channel = messagesService.subscribeAll((_message: Message) => {
-      void refreshPreviews();
-    });
-    return () => messagesService.unsubscribe(channel);
-  }, [refreshPreviews, chatIdsKey]);
+  // Previews (last message + unread) come from the shared chat store,
+  // kept live by `useChatSync` in the tabs layout — so the list and the
+  // tab-bar badge always agree, from one subscription.
+  const previews = useChatStore((s) => s.previews);
 
   // Sort: chats with newest messages first; chats without messages fall
   // back to event creation order.

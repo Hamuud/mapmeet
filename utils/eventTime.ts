@@ -36,6 +36,26 @@ export function isEventPast(
   return now.getTime() > cutoff;
 }
 
+/** Minutes before the archive cutoff at which we warn the chat. */
+export const ARCHIVE_WARNING_MINUTES = 30;
+
+/** True while the event is inside the window `[archiveAt - 30min,
+ *  archiveAt)` — i.e. the chat is about to move to Archive. Used to
+ *  post the one-time "this chat archives soon" system message. Since
+ *  `archiveAt = start + grace` (60min), this window is `start+30min`
+ *  to `start+60min`. */
+export function isArchiveWarningDue(
+  event: { event_date: string; event_time: string },
+  now: Date = new Date(),
+): boolean {
+  const start = eventStart(event);
+  if (!start) return false;
+  const archiveAt = start.getTime() + EVENT_GRACE_MINUTES * 60_000;
+  const warnAt = archiveAt - ARCHIVE_WARNING_MINUTES * 60_000;
+  const t = now.getTime();
+  return t >= warnAt && t < archiveAt;
+}
+
 /** Convenience: strip past events out of any list. */
 export function excludePast<T extends { event_date: string; event_time: string }>(
   events: T[],

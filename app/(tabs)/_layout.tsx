@@ -8,7 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
+import { useChatSync } from '@/hooks/useChatSync';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useAuthStore } from '@/store/auth.store';
+import { useChatStore } from '@/store/chat.store';
 
 /** Bottom tab bar — matches the redesigned mobile screen: light panel
  *  background, hairline top border, ink active state, muted inactive
@@ -20,8 +23,11 @@ export default function TabsLayout() {
   const status = useAuthStore((s) => s.status);
   const session = useAuthStore((s) => s.session);
   const isDark = scheme === 'dark';
+  const unreadTotal = useChatStore((s) => s.unreadTotal);
 
   useEventsBootstrap();
+  useChatSync();
+  useNotifications();
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   if (!session) return <Redirect href="/(auth)/login" />;
@@ -75,6 +81,15 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Chat',
+          // Unread count across every chat the viewer belongs to.
+          tabBarBadge:
+            unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#E68A5E',
+            color: '#fff',
+            fontSize: 10,
+            fontWeight: '700',
+          },
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
