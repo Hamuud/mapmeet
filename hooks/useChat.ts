@@ -56,7 +56,13 @@ export function useChat(eventId: string | null, viewerId: string | null) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === row.id
-              ? { ...m, read_by: row.read_by, deleted_for: row.deleted_for, hidden: row.hidden }
+              ? {
+                  ...m,
+                  read_by: row.read_by,
+                  deleted_for: row.deleted_for,
+                  hidden: row.hidden,
+                  reactions: row.reactions,
+                }
               : m,
           ),
         );

@@ -92,11 +92,14 @@ export type Database = {
           id: string;
           event_id: string;
           sender_id: string | null; // null = system
-          type: 'text' | 'image' | 'video' | 'location' | 'system';
+          type: 'text' | 'image' | 'video' | 'location' | 'audio' | 'system';
           text: string | null;
           media_url: string | null;
           latitude: number | null;
           longitude: number | null;
+          reply_to: string | null;
+          reactions: Record<string, string[]>;
+          duration_ms: number | null;
           read_by: string[];
           deleted_for: string[];
           hidden: boolean;
@@ -105,11 +108,13 @@ export type Database = {
         Insert: {
           event_id: string;
           sender_id: string;
-          type?: 'text' | 'image' | 'video' | 'location';
+          type?: 'text' | 'image' | 'video' | 'location' | 'audio';
           text?: string | null;
           media_url?: string | null;
           latitude?: number | null;
           longitude?: number | null;
+          reply_to?: string | null;
+          duration_ms?: number | null;
         };
         // Mutations (read_by / deleted_for / hidden) go through RPCs —
         // there is no client-side UPDATE path.
@@ -138,6 +143,10 @@ export type Database = {
       };
       remove_participant: {
         Args: { p_event_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      toggle_reaction: {
+        Args: { p_message_id: string; p_emoji: string };
         Returns: undefined;
       };
     };

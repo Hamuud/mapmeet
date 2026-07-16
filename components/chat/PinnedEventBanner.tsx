@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { geocodingService } from '@/services/geocoding.service';
+import { useVenue } from '@/hooks/useVenue';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator } from '@/types';
 
@@ -10,46 +9,6 @@ type Props = {
   event: EventWithCreator;
   onPress: () => void;
 };
-
-/** Session cache for reverse-geocoded venue labels — Nominatim allows
- *  ~1 req/s, so never ask twice for the same event. */
-const venueCache = new Map<string, string | null>();
-
-/** Resolve a human-readable venue for the banner. Prefers the stored
- *  `address` (what the host picked in the search); falls back to a
- *  one-shot reverse geocode for events created before the column
- *  existed. */
-function useVenue(event: EventWithCreator): string | null {
-  const [venue, setVenue] = useState<string | null>(
-    event.address ?? venueCache.get(event.id) ?? null,
-  );
-
-  useEffect(() => {
-    if (event.address) {
-      setVenue(event.address);
-      return;
-    }
-    if (venueCache.has(event.id)) {
-      setVenue(venueCache.get(event.id) ?? null);
-      return;
-    }
-    let cancelled = false;
-    geocodingService
-      .reverse({ latitude: event.latitude, longitude: event.longitude })
-      .then((label) => {
-        venueCache.set(event.id, label);
-        if (!cancelled) setVenue(label);
-      })
-      .catch(() => {
-        venueCache.set(event.id, null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [event.id, event.address, event.latitude, event.longitude]);
-
-  return venue;
-}
 
 /** Pinned event snapshot under the chat header — emoji, title, date,
  *  attendee count, and the venue line. The live event row IS the

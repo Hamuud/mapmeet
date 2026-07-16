@@ -230,6 +230,8 @@ function previewText(preview: ChatPreview | undefined): string {
       return '🎥 Video';
     case 'location':
       return '📍 Location';
+    case 'audio':
+      return '🎤 Voice message';
     case 'system':
       return m.text ?? '';
   }

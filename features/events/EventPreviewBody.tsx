@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useVenue } from '@/hooks/useVenue';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { distanceKm, formatDistance } from '@/utils/distance';
@@ -49,6 +50,7 @@ export function EventPreviewBody({
 }: Props) {
   const toast = useToast();
   const { session } = useAuth();
+  const venue = useVenue(event);
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const [busy, setBusy] = useState(false);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -180,6 +182,20 @@ export function EventPreviewBody({
           </Text>
         </View>
       </View>
+
+      {/* Venue — the searched address label, or a reverse-geocoded
+          fallback for events created before addresses were stored. */}
+      {venue ? (
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="location" size={13} color="#4B5FE0" />
+          <Text
+            className="flex-1 text-[13px] font-medium text-brand-500"
+            numberOfLines={2}
+          >
+            {venue}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Description */}
       {event.description?.trim() ? (

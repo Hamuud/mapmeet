@@ -45,14 +45,76 @@ export const messagesService = {
     return (data as unknown as MessageWithSender) ?? null;
   },
 
-  async sendText(eventId: string, senderId: string, text: string): Promise<Message> {
+  async sendText(
+    eventId: string,
+    senderId: string,
+    text: string,
+    replyTo?: string | null,
+  ): Promise<Message> {
     const { data, error } = await supabase
       .from('messages')
-      .insert({ event_id: eventId, sender_id: senderId, type: 'text', text })
+      .insert({
+        event_id: eventId,
+        sender_id: senderId,
+        type: 'text',
+        text,
+        reply_to: replyTo ?? null,
+      })
       .select('*')
       .single();
     if (error) throw error;
     return data as Message;
+  },
+
+  /** Upload a recorded voice note and post it as an audio message.
+   *  duration_ms lets the bubble render length without loading the
+   *  file first. Web records webm; iOS records m4a — m4a plays
+   *  everywhere, webm won't play on iOS (known MVP limitation). */
+  async sendVoice(
+    eventId: string,
+    senderId: string,
+    fileUri: string,
+    durationMs: number,
+    replyTo?: string | null,
+  ): Promise<Message> {
+    const ext = fileUri.startsWith('blob:')
+      ? 'webm'
+      : (fileUri.split('.').pop()?.toLowerCase() ?? 'm4a');
+    const path = `${eventId}/${Date.now()}_${senderId}.${ext}`;
+    const response = await fetch(fileUri);
+    const blob = await response.arrayBuffer();
+    const { error: uploadError } = await supabase.storage
+      .from('chat-media')
+      .upload(path, blob, {
+        contentType: ext === 'webm' ? 'audio/webm' : 'audio/mp4',
+      });
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        event_id: eventId,
+        sender_id: senderId,
+        type: 'audio',
+        media_url: urlData.publicUrl,
+        duration_ms: Math.max(1, Math.round(durationMs)),
+        reply_to: replyTo ?? null,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as Message;
+  },
+
+  /** Toggle the caller's emoji reaction on a message (whitelisted
+   *  palette, enforced server-side). The resulting UPDATE flows back
+   *  through the realtime subscription. */
+  async toggleReaction(messageId: string, emoji: string): Promise<void> {
+    const { error } = await supabase.rpc('toggle_reaction', {
+      p_message_id: messageId,
+      p_emoji: emoji,
+    });
+    if (error) throw error;
   },
 
   async sendLocation(
@@ -156,6 +218,7 @@ export const messagesService = {
     const { data, error } = await supabase
       .from('messages')
       .select('id, event_id, sender_id, type, text, media_url, read_by, hidden, created_at')
+      // (reactions / reply_to intentionally omitted — previews don't render them)
       .in('event_id', eventIds)
       .order('created_at', { ascending: false })
       .limit(scanLimit);
