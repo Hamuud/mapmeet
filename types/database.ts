@@ -34,6 +34,7 @@ export type Database = {
           phone?: string | null;
           interests?: string[];
         };
+        Relationships: [];
       };
       events: {
         Row: {
@@ -68,6 +69,7 @@ export type Database = {
           tags: string[];
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
+        Relationships: [];
       };
       participants: {
         Row: {
@@ -80,8 +82,64 @@ export type Database = {
           event_id: string;
           user_id: string;
         };
-        Update: never;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      messages: {
+        Row: {
+          id: string;
+          event_id: string;
+          sender_id: string | null; // null = system
+          type: 'text' | 'image' | 'video' | 'location' | 'system';
+          text: string | null;
+          media_url: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          read_by: string[];
+          deleted_for: string[];
+          hidden: boolean;
+          created_at: string;
+        };
+        Insert: {
+          event_id: string;
+          sender_id: string;
+          type?: 'text' | 'image' | 'video' | 'location';
+          text?: string | null;
+          media_url?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+        };
+        // Mutations (read_by / deleted_for / hidden) go through RPCs —
+        // there is no client-side UPDATE path.
+        Update: Record<string, never>;
+        Relationships: [];
       };
     };
+    // supabase-js's GenericSchema needs Views / Functions / Enums keys
+    // present or the whole schema degrades to `never` and every
+    // .insert() / .rpc() call fails to type — that was the source of
+    // the long-standing "not assignable to parameter of type 'never'"
+    // errors in the services.
+    Views: Record<string, never>;
+    Functions: {
+      mark_messages_read: {
+        Args: { p_event_id: string };
+        Returns: undefined;
+      };
+      delete_message_for_me: {
+        Args: { p_message_id: string };
+        Returns: undefined;
+      };
+      hide_message: {
+        Args: { p_message_id: string };
+        Returns: undefined;
+      };
+      remove_participant: {
+        Args: { p_event_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };

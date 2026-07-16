@@ -15,6 +15,15 @@ export type EventWithCreator = Event & {
   is_joined: boolean;
 };
 
+export type Message = Database['public']['Tables']['messages']['Row'];
+export type MessageInsert = Database['public']['Tables']['messages']['Insert'];
+
+/** A message enriched with its sender profile — the shape the chat UI
+ *  renders. `sender` is null for system messages. */
+export type MessageWithSender = Message & {
+  sender: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null;
+};
+
 export type LatLng = { latitude: number; longitude: number };
 
 export type EventFilter =

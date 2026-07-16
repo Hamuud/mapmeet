@@ -72,6 +72,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings" />
             <Stack.Screen name="profile-edit" />
             <Stack.Screen name="user/[id]" />
+            <Stack.Screen name="chat/[id]" />
           </Stack>
         </ToastProvider>
       </SafeAreaProvider>
