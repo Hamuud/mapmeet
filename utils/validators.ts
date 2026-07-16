@@ -42,6 +42,9 @@ export const eventSchema = z.object({
   ),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  // Venue label from the address search — display-only, coords stay
+  // the source of truth for the pin.
+  address: z.string().max(200).optional().nullable(),
   event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date.'),
   event_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Invalid time.'),
   max_participants: z

@@ -61,6 +61,7 @@ const defaultValues: EventInput = {
   emoji: '🎉',
   latitude: 0,
   longitude: 0,
+  address: null,
   event_date: todayISO(),
   event_time: roundedHourISO(),
   max_participants: null,
@@ -87,6 +88,7 @@ export function CreateEventSheet({
     handleSubmit,
     reset,
     setValue,
+    getValues,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<EventInput>({
@@ -98,10 +100,18 @@ export function CreateEventSheet({
   useEffect(() => {
     if (!open) return;
     if (pendingCoords) {
+      // If the parent moved the pin somewhere the form didn't already
+      // point (map long-press / pick mode), the searched-address label
+      // no longer describes the pin — drop it. When the sync comes from
+      // the address search itself, coords are equal and the label stays.
+      const moved =
+        Math.abs((getValues('latitude') ?? 0) - pendingCoords.latitude) > 1e-9 ||
+        Math.abs((getValues('longitude') ?? 0) - pendingCoords.longitude) > 1e-9;
       setValue('latitude', pendingCoords.latitude);
       setValue('longitude', pendingCoords.longitude);
+      if (moved) setValue('address', null);
     }
-  }, [open, pendingCoords, setValue]);
+  }, [open, pendingCoords, setValue, getValues]);
 
   const emoji = watch('emoji');
   const visibility = watch('visibility');
@@ -114,6 +124,9 @@ export function CreateEventSheet({
     if (currentCoords) {
       setValue('latitude', currentCoords.latitude);
       setValue('longitude', currentCoords.longitude);
+      // Coords no longer come from the address search — clear the stale
+      // venue label rather than displaying an address the pin left.
+      setValue('address', null);
       onCoordsChange(currentCoords);
       toast.show('Pinned to your location.', 'success');
     }
@@ -133,6 +146,7 @@ export function CreateEventSheet({
         emoji: values.emoji,
         latitude: values.latitude,
         longitude: values.longitude,
+        address: values.address ?? null,
         event_date: values.event_date,
         event_time: values.event_time,
         max_participants: values.max_participants ?? null,
@@ -298,11 +312,14 @@ export function CreateEventSheet({
                 </Text>
               </View>
 
-              {/* Address search */}
+              {/* Address search — also captures the human-readable venue
+                  label so chats/peeks can show "Library" instead of raw
+                  coordinates. */}
               <AddressField
                 onSelect={(hit) => {
                   setValue('latitude', hit.coords.latitude);
                   setValue('longitude', hit.coords.longitude);
+                  setValue('address', hit.label);
                   onCoordsChange(hit.coords);
                   toast.show('Pinned to that address.', 'success');
                 }}

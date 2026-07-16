@@ -9,8 +9,11 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { messagesService, type ChatPreview } from '@/services/messages.service';
 import { useEventsStore } from '@/store/events.store';
+import { isEventPast } from '@/utils/eventTime';
 import { formatRelativeTime } from '@/utils/format';
 import type { EventWithCreator, Message } from '@/types';
+
+type Folder = 'active' | 'archive';
 
 export default function ChatScreen() {
   return (
@@ -27,22 +30,41 @@ function ChatListBody() {
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
   const events = useEventsStore((s) => s.events);
+  const [folder, setFolder] = useState<Folder>('active');
 
-  // Chats = hosted or joined events. Past events keep their chats —
-  // history stays readable after the meetup wraps.
-  const chats = useMemo(() => {
-    if (!viewerId) return [];
-    return events.filter((e) => e.creator_id === viewerId || e.is_joined);
-  }, [events, viewerId]);
+  // Same per-minute tick the Events tab uses, so a chat migrates from
+  // Active → Archive at the moment its event crosses the 1h-grace
+  // cutoff, without a refetch.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
+  // Chats = hosted or joined events. Active holds live events;
+  // Archive keeps every wrapped event's chat readable as history.
+  const { active, archive } = useMemo(() => {
+    if (!viewerId) return { active: [], archive: [] };
+    const mine = events.filter((e) => e.creator_id === viewerId || e.is_joined);
+    return {
+      active: mine.filter((e) => !isEventPast(e, now)),
+      archive: mine.filter((e) => isEventPast(e, now)),
+    };
+  }, [events, viewerId, now]);
+
+  const chats = folder === 'active' ? active : archive;
+
+  // Previews cover BOTH folders so switching tabs is instant and the
+  // archive still shows its last messages.
+  const allChats = useMemo(() => [...active, ...archive], [active, archive]);
   const chatIdsKey = useMemo(
-    () => chats.map((c) => c.id).sort().join(','),
-    [chats],
+    () => allChats.map((c) => c.id).sort().join(','),
+    [allChats],
   );
 
   const [previews, setPreviews] = useState<Map<string, ChatPreview>>(new Map());
-  const chatsRef = useRef(chats);
-  chatsRef.current = chats;
+  const chatsRef = useRef(allChats);
+  chatsRef.current = allChats;
 
   const refreshPreviews = useCallback(async () => {
     if (!viewerId || chatsRef.current.length === 0) return;
@@ -79,12 +101,40 @@ function ChatListBody() {
     });
   }, [chats, previews]);
 
+  // Unread across the archive still matters (a chat can wrap with
+  // messages the viewer never opened) — badge the folder tab.
+  const archiveUnread = archive.reduce(
+    (sum, e) => sum + (previews.get(e.id)?.unreadCount ?? 0),
+    0,
+  );
+  const activeUnread = active.reduce(
+    (sum, e) => sum + (previews.get(e.id)?.unreadCount ?? 0),
+    0,
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <View className="px-5 pb-3 pt-2">
         <Text className="font-display text-4xl text-text-light dark:text-text-dark">
           Chats
         </Text>
+        {/* Active / Archive folders */}
+        <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
+          <FolderTab
+            label="Active"
+            count={active.length}
+            unread={activeUnread}
+            selected={folder === 'active'}
+            onPress={() => setFolder('active')}
+          />
+          <FolderTab
+            label="Archive"
+            count={archive.length}
+            unread={archiveUnread}
+            selected={folder === 'archive'}
+            onPress={() => setFolder('archive')}
+          />
+        </View>
       </View>
 
       <FlatList
@@ -100,16 +150,71 @@ function ChatListBody() {
           />
         )}
         ListEmptyComponent={
-          <EmptyState
-            emoji="💬"
-            title="No chats yet"
-            description="Join an event on the map — every event comes with its own group chat."
-            actionLabel="Open map"
-            onAction={() => router.push('/(tabs)/map')}
-          />
+          folder === 'active' ? (
+            <EmptyState
+              emoji="💬"
+              title="No active chats"
+              description="Join an event on the map — every event comes with its own group chat."
+              actionLabel="Open map"
+              onAction={() => router.push('/(tabs)/map')}
+            />
+          ) : (
+            <EmptyState
+              emoji="🗂️"
+              title="Archive is empty"
+              description="Once an event wraps, its chat moves here so the history stays readable."
+            />
+          )
         }
       />
     </SafeAreaView>
+  );
+}
+
+function FolderTab({
+  label,
+  count,
+  unread,
+  selected,
+  onPress,
+}: {
+  label: string;
+  count: number;
+  unread: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={[
+        'flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-2',
+        selected ? 'bg-panel-light dark:bg-panel-dark' : '',
+      ].join(' ')}
+    >
+      <Text
+        className={[
+          'text-sm font-semibold',
+          selected
+            ? 'text-text-light dark:text-text-dark'
+            : 'text-muted-light dark:text-muted-dark',
+        ].join(' ')}
+      >
+        {label}
+      </Text>
+      {selected ? (
+        <Text className="font-mono text-[10px] text-text-light/70 dark:text-text-dark/70">
+          {count}
+        </Text>
+      ) : null}
+      {unread > 0 ? (
+        <View className="h-4 min-w-[16px] items-center justify-center rounded-full bg-accent-400 px-1">
+          <Text className="text-[9px] font-bold text-white">
+            {unread > 99 ? '99+' : unread}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 

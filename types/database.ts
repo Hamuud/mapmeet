@@ -45,6 +45,7 @@ export type Database = {
           emoji: string;
           latitude: number;
           longitude: number;
+          address: string | null;
           event_date: string; // ISO date (YYYY-MM-DD)
           event_time: string; // ISO time (HH:MM:SS)
           max_participants: number | null;
@@ -60,6 +61,7 @@ export type Database = {
           emoji: string;
           latitude: number;
           longitude: number;
+          address?: string | null;
           event_date: string;
           event_time: string;
           max_participants?: number | null;
