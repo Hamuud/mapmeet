@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
@@ -17,7 +18,21 @@ const PROJECT_ID =
 type NotificationsModule = typeof import('expo-notifications');
 type DeviceModule = typeof import('expo-device');
 
+/** Whether the expo-notifications native side is actually present in
+ *  this build. `requireOptionalNativeModule` returns null instead of
+ *  throwing when the module is missing — so we can check without
+ *  triggering the loud "Cannot find native module" error the current
+ *  (pre-notifications) dev client would otherwise raise. */
+function pushNativeAvailable(): boolean {
+  try {
+    return !!requireOptionalNativeModule('ExpoPushTokenManager');
+  } catch {
+    return false;
+  }
+}
+
 function loadModules(): { Notifications: NotificationsModule; Device: DeviceModule } | null {
+  if (!pushNativeAvailable()) return null;
   try {
     return {
       Notifications: require('expo-notifications') as NotificationsModule,
