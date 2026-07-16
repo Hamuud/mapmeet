@@ -9,11 +9,15 @@ type PreferencesState = {
   appearance: Appearance;
   language: string;
   searchRadiusKm: number;
+  /** Emoji used by the hover quick-react chip in chat. Must be one of
+   *  the toggle_reaction RPC whitelist. */
+  favoriteReaction: string;
 
   setPushNotifications: (v: boolean) => void;
   setAppearance: (v: Appearance) => void;
   setLanguage: (v: string) => void;
   setSearchRadiusKm: (v: number) => void;
+  setFavoriteReaction: (v: string) => void;
 };
 
 /** Client-only user preferences. Persisted in AsyncStorage so the
@@ -28,11 +32,13 @@ export const usePreferencesStore = create<PreferencesState>()(
       appearance: 'auto',
       language: 'English',
       searchRadiusKm: 5,
+      favoriteReaction: '❤️',
 
       setPushNotifications: (pushNotifications) => set({ pushNotifications }),
       setAppearance: (appearance) => set({ appearance }),
       setLanguage: (language) => set({ language }),
       setSearchRadiusKm: (searchRadiusKm) => set({ searchRadiusKm }),
+      setFavoriteReaction: (favoriteReaction) => set({ favoriteReaction }),
     }),
     {
       name: 'mapmeet-preferences-v1',

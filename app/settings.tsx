@@ -35,10 +35,13 @@ export default function SettingsScreen() {
   const language = usePreferencesStore((s) => s.language);
   const searchRadiusKm = usePreferencesStore((s) => s.searchRadiusKm);
   const setSearchRadiusKm = usePreferencesStore((s) => s.setSearchRadiusKm);
+  const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const setFavoriteReaction = usePreferencesStore((s) => s.setFavoriteReaction);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [radiusOpen, setRadiusOpen] = useState(false);
+  const [reactionOpen, setReactionOpen] = useState(false);
 
   const version =
     (Constants.expoConfig?.version as string | undefined) ??
@@ -209,6 +212,13 @@ export default function SettingsScreen() {
             hint={`Events shown within ${searchRadiusKm} km`}
             onPress={() => setRadiusOpen(true)}
           />
+          <SettingsRow
+            icon="happy-outline"
+            label="Favourite reaction"
+            hint="Suggested when you hover a chat message"
+            rightText={favoriteReaction}
+            onPress={() => setReactionOpen(true)}
+          />
         </Section>
 
         {/* SUPPORT */}
@@ -272,6 +282,42 @@ export default function SettingsScreen() {
         onConfirm={() => setLangOpen(false)}
         onCancel={() => setLangOpen(false)}
       />
+
+      {/* Favourite reaction picker — the palette mirrors the
+          toggle_reaction RPC whitelist. */}
+      <BottomSheet open={reactionOpen} onClose={() => setReactionOpen(false)} autoHeight>
+        <View className="gap-1 pb-2">
+          <Text className="text-lg font-bold text-text-light dark:text-text-dark">
+            Favourite reaction
+          </Text>
+          <Text className="text-xs text-muted-light dark:text-muted-dark">
+            Shown as a one-tap suggestion when you hover a message in chat.
+          </Text>
+        </View>
+        <View className="mt-3 flex-row justify-between px-1">
+          {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => {
+            const active = emoji === favoriteReaction;
+            return (
+              <Pressable
+                key={emoji}
+                onPress={() => {
+                  setFavoriteReaction(emoji);
+                  setReactionOpen(false);
+                }}
+                className={[
+                  'h-12 w-12 items-center justify-center rounded-full border',
+                  active
+                    ? 'border-brand-500 bg-brand-500/15'
+                    : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
+                ].join(' ')}
+                accessibilityLabel={`Set ${emoji} as favourite`}
+              >
+                <Text style={{ fontSize: 24 }}>{emoji}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BottomSheet>
 
       {/* Radius picker — same BottomSheet component the rest of the
           app uses, so it slides up from the bottom, dims the backdrop,

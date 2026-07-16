@@ -24,3 +24,12 @@ body,
     color: #0E0E10;
   }
 }
+
+/* Chat composer: the multiline message field is a real <textarea> on
+   web — hide its scrollbar chrome (content still scrolls). */
+textarea {
+  scrollbar-width: none;
+}
+textarea::-webkit-scrollbar {
+  display: none;
+}

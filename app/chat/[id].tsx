@@ -9,12 +9,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
-import { PinnedEventBanner } from '@/components/chat/PinnedEventBanner';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -27,8 +26,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
 import { useIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
+import { useVenue } from '@/hooks/useVenue';
 import { messagesService } from '@/services/messages.service';
 import { useEventsStore } from '@/store/events.store';
+import { usePreferencesStore } from '@/store/preferences.store';
+import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator, MessageWithSender } from '@/types';
 
 /** Quick-reaction palette — must match the whitelist in the
@@ -40,11 +42,14 @@ export default function ChatRoomScreen() {
   const { id: eventId } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
   const iconColor = useIconColor();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
   const { coords } = useLocation();
+  const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
 
   const event = useEventsStore((s) => s.events.find((e) => e.id === eventId)) ?? null;
+  const venue = useVenue(event);
   const { messages, status } = useChat(eventId ?? null, viewerId);
   const recorder = useVoiceRecorder();
 
@@ -105,6 +110,21 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const handleCopyText = () => {
+    const target = actionTarget;
+    setActionTarget(null);
+    if (!target?.text) return;
+    // Clipboard is a web-only affordance for now — expo-clipboard would
+    // need a fresh native build; the context menu is a web feature
+    // anyway.
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+      void navigator.clipboard?.writeText(target.text).then(
+        () => toast.show('Copied.', 'success'),
+        () => toast.show('Could not copy', 'error'),
+      );
+    }
+  };
+
   const handleDeleteForMe = async () => {
     if (!actionTarget) return;
     const target = actionTarget;
@@ -143,8 +163,10 @@ export default function ChatRoomScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
-      {/* Header */}
-      <View className="flex-row items-center gap-3 border-b border-border-light px-4 py-2.5 dark:border-border-dark">
+      {/* Single merged header: back · emoji · title/meta/venue · members.
+          The event block is tappable (chevron hints at the detail
+          sheet); the members icon sits beside it. No duplicate title. */}
+      <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => router.back()}
           accessibilityLabel="Back"
@@ -153,18 +175,45 @@ export default function ChatRoomScreen() {
         >
           <Ionicons name="chevron-back" size={18} color={iconColor} />
         </Pressable>
-        <View className="flex-1">
-          <Text
-            className="text-base font-bold text-text-light dark:text-text-dark"
-            numberOfLines={1}
-          >
-            {event.title}
-          </Text>
-          <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            {event.participant_count} going
-            {isHost ? ' · you host' : ''}
-          </Text>
-        </View>
+
+        <Pressable
+          onPress={() => setEventOpen(true)}
+          accessibilityLabel="Event details"
+          className="flex-1 flex-row items-center gap-2.5 active:opacity-80"
+        >
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
+            <Text style={{ fontSize: 20 }}>{event.emoji}</Text>
+          </View>
+          <View className="flex-1">
+            <Text
+              className="text-[15px] font-bold text-text-light dark:text-text-dark"
+              numberOfLines={1}
+            >
+              {event.title}
+            </Text>
+            <Text
+              className="font-mono text-[9px] uppercase tracking-wider text-muted-light"
+              numberOfLines={1}
+            >
+              {formatEventDate(event.event_date)} · {formatEventTime(event.event_time)} ·{' '}
+              {event.participant_count} going
+              {event.max_participants ? ` / ${event.max_participants}` : ''}
+            </Text>
+            {venue ? (
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="location" size={9} color="#4B5FE0" />
+                <Text
+                  className="flex-1 text-[11px] font-medium text-brand-500"
+                  numberOfLines={1}
+                >
+                  {venue}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Ionicons name="chevron-down" size={14} color="#8B8880" />
+        </Pressable>
+
         <Pressable
           onPress={() => setMembersOpen(true)}
           accessibilityLabel="Members"
@@ -175,8 +224,6 @@ export default function ChatRoomScreen() {
         </Pressable>
       </View>
 
-      <PinnedEventBanner event={event} onPress={() => setEventOpen(true)} />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
@@ -186,6 +233,7 @@ export default function ChatRoomScreen() {
           data={visible}
           inverted
           keyExtractor={(m) => m.id}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingVertical: 12 }}
           renderItem={({ item, index }) => {
             const older = visible[index + 1];
@@ -198,7 +246,10 @@ export default function ChatRoomScreen() {
                   isOwn={item.sender_id === viewerId}
                   repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
                   viewerId={viewerId}
+                  favoriteReaction={favoriteReaction}
                   onLongPress={(m) => setActionTarget(m)}
+                  onContextMenu={(m) => setActionTarget(m)}
+                  onReply={(m) => setReplyingTo(m)}
                   onPressAvatar={(userId) =>
                     router.push({ pathname: '/user/[id]', params: { id: userId } })
                   }
@@ -220,22 +271,27 @@ export default function ChatRoomScreen() {
           }
         />
 
-        <MessageInput
-          onSend={handleSend}
-          onAttach={() =>
-            toast.show('Photos and video land next update.', 'info')
-          }
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          recording={recorder.state === 'recording'}
-          recordingMs={recorder.elapsedMs}
-          onStartVoice={handleStartVoice}
-          onFinishVoice={handleFinishVoice}
-          onCancelVoice={() => void recorder.cancel()}
-        />
+        {/* Composer sits above the home indicator: SafeAreaView only
+            covers the top edge (the keyboard needs to butt straight up
+            against the input), so fold the bottom inset in here. */}
+        <View style={{ paddingBottom: insets.bottom }}>
+          <MessageInput
+            onSend={handleSend}
+            onAttach={() =>
+              toast.show('Photos and video land next update.', 'info')
+            }
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            recording={recorder.state === 'recording'}
+            recordingMs={recorder.elapsedMs}
+            onStartVoice={handleStartVoice}
+            onFinishVoice={handleFinishVoice}
+            onCancelVoice={() => void recorder.cancel()}
+          />
+        </View>
       </KeyboardAvoidingView>
 
-      {/* Pinned banner expanded — full event details incl. venue text.
+      {/* Pinned event expanded — full details incl. venue text.
           Directions opens the same maps-app chooser the map uses. */}
       <BottomSheet open={eventOpen} onClose={() => setEventOpen(false)} heightPct={0.7} autoHeight>
         {event ? (
@@ -266,10 +322,10 @@ export default function ChatRoomScreen() {
         onClose={() => setMembersOpen(false)}
       />
 
-      {/* Long-press actions: quick reactions + reply + deletes */}
+      {/* Message actions: quick reactions + reply + copy + deletes.
+          Opened by long-press everywhere and right-click on web. */}
       <BottomSheet open={!!actionTarget} onClose={() => setActionTarget(null)} autoHeight>
         <View className="gap-3 pb-2">
-          {/* Quick reactions */}
           <View className="flex-row justify-between px-1">
             {REACTIONS.map((emoji) => (
               <Pressable
@@ -297,6 +353,15 @@ export default function ChatRoomScreen() {
             }}
             fullWidth
           />
+          {Platform.OS === 'web' && actionTarget?.type === 'text' ? (
+            <PrimaryButton
+              label="Copy text"
+              variant="secondary"
+              leftIcon={<Ionicons name="copy-outline" size={14} color="#4B5FE0" />}
+              onPress={handleCopyText}
+              fullWidth
+            />
+          ) : null}
           <PrimaryButton
             label="Delete for me"
             variant="secondary"
