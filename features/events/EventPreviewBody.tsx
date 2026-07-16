@@ -84,9 +84,22 @@ export function EventPreviewBody({
       )
     : null;
 
+  // Cap is inclusive of the host (who always auto-joins at create
+  // time). So max=2 means "host + 1 more", max=4 means "host + 3".
+  // `isFull` is the client-side gate; the DB has its own trigger
+  // that raises 23514 on any join attempt past the cap.
+  const isFull =
+    event.max_participants != null &&
+    event.participant_count >= event.max_participants;
+
   const handleJoinToggle = async () => {
     if (!session) return;
     const wasJoined = event.is_joined;
+    // Extra guard so a stale UI can't fire off a doomed request.
+    if (!wasJoined && isFull) {
+      toast.show('Event is full.', 'info');
+      return;
+    }
     patchEvent(event.id, {
       is_joined: !wasJoined,
       participant_count: Math.max(
@@ -121,7 +134,13 @@ export function EventPreviewBody({
         is_joined: wasJoined,
         participant_count: event.participant_count,
       });
-      toast.show(e instanceof Error ? e.message : 'Could not update', 'error');
+      // Trigger raises with '... is full ...' — surface as a friendly
+      // message rather than the raw Postgres error string.
+      const raw = e instanceof Error ? e.message : '';
+      const msg = /is full/i.test(raw)
+        ? 'Event just filled up — try another one.'
+        : raw || 'Could not update';
+      toast.show(msg, 'error');
     } finally {
       setBusy(false);
     }
@@ -198,10 +217,27 @@ export function EventPreviewBody({
                 You're hosting
               </Text>
             </View>
+          ) : event.is_joined ? (
+            <PrimaryButton
+              label="Joined ✓"
+              variant="secondary"
+              loading={busy}
+              onPress={handleJoinToggle}
+              fullWidth
+            />
+          ) : isFull ? (
+            // Non-interactive "Full" pill — matches the button footprint
+            // but reads as a status, not an action.
+            <View className="h-11 flex-row items-center justify-center gap-2 rounded-xl border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark">
+              <Ionicons name="lock-closed" size={13} color="#8B8880" />
+              <Text className="text-sm font-semibold text-muted-light">
+                Full · {event.participant_count}/{event.max_participants}
+              </Text>
+            </View>
           ) : (
             <PrimaryButton
-              label={event.is_joined ? 'Joined ✓' : 'Join event'}
-              variant={event.is_joined ? 'secondary' : 'primary'}
+              label="Join event"
+              variant="primary"
               loading={busy}
               onPress={handleJoinToggle}
               fullWidth
