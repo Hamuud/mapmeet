@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  Linking,
   PanResponder,
   Platform,
   Pressable,
@@ -37,6 +38,42 @@ const isWeb = Platform.OS === 'web';
 function timeLabel(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+const URL_RE = /(https?:\/\/[^\s]+)/g;
+
+/** Body of a long system announcement (the ingest's event-info card).
+ *  Normal-case readable text — no uppercase/mono like the status pill —
+ *  with URLs rendered as tappable links that open the ticket page.
+ *  `wordBreak` is web-only: without it an unbroken URL refuses to wrap
+ *  and stretches the bubble past the screen edge; native Text already
+ *  breaks anywhere. */
+function AnnouncementText({ text }: { text: string }) {
+  const parts = text.split(URL_RE);
+  return (
+    <Text
+      className="text-[12.5px] leading-snug text-text-light dark:text-text-dark"
+      style={isWeb ? ({ wordBreak: 'break-word' } as object) : undefined}
+    >
+      {/* Not URL_RE.test(): /g regexes are stateful (lastIndex) and
+          alternate results across calls. */}
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <Text
+            key={i}
+            className="font-semibold text-brand-500 underline"
+            style={isWeb ? ({ wordBreak: 'break-all' } as object) : undefined}
+            onPress={() => void Linking.openURL(part).catch(() => {})}
+            accessibilityRole="link"
+          >
+            {part}
+          </Text>
+        ) : (
+          part
+        ),
+      )}
+    </Text>
+  );
 }
 
 /** Delivery ticks on own messages: one ✓ = sent, two = read. The read
@@ -141,12 +178,32 @@ export function MessageBubble({
   }, [onReply, message, dragX]);
 
   if (message.type === 'system') {
+    const text = message.text ?? '';
+    // Two very different kinds of system message share one type: terse
+    // status lines ("X joined the event") and the multi-line event-info
+    // card the ingest posts (title, venue, description, ticket link).
+    // The uppercase mono pill is right for the first and unreadable for
+    // the second — long text spilled past the rounded edges and the
+    // unbreakable ticket URL blew out the bubble width entirely.
+    const isAnnouncement = text.includes('\n') || text.length > 90;
+    if (!isAnnouncement) {
+      return (
+        <View className="my-1.5 items-center px-6">
+          <View className="rounded-full bg-accent-400/10 px-3 py-1">
+            <Text className="font-mono text-[10px] uppercase tracking-wider text-accent-400">
+              {text}
+            </Text>
+          </View>
+        </View>
+      );
+    }
     return (
-      <View className="my-1.5 items-center px-6">
-        <View className="rounded-full bg-accent-400/10 px-3 py-1">
-          <Text className="font-mono text-[10px] uppercase tracking-wider text-accent-400">
-            {message.text}
-          </Text>
+      <View className="my-1.5 items-center px-4">
+        <View
+          className="w-full rounded-2xl bg-accent-400/10 px-4 py-3"
+          style={{ maxWidth: 520 }}
+        >
+          <AnnouncementText text={text} />
         </View>
       </View>
     );

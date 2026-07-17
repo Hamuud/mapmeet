@@ -141,12 +141,38 @@ async function resolve(query: string, want: Exclude<Precision, 'none'>): Promise
   return value;
 }
 
+/** Great-circle distance in km (haversine). */
+function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLng = (bLng - aLng) * rad;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(s));
+}
+
+/** A venue hit further than this from its claimed city's centroid is a
+ *  wrong-city match, not a far-flung suburb — the largest Ukrainian
+ *  metros span ~25 km. */
+const CITY_MATCH_KM = 30;
+
 /** Best-effort coordinates for one event's venue.
  *
- *  Tries the full street address (→ 'venue'), then the city alone
- *  (→ 'city', map-suppressed). Returns null when neither resolves, in
- *  which case the caller skips the event entirely: with no coordinates
- *  it can't be placed on the map OR answered for in Nearby. */
+ *  Tries the full street address (→ 'venue'), then venue name + city,
+ *  then the city alone (→ 'city', map-suppressed). Returns null when
+ *  nothing resolves, in which case the caller skips the event entirely:
+ *  with no coordinates it can't be placed on the map OR answered for in
+ *  Nearby.
+ *
+ *  CITY CONSISTENCY CHECK: street and venue names repeat across cities
+ *  (every second town has a вул. Сагайдачного and a стадіон «Локомотив»),
+ *  and when the right one isn't mapped Nominatim returns another city's
+ *  match — which once pinned a Kovel concert 200 km away in Ternopil.
+ *  So the city centroid is resolved FIRST and every venue-level hit must
+ *  land within CITY_MATCH_KM of it, or it's rejected and the chain moves
+ *  on. This also neutralises poisoned cache entries: the bad hit stays
+ *  cached, but it can never be trusted for a different city again. */
 export async function geocodeVenue(input: {
   streetAddress: string | null;
   venueName: string;
@@ -155,22 +181,29 @@ export async function geocodeVenue(input: {
 }): Promise<GeoResult> {
   const { streetAddress, venueName, city, country } = input;
 
+  const cityHit = city ? await resolve(`${city}, ${country}`, 'city') : null;
+
+  const trusted = (hit: GeoResult): hit is NonNullable<GeoResult> => {
+    if (!hit) return false;
+    if (!cityHit) return true; // no claimed city — nothing to check against
+    return (
+      distanceKm(hit.latitude, hit.longitude, cityHit.latitude, cityHit.longitude) <=
+      CITY_MATCH_KM
+    );
+  };
+
   if (streetAddress) {
     const hit = await resolve(streetAddress, 'venue');
-    if (hit?.precision === 'venue') return hit;
+    if (hit?.precision === 'venue' && trusted(hit)) return hit;
   }
 
   // Named venues are often mapped as POIs even when the street line is
   // messy ("Палац культури «ТИТАН»" resolves where the address doesn't).
   if (venueName && city) {
     const hit = await resolve(`${venueName}, ${city}, ${country}`, 'venue');
-    if (hit?.precision === 'venue') return hit;
+    if (hit?.precision === 'venue' && trusted(hit)) return hit;
   }
 
-  if (city) {
-    const hit = await resolve(`${city}, ${country}`, 'city');
-    if (hit) return { ...hit, precision: 'city' };
-  }
-
+  if (cityHit) return { ...cityHit, precision: 'city' };
   return null;
 }
