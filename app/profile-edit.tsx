@@ -48,6 +48,11 @@ export default function ProfileEditScreen() {
   // same number the request was made with, so we snapshot it here in
   // case the user edits the field between "Send code" and "Verify".
   const [otpPhone, setOtpPhone] = useState('');
+  // "Change phone number" mode: re-opens the editable input while the
+  // account still has a verified number. Safe to cancel at any point —
+  // Supabase's phone_change flow keeps the old number verified until
+  // the OTP for the new one is confirmed.
+  const [changingNumber, setChangingNumber] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -95,6 +100,12 @@ export default function ProfileEditScreen() {
       toast.show('Enter the number in E.164 form, e.g. +15551234567.', 'error');
       return;
     }
+    // Change mode pre-fills the current number — don't burn an SMS
+    // re-verifying a number that's already confirmed on the account.
+    if (authPhoneConfirmed && trimmed === authPhone) {
+      toast.show('This is already your verified number.', 'info');
+      return;
+    }
     setSendingOtp(true);
     try {
       await authService.requestPhoneOtp(trimmed);
@@ -128,6 +139,8 @@ export default function ProfileEditScreen() {
         phone: otpPhone,
       });
       setProfile(updated);
+      setPhone(otpPhone);
+      setChangingNumber(false);
       setOtpOpen(false);
       setOtpCode('');
       toast.show('Phone verified.', 'success');
@@ -230,43 +243,41 @@ export default function ProfileEditScreen() {
               - Unverified: input is editable, Verify chip on the right
                 fires the OTP flow. If the user edits the field so it no
                 longer matches `auth.users.phone`, they land back here.
-              - Verified: input is read-only, a full-width green
-                "Verified" pill replaces the Verify chip, and a
-                "Change the number" affordance sits below. Tapping the
-                affordance shows a toast — number-change lands in a
-                follow-up because it needs a re-verify + delete path
-                on the auth side. */}
+              - Verified: the field renders read-only with a green tick
+                where the Verify chip used to be, and a small
+                "Change phone number" link below re-opens the editable
+                input. Supabase's phone_change flow makes this safe:
+                the old number stays verified until the OTP for the new
+                one is confirmed, so cancelling loses nothing. */}
           <View>
             <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
               Phone
             </Text>
-            {isVerified ? (
+            {isVerified && !changingNumber ? (
               <>
-                <View className="h-11 flex-row items-center rounded-xl border border-border-light bg-elevated-light px-4 dark:border-border-dark dark:bg-elevated-dark">
+                <View className="h-11 flex-row items-center justify-between rounded-xl border border-green-600/40 bg-green-600/10 px-4">
                   <Text className="text-[15px] text-text-light dark:text-text-dark">
                     {phone}
                   </Text>
-                </View>
-                <View className="mt-2">
-                  <View className="h-11 flex-row items-center justify-center gap-1.5 rounded-xl border border-green-600/40 bg-green-600/10">
-                    <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
-                    <Text className="text-sm font-semibold text-green-700">
+                  <View
+                    className="flex-row items-center gap-1"
+                    accessibilityLabel="Phone number verified"
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+                    <Text className="text-xs font-semibold text-green-700">
                       Verified
                     </Text>
                   </View>
                 </View>
                 <Pressable
-                  onPress={() =>
-                    toast.show(
-                      'Changing the phone number is not available in the current version.',
-                      'info',
-                    )
-                  }
-                  className="mt-2 self-start"
+                  onPress={() => setChangingNumber(true)}
+                  className="mt-1.5 self-start"
                   hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change phone number"
                 >
                   <Text className="text-xs font-semibold text-brand-500 underline">
-                    Change the number
+                    Change phone number
                   </Text>
                 </Pressable>
               </>
@@ -308,6 +319,24 @@ export default function ProfileEditScreen() {
                   Include country code (e.g. +1 for US, +380 for UA). We
                   text a 6-digit code to confirm the number.
                 </Text>
+                {changingNumber ? (
+                  // Bail-out for change mode: nothing was lost — the
+                  // current number stays verified until a new OTP is
+                  // confirmed.
+                  <Pressable
+                    onPress={() => {
+                      setChangingNumber(false);
+                      setPhone(authPhone);
+                    }}
+                    className="mt-1.5 self-start"
+                    hitSlop={6}
+                    accessibilityRole="button"
+                  >
+                    <Text className="text-xs font-semibold text-muted-light underline dark:text-muted-dark">
+                      Keep current number
+                    </Text>
+                  </Pressable>
+                ) : null}
               </>
             )}
           </View>
