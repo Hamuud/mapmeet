@@ -13,7 +13,14 @@ type Props = {
 export function EmptyState({ emoji, title, description, actionLabel, onAction }: Props) {
   return (
     <View className="flex-1 items-center justify-center px-8">
-      {emoji ? <Text className="mb-3 text-5xl">{emoji}</Text> : null}
+      {/* Explicit lineHeight > fontSize: Tailwind's text-5xl sets a
+          48/48 line box and iOS Text clips glyph ink above it — emoji
+          draw taller than the em box, so 📍 etc. lost their tops. */}
+      {emoji ? (
+        <Text className="mb-3" style={{ fontSize: 48, lineHeight: 62 }}>
+          {emoji}
+        </Text>
+      ) : null}
       <Text className="text-center text-lg font-semibold text-text-light dark:text-text-dark">
         {title}
       </Text>
