@@ -39,6 +39,24 @@ function timeLabel(iso: string): string {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+/** Delivery ticks on own messages: one ✓ = sent, two = read. The read
+ *  pair overlaps (second check pulled left) like Telegram/WhatsApp
+ *  instead of sitting side by side as two separate characters. */
+function Ticks({ read }: { read: boolean }) {
+  const cls = read
+    ? 'text-[11px] font-semibold text-brand-300'
+    : 'text-[11px] text-surface-light/60 dark:text-surface-dark/60';
+  if (!read) return <Text className={cls}>✓</Text>;
+  return (
+    <View className="flex-row">
+      <Text className={cls}>✓</Text>
+      <Text className={cls} style={{ marginLeft: -5.5 }}>
+        ✓
+      </Text>
+    </View>
+  );
+}
+
 /** One-line summary of a message for the reply quote. */
 function snippet(m: MessageWithSender): string {
   switch (m.type) {
@@ -263,17 +281,7 @@ export function MessageBubble({
           >
             {timeLabel(message.created_at)}
           </Text>
-          {isOwn ? (
-            <Text
-              className={
-                read
-                  ? 'text-[11px] font-semibold text-brand-300'
-                  : 'text-[11px] text-surface-light/60 dark:text-surface-dark/60'
-              }
-            >
-              {read ? '✓✓' : '✓'}
-            </Text>
-          ) : null}
+          {isOwn ? <Ticks read={read} /> : null}
         </View>
       </Pressable>
 
