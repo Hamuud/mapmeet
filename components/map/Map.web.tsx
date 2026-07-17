@@ -279,6 +279,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     onMarkerPress,
     onClusterTap,
     onPickLocation,
+    onRegionChange,
   },
   ref,
 ) {
@@ -299,6 +300,8 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   pickModeRef.current = !!pickMode;
   const eventsRef = useRef(events);
   eventsRef.current = events;
+  const onRegionChangeRef = useRef(onRegionChange);
+  onRegionChangeRef.current = onRegionChange;
 
   useImperativeHandle(
     ref,
@@ -374,6 +377,21 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         installCustomLayers(map, eventsRef.current);
       }
     });
+
+    // Viewport → imported-event fetch. `moveend` covers pan, zoom and
+    // flyTo alike; `load` seeds the first region so events show without
+    // the user having to touch the map.
+    const emitBounds = () => {
+      const b = map.getBounds();
+      onRegionChangeRef.current?.({
+        minLat: b.getSouth(),
+        maxLat: b.getNorth(),
+        minLng: b.getWest(),
+        maxLng: b.getEast(),
+      });
+    };
+    map.on('load', emitBounds);
+    map.on('moveend', emitBounds);
 
     // Long-press + pickMode click handling -------------------------------
     let pressTimer: ReturnType<typeof setTimeout> | null = null;

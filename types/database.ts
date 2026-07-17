@@ -55,6 +55,18 @@ export type Database = {
           visibility: 'public' | 'private';
           tags: string[];
           archive_warned: boolean;
+          /** 'user' = pinned in the app; anything else = imported by the
+           *  ingest Edge Function from that source ('karabas', …). */
+          source: string;
+          /** External id (canonical URL) for imported events; null for user ones. */
+          source_id: string | null;
+          /** Ticket / event page link on the source site. */
+          source_url: string | null;
+          /** Poster image published by the source. */
+          image_url: string | null;
+          /** How precisely the venue resolved. 'city' events are kept off
+           *  the map (a centroid pin would lie) but stay in Nearby. */
+          geo_precision: 'venue' | 'city' | null;
           created_at: string;
           updated_at: string;
         };

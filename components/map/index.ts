@@ -3,4 +3,4 @@
 export { Map } from './Map';
 export { MapMarker } from './MapMarker';
 export { MapStyleSwitcher } from './MapStyleSwitcher';
-export type { MapProps, MapRef, MapStyle } from './Map.types';
+export type { MapBounds, MapProps, MapRef, MapStyle } from './Map.types';

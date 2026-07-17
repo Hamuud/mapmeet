@@ -46,6 +46,7 @@ function MyEventsBody() {
   const { coords, status: locStatus, request: requestLocation } = useLocation();
   const events = useEventsStore((s) => s.events);
   const removeEvent = useEventsStore((s) => s.removeEvent);
+  const syncViewport = useEventsStore((s) => s.syncViewport);
   const [tab, setTab] = useState<Tab>('created');
   const [radius, setRadius] = useState<Radius>(5);
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
@@ -59,6 +60,26 @@ function MyEventsBody() {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Imported events live in the store per-viewport, which the map fills
+  // in. Nearby has to work on its own too (open the app → Events →
+  // Nearby, never touching the map), so it loads the box around the
+  // chosen radius itself. 1° lat ≈ 111 km; longitude degrees shrink
+  // toward the poles, hence the cos(lat) correction.
+  useEffect(() => {
+    if (tab !== 'nearby' || !coords) return;
+    const dLat = radius / 111;
+    const dLng = radius / (111 * Math.max(0.01, Math.cos((coords.latitude * Math.PI) / 180)));
+    void syncViewport(
+      {
+        minLat: coords.latitude - dLat,
+        maxLat: coords.latitude + dLat,
+        minLng: coords.longitude - dLng,
+        maxLng: coords.longitude + dLng,
+      },
+      profile?.id ?? null,
+    );
+  }, [tab, coords, radius, syncViewport, profile?.id]);
 
   const valid = useMemo(
     () => events.filter((e): e is EventWithCreator => !!e && !!e.id),

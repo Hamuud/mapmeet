@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Map, MapStyleSwitcher, type MapRef, type MapStyle } from '@/components/map';
+import {
+  Map,
+  MapStyleSwitcher,
+  type MapBounds,
+  type MapRef,
+  type MapStyle,
+} from '@/components/map';
 import { FilterBar } from '@/components/events/FilterBar';
 import { SearchBar } from '@/components/events/SearchBar';
 import { ClusterPickerSheet } from '@/features/events/ClusterPickerSheet';
@@ -96,9 +102,58 @@ export default function MapScreen() {
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
 
   const visibleEvents = useMemo(
-    () => filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm }),
+    () =>
+      filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm })
+        // Imported events whose exact venue never resolved only carry
+        // their city's centroid. Pinning them would point people at a
+        // town square that has nothing to do with the gig — they live in
+        // Events → Nearby instead, with the venue text the source gave.
+        .filter((e) => e.geo_precision !== 'city'),
     [events, viewerId, filter, query, coords, nearbyRadiusKm],
   );
+
+  // Imported events load for the region on screen, not the whole
+  // country. Debounced so a pan fires one request when it settles, and
+  // skipped in pickMode (the camera is being used to place a pin).
+  const syncViewport = useEventsStore((s) => s.syncViewport);
+  const viewportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRegionChange = useCallback(
+    (bounds: MapBounds) => {
+      if (viewportTimer.current) clearTimeout(viewportTimer.current);
+      viewportTimer.current = setTimeout(() => {
+        void syncViewport(bounds, viewerId);
+      }, 400);
+    },
+    [syncViewport, viewerId],
+  );
+  useEffect(
+    () => () => {
+      if (viewportTimer.current) clearTimeout(viewportTimer.current);
+    },
+    [],
+  );
+
+  // Seed the first fetch from the initial camera rather than waiting for
+  // the user to pan: the web map emits bounds on `load`, but native's
+  // onRegionChangeComplete isn't guaranteed to fire before the first
+  // interaction. Runs once per center — syncViewport is idempotent, so
+  // overlapping with the first real region change is harmless.
+  const seededCenter = useRef<string | null>(null);
+  useEffect(() => {
+    const center = coords ?? DEMO_CENTER;
+    const key = `${center.latitude.toFixed(3)},${center.longitude.toFixed(3)}`;
+    if (seededCenter.current === key) return;
+    seededCenter.current = key;
+    void syncViewport(
+      {
+        minLat: center.latitude - 0.25,
+        maxLat: center.latitude + 0.25,
+        minLng: center.longitude - 0.25,
+        maxLng: center.longitude + 0.25,
+      },
+      viewerId,
+    );
+  }, [coords, syncViewport, viewerId]);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
@@ -155,6 +210,7 @@ export default function MapScreen() {
           setClusterEvents(list);
         }}
         onPickLocation={handlePickLocation}
+        onRegionChange={handleRegionChange}
       />
 
       {/* Desktop left rail — either the events list (default) or the

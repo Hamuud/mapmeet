@@ -29,5 +29,6 @@
     "expo-env.d.ts",
     "nativewind-env.d.ts"
   ],
-  "exclude": ["node_modules"]
+  "//exclude": "supabase/functions runs on Deno (its own globals + URL imports), not the RN/Expo runtime this config describes — type-checking it here only produced phantom 'Cannot find name Deno' errors. Deploys type-check it via the Supabase CLI.",
+  "exclude": ["node_modules", "supabase/functions"]
 }

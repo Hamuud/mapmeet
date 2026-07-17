@@ -1,4 +1,11 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
@@ -39,6 +46,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     onMarkerPress,
     onClusterTap,
     onPickLocation,
+    onRegionChange,
   },
   ref,
 ) {
@@ -47,6 +55,21 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     ...initialCenter,
     ...DEFAULT_DELTA,
   });
+
+  const onRegionChangeRef = useRef(onRegionChange);
+  onRegionChangeRef.current = onRegionChange;
+
+  /** Region → plain bounds for the viewport fetch. The deltas are the
+   *  full span, so half of each reaches from the centre to an edge. */
+  const handleRegionChangeComplete = useCallback((next: Region) => {
+    setRegion(next);
+    onRegionChangeRef.current?.({
+      minLat: next.latitude - next.latitudeDelta / 2,
+      maxLat: next.latitude + next.latitudeDelta / 2,
+      minLng: next.longitude - next.longitudeDelta / 2,
+      maxLng: next.longitude + next.longitudeDelta / 2,
+    });
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -92,7 +115,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       showsMyLocationButton={false}
       showsCompass={false}
       toolbarEnabled={false}
-      onRegionChangeComplete={setRegion}
+      onRegionChangeComplete={handleRegionChangeComplete}
       onLongPress={(e: LongPressEvent) => {
         const { latitude, longitude } = e.nativeEvent.coordinate;
         onPickLocation?.({ latitude, longitude });

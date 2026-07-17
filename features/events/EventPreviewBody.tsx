@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Linking, Text, View } from 'react-native';
 
 import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -61,6 +61,13 @@ export function EventPreviewBody({
   const [loadingAttendees, setLoadingAttendees] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
+  // Imported from a ticketing site (karabas.com etc.) rather than pinned
+  // by a person: it gets a tickets link and a poster, and no "view the
+  // host's profile" (the host is an import bot, not someone to meet).
+  const isImported = event.source !== 'user';
+  // City-precision imports have no real marker — routing to a city
+  // centroid would send people to the wrong place, so no Directions.
+  const hasExactLocation = event.geo_precision !== 'city';
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +161,16 @@ export function EventPreviewBody({
 
   return (
     <View className="gap-3">
+      {/* Poster — imported events ship one; user events don't (yet). */}
+      {event.image_url ? (
+        <Image
+          source={{ uri: event.image_url }}
+          style={{ width: '100%', height: 132, borderRadius: 16 }}
+          resizeMode="cover"
+          accessibilityLabel={`${event.title} poster`}
+        />
+      ) : null}
+
       {/* Emoji tile + info column */}
       <View className="flex-row items-center gap-3">
         <View className="h-14 w-14 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">
@@ -222,12 +239,26 @@ export function EventPreviewBody({
       {/* Primary actions */}
       <View className="flex-row gap-2">
         <View className="flex-1">
-          <PrimaryButton
-            label="Directions"
-            variant="secondary"
-            onPress={() => onDirections?.(event)}
-            fullWidth
-          />
+          {hasExactLocation ? (
+            <PrimaryButton
+              label="Directions"
+              variant="secondary"
+              onPress={() => onDirections?.(event)}
+              fullWidth
+            />
+          ) : (
+            // We only know the city, so we say so instead of routing
+            // people to a centroid and pretending it's the venue.
+            <View className="h-11 flex-row items-center justify-center gap-2 rounded-xl border border-border-light bg-elevated-light px-2 dark:border-border-dark dark:bg-elevated-dark">
+              <Ionicons name="information-circle-outline" size={13} color="#8B8880" />
+              <Text
+                className="text-xs font-semibold text-muted-light"
+                numberOfLines={1}
+              >
+                See venue above
+              </Text>
+            </View>
+          )}
         </View>
         <View style={{ flex: 1.2 }}>
           {isCreator ? (
@@ -266,6 +297,24 @@ export function EventPreviewBody({
         </View>
       </View>
 
+      {/* Tickets — imported events link straight back to the source. */}
+      {isImported && event.source_url ? (
+        <PrimaryButton
+          label="Get tickets"
+          variant="secondary"
+          size="sm"
+          leftIcon={<Ionicons name="ticket-outline" size={13} color="#4B5FE0" />}
+          onPress={() => {
+            const url = event.source_url;
+            if (!url) return;
+            void Linking.openURL(url).catch(() =>
+              toast.show('Could not open the ticket page.', 'error'),
+            );
+          }}
+          fullWidth
+        />
+      ) : null}
+
       {/* Open chat — members (host or joined) get a straight path into
           the event's group chat from the pin itself. */}
       {onOpenChat && (isCreator || event.is_joined) ? (
@@ -282,8 +331,9 @@ export function EventPreviewBody({
       ) : null}
 
       {/* View host — hidden when this IS the host to avoid pointing
-          users at their own profile from their own event. */}
-      {onViewHost && !isCreator ? (
+          users at their own profile from their own event, and for
+          imported events (the "host" is an import bot). */}
+      {onViewHost && !isCreator && !isImported ? (
         <PrimaryButton
           label={`View ${event.creator.display_name.split(/\s+/)[0]}'s profile`}
           variant="secondary"

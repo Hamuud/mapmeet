@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
-import { eventsService } from '@/services/events.service';
+import { eventsService, type Bbox } from '@/services/events.service';
 import { supabase } from '@/services/supabase';
 import type { EventWithCreator } from '@/types';
 
@@ -18,10 +18,20 @@ type EventsState = {
    *  doesn't re-focus. */
   focusedEventId: string | null;
 
+  /** Sticky set: events pinned in the app + imported events the viewer
+   *  joined. Loaded once, kept regardless of where the map points. */
+  _base: EventWithCreator[];
+  /** Transient set: imported events for the region currently on screen.
+   *  Replaced wholesale on every viewport change. */
+  _viewport: EventWithCreator[];
+
   _channel: RealtimeChannel | null;
   _viewerId: string | null;
 
   fetch: (viewerId: string | null) => Promise<void>;
+  /** Load imported events for a visible region. Cheap to call often —
+   *  the map debounces it. */
+  syncViewport: (bbox: Bbox, viewerId: string | null) => Promise<void>;
   subscribe: (viewerId: string | null) => () => void;
 
   upsertEvent: (event: EventWithCreator) => void;
@@ -33,25 +43,53 @@ type EventsState = {
   reset: () => void;
 };
 
+/** Flatten the two sets into what the UI reads. Base wins on conflict:
+ *  it carries the viewer's own membership state. */
+function merge(
+  base: EventWithCreator[],
+  viewport: EventWithCreator[],
+): EventWithCreator[] {
+  const byId = new Map<string, EventWithCreator>();
+  for (const e of viewport) byId.set(e.id, e);
+  for (const e of base) byId.set(e.id, e);
+  return [...byId.values()];
+}
+
 export const useEventsStore = create<EventsState>((set, get) => ({
   events: [],
   status: 'idle',
   error: null,
   selectedEventId: null,
   focusedEventId: null,
+  _base: [],
+  _viewport: [],
   _channel: null,
   _viewerId: null,
 
   fetch: async (viewerId) => {
     set({ status: 'loading', error: null, _viewerId: viewerId });
     try {
-      const events = await eventsService.list(viewerId);
-      set({ events, status: 'ready' });
+      const [mine, joinedExternal] = await Promise.all([
+        eventsService.list(viewerId),
+        viewerId ? eventsService.listJoinedExternal(viewerId) : Promise.resolve([]),
+      ]);
+      const base = merge(mine, joinedExternal);
+      set({ _base: base, events: merge(base, get()._viewport), status: 'ready' });
     } catch (e) {
       set({
         status: 'error',
         error: e instanceof Error ? e.message : 'Failed to load events.',
       });
+    }
+  },
+
+  syncViewport: async (bbox, viewerId) => {
+    try {
+      const viewport = await eventsService.listExternalInBbox(viewerId, bbox);
+      set({ _viewport: viewport, events: merge(get()._base, viewport) });
+    } catch {
+      // A failed viewport fetch (offline, flaky pan) must not blank the
+      // map — keep whatever is already on screen.
     }
   },
 
@@ -71,7 +109,15 @@ export const useEventsStore = create<EventsState>((set, get) => ({
             get().removeEvent((payload.old as { id: string }).id);
             return;
           }
-          const row = payload.new as { id: string };
+          const row = payload.new as { id: string; source?: string };
+          // The weekly ingest inserts hundreds of imported events at
+          // once. Realtime would push every one of them into every
+          // client, undoing the whole point of loading by viewport — so
+          // only accept imported rows we already track.
+          const isExternal = !!row.source && row.source !== 'user';
+          const known = get().events.some((e) => e.id === row.id);
+          if (isExternal && !known) return;
+
           const enriched = await eventsService.getById(row.id, viewerId);
           if (enriched) get().upsertEvent(enriched);
         },
@@ -130,26 +176,51 @@ export const useEventsStore = create<EventsState>((set, get) => ({
 
   upsertEvent: (event) =>
     set((state) => {
-      const idx = state.events.findIndex((e) => e.id === event.id);
-      if (idx === -1) return { events: [...state.events, event] };
-      const next = state.events.slice();
-      next[idx] = event;
-      return { events: next };
+      // Update in place wherever it already lives; new events join the
+      // sticky set (user events) or stay transient (imported).
+      const inViewport = state._viewport.some((e) => e.id === event.id);
+      if (inViewport) {
+        const viewport = state._viewport.map((e) => (e.id === event.id ? event : e));
+        return { _viewport: viewport, events: merge(state._base, viewport) };
+      }
+      const idx = state._base.findIndex((e) => e.id === event.id);
+      const base =
+        idx === -1
+          ? [...state._base, event]
+          : state._base.map((e) => (e.id === event.id ? event : e));
+      return { _base: base, events: merge(base, state._viewport) };
     }),
 
   removeEvent: (id) =>
-    set((state) => ({
-      events: state.events.filter((e) => e.id !== id),
-      selectedEventId: state.selectedEventId === id ? null : state.selectedEventId,
-    })),
+    set((state) => {
+      const base = state._base.filter((e) => e.id !== id);
+      const viewport = state._viewport.filter((e) => e.id !== id);
+      return {
+        _base: base,
+        _viewport: viewport,
+        events: merge(base, viewport),
+        selectedEventId: state.selectedEventId === id ? null : state.selectedEventId,
+      };
+    }),
 
   patchEvent: (id, patch) =>
     set((state) => {
-      const idx = state.events.findIndex((e) => e.id === id);
-      if (idx === -1) return state;
-      const next = state.events.slice();
-      next[idx] = { ...next[idx]!, ...patch };
-      return { events: next };
+      const apply = (list: EventWithCreator[]) =>
+        list.map((e) => (e.id === id ? { ...e, ...patch } : e));
+
+      // Joining an imported event promotes it out of the transient set:
+      // once you're in, it has to survive panning away (it's your chat
+      // and your My Events row now).
+      const viewportHit = state._viewport.find((e) => e.id === id);
+      if (patch.is_joined === true && viewportHit) {
+        const base = [...state._base, { ...viewportHit, ...patch }];
+        const viewport = state._viewport.filter((e) => e.id !== id);
+        return { _base: base, _viewport: viewport, events: merge(base, viewport) };
+      }
+
+      const base = apply(state._base);
+      const viewport = apply(state._viewport);
+      return { _base: base, _viewport: viewport, events: merge(base, viewport) };
     }),
 
   selectEvent: (id) => set({ selectedEventId: id }),
@@ -160,6 +231,8 @@ export const useEventsStore = create<EventsState>((set, get) => ({
     if (ch) supabase.removeChannel(ch);
     set({
       events: [],
+      _base: [],
+      _viewport: [],
       status: 'idle',
       error: null,
       selectedEventId: null,
