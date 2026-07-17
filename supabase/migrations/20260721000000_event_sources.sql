@@ -119,9 +119,16 @@ security definer
 set search_path = public, auth
 as $$
 declare
-  -- v5 = deterministic from the source id: same input, same uuid, so
-  -- this function is idempotent without storing state.
-  v_id uuid := uuid_generate_v5(uuid_ns_url(), 'mapmeet:source:' || p_source_id);
+  -- Deterministic id derived from the source name: same input, same
+  -- uuid, so this is idempotent without storing state.
+  --
+  -- md5()::uuid, not uuid_generate_v5(): uuid-ossp lives in the
+  -- `extensions` schema on Supabase, and this function pins a narrow
+  -- search_path on purpose (it is SECURITY DEFINER). md5() is core
+  -- Postgres and its 32-hex output casts straight to uuid. We only need
+  -- a stable id here, not a spec-compliant v5 — nothing reads the
+  -- version nibble.
+  v_id uuid := md5('mapmeet:source:' || p_source_id)::uuid;
 begin
   insert into auth.users (
     id, instance_id, aud, role, email,
