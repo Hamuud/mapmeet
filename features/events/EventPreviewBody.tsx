@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Image, Linking, Text, View } from 'react-native';
+import {
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -218,14 +226,11 @@ export function EventPreviewBody({
         </View>
       ) : null}
 
-      {/* Description */}
+      {/* Description — clamped with a More/Less toggle. Imported events
+          carry long blurbs + a poster; at full length they pushed the
+          action buttons under the tab bar, unclickable. */}
       {event.description?.trim() ? (
-        <Text
-          className="text-sm leading-snug text-text-light dark:text-text-dark"
-          numberOfLines={6}
-        >
-          {event.description}
-        </Text>
+        <DescriptionBlock text={event.description.trim()} />
       ) : null}
 
       {/* Attendees */}
@@ -370,6 +375,67 @@ export function EventPreviewBody({
             />
           </View>
         </View>
+      ) : null}
+    </View>
+  );
+}
+
+const DESC_PREVIEW_LINES = 3;
+/** Below this length three lines almost never truncate — hide the toggle
+ *  instead of dangling a "More" that expands nothing. */
+const DESC_TOGGLE_MIN_CHARS = 140;
+
+/** Event description with a More/Less toggle.
+ *
+ *  Collapsed: 3 lines, so the peek stays short and the action buttons
+ *  dock above the tab bar even with a poster. Expanded: the full text,
+ *  growing the sheet (autoHeight re-measures) — but capped at ~30% of
+ *  the viewport and scrollable inside that cap, so on small phones the
+ *  longest description still can't shove the buttons off screen. */
+function DescriptionBlock({ text }: { text: string }) {
+  const { height: winHeight } = useWindowDimensions();
+  const [expanded, setExpanded] = useState(false);
+  const toggleable = text.length > DESC_TOGGLE_MIN_CHARS || text.includes('\n');
+
+  const body = (
+    <Text
+      className="text-sm leading-snug text-text-light dark:text-text-dark"
+      numberOfLines={expanded ? undefined : DESC_PREVIEW_LINES}
+    >
+      {text}
+    </Text>
+  );
+
+  return (
+    <View className="gap-1">
+      {expanded ? (
+        <ScrollView
+          style={{ maxHeight: Math.round(winHeight * 0.3) }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {body}
+        </ScrollView>
+      ) : (
+        body
+      )}
+      {toggleable ? (
+        <Pressable
+          onPress={() => setExpanded((v) => !v)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Collapse description' : 'Expand description'}
+          className="flex-row items-center gap-1 self-start"
+        >
+          <Text className="text-[13px] font-semibold text-brand-500">
+            {expanded ? 'Less' : 'More'}
+          </Text>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={12}
+            color="#4B5FE0"
+          />
+        </Pressable>
       ) : null}
     </View>
   );

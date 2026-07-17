@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { useToast } from '@/components/ui/Toast';
-import { useAuth } from '@/hooks/useAuth';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import type { EventWithCreator, LatLng } from '@/types';
@@ -32,12 +31,14 @@ export function EventPreviewSheet({
   onOpenChat,
 }: Props) {
   const toast = useToast();
-  const { session } = useAuth();
   const removeEvent = useEventsStore((s) => s.removeEvent);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const isCreator = !!(event && session && event.creator_id === session.user.id);
-  const heightPct = isCreator ? 0.58 : 0.5;
+  // Max height only — autoHeight shrinks the sheet to its content, so
+  // short peeks still hug the buttons above the tab bar. The old 0.5/
+  // 0.58 caps predate posters + imported-event blurbs and clipped the
+  // action buttons under the tab bar whenever both were present.
+  const heightPct = 0.85;
 
   const handleDelete = async () => {
     if (!event) return;

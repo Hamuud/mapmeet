@@ -300,7 +300,9 @@ export default function ChatRoomScreen() {
 
       {/* Pinned event expanded — full details incl. venue text.
           Directions opens the same maps-app chooser the map uses. */}
-      <BottomSheet open={eventOpen} onClose={() => setEventOpen(false)} heightPct={0.7} autoHeight>
+      {/* 0.85 cap matches EventPreviewSheet — room for poster + expanded
+          description without clipping the buttons. */}
+      <BottomSheet open={eventOpen} onClose={() => setEventOpen(false)} heightPct={0.85} autoHeight>
         {event ? (
           <EventPreviewBody
             event={event}
