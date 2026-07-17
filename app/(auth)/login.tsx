@@ -56,6 +56,7 @@ export default function LoginScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 24 }}
         >
           {/* Back arrow — for symmetry with the redesign, even though the

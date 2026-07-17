@@ -96,7 +96,14 @@ export default function ChatRoomScreen() {
       if (!rec) return;
       const replyTo = replyingTo?.id ?? null;
       setReplyingTo(null);
-      await messagesService.sendVoice(eventId, viewerId, rec.uri, rec.durationMs, replyTo);
+      await messagesService.sendVoice(
+        eventId,
+        viewerId,
+        rec.uri,
+        rec.durationMs,
+        replyTo,
+        rec.waveform,
+      );
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
     }

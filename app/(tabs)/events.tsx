@@ -226,6 +226,7 @@ function MyEventsBody() {
         <FlatList
           data={nearby}
           keyExtractor={({ event }) => event.id}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 20, gap: 12, flexGrow: 1 }}
           ListEmptyComponent={
             !coords ? (
@@ -273,6 +274,7 @@ function MyEventsBody() {
             tab === 'created' ? created : tab === 'joined' ? joined : past
           }
           keyExtractor={(e) => e.id}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 20, gap: 12, flexGrow: 1 }}
           ListEmptyComponent={
             <EmptyState

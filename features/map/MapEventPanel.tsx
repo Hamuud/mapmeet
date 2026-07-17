@@ -17,6 +17,7 @@ type Props = {
   onEdit?: (event: EventWithCreator) => void;
   onDirections?: (event: EventWithCreator) => void;
   onViewHost?: (event: EventWithCreator) => void;
+  onOpenChat?: (event: EventWithCreator) => void;
 };
 
 /** Desktop-only replacement for the MapSidebar when a pin is picked.
@@ -31,6 +32,7 @@ export function MapEventPanel({
   onEdit,
   onDirections,
   onViewHost,
+  onOpenChat,
 }: Props) {
   const toast = useToast();
   const iconColor = useIconColor();
@@ -82,6 +84,7 @@ export function MapEventPanel({
             onDirections={onDirections}
             onDelete={() => setConfirmDelete(true)}
             onViewHost={onViewHost}
+            onOpenChat={onOpenChat}
           />
         </ScrollView>
       </View>

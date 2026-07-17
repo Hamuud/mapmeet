@@ -1,6 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { useIconColor } from '@/hooks/useIconColor';
 import type { MessageWithSender } from '@/types';
@@ -140,6 +147,21 @@ export function MessageInput({
               placeholder="Message the group…"
               placeholderTextColor="#8B8880"
               multiline
+              // Desktop web: Enter sends, Shift+Enter makes a newline —
+              // same contract as Telegram/Slack. RN-web fires onKeyPress
+              // from keydown, so preventDefault stops the newline from
+              // landing in the textarea before we send.
+              onKeyPress={(e) => {
+                if (Platform.OS !== 'web') return;
+                const key = e.nativeEvent as unknown as {
+                  key: string;
+                  shiftKey?: boolean;
+                };
+                if (key.key === 'Enter' && !key.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
               className="text-[15px] text-text-light outline-none dark:text-text-dark"
               style={{ maxHeight: 96 }}
             />

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,8 +10,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
+import { ratingsService } from '@/services/ratings.service';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
+import { formatRating } from '@/utils/rating';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
 import type { EventWithCreator } from '@/types';
 
@@ -27,6 +29,25 @@ export default function YouScreen() {
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
   const [tab, setTab] = useState<Tab>('hosting');
+
+  // Taxi-style rating — starts at 5.00, moved by likes/dislikes from
+  // other users (they vote on your public profile page).
+  const [rating, setRating] = useState<string | null>(null);
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    ratingsService
+      .getSummary(profile.id)
+      .then((s) => {
+        if (!cancelled) setRating(formatRating(s.likes, s.dislikes));
+      })
+      .catch(() => {
+        /* rating hidden until the migration lands — non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile]);
 
   const { hostingCount, attendingCount, hosting, attending, past } = useMemo(() => {
     if (!profile) {
@@ -87,6 +108,7 @@ export default function YouScreen() {
       <FlatList
         data={list}
         keyExtractor={(e) => e.id}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View className="gap-5 px-5 pt-2 pb-4">
             {/* Header row — settings on the right */}
@@ -144,6 +166,7 @@ export default function YouScreen() {
 
             {/* Stats */}
             <View className="flex-row items-stretch gap-3">
+              {rating ? <StatTile value={rating} label="★ Rating" /> : null}
               <StatTile value={hostingCount} label="Events" />
               <StatTile value={attendingCount} label="Attending" />
               <StatTile value={past.length} label="Past" />
@@ -221,7 +244,7 @@ export default function YouScreen() {
   );
 }
 
-function StatTile({ value, label }: { value: number; label: string }) {
+function StatTile({ value, label }: { value: number | string; label: string }) {
   return (
     <View className="flex-1 rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
       <Text className="font-display text-2xl leading-none text-text-light dark:text-text-dark">

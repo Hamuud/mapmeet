@@ -35,6 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.err) return this.props.children;
     return (
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 16 }}
         className="bg-surface-light dark:bg-surface-dark"
       >

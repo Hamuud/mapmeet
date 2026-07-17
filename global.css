@@ -25,11 +25,15 @@ body,
   }
 }
 
-/* Chat composer: the multiline message field is a real <textarea> on
-   web — hide its scrollbar chrome (content still scrolls). */
-textarea {
+/* No visible scrollbar chrome anywhere in the app — lists, sheets,
+   panels, and the chat composer all still scroll, they just don't
+   show a bar (covers Firefox, Chrome/Safari, and old Edge). */
+* {
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-textarea::-webkit-scrollbar {
+*::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
 }

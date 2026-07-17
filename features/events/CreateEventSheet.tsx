@@ -212,7 +212,7 @@ export function CreateEventSheet({
           className="flex-1"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 60, gap: 18, flexGrow: 1 }}
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={false}
         >
           <Controller
             control={control}

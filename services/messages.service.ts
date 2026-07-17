@@ -76,6 +76,7 @@ export const messagesService = {
     fileUri: string,
     durationMs: number,
     replyTo?: string | null,
+    waveform?: number[] | null,
   ): Promise<Message> {
     const ext = fileUri.startsWith('blob:')
       ? 'webm'
@@ -90,18 +91,28 @@ export const messagesService = {
       });
     if (uploadError) throw uploadError;
     const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
-    const { data, error } = await supabase
+    const base = {
+      event_id: eventId,
+      sender_id: senderId,
+      type: 'audio' as const,
+      media_url: urlData.publicUrl,
+      duration_ms: Math.max(1, Math.round(durationMs)),
+      reply_to: replyTo ?? null,
+    };
+    let { data, error } = await supabase
       .from('messages')
-      .insert({
-        event_id: eventId,
-        sender_id: senderId,
-        type: 'audio',
-        media_url: urlData.publicUrl,
-        duration_ms: Math.max(1, Math.round(durationMs)),
-        reply_to: replyTo ?? null,
-      })
+      .insert({ ...base, waveform: waveform ?? null })
       .select('*')
       .single();
+    // Waveform column not migrated yet (42703) → send without the wave
+    // rather than failing the whole voice message.
+    if (error && /waveform/i.test(error.message)) {
+      ({ data, error } = await supabase
+        .from('messages')
+        .insert(base)
+        .select('*')
+        .single());
+    }
     if (error) throw error;
     return data as Message;
   },

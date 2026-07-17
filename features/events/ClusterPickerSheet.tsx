@@ -33,6 +33,7 @@ export function ClusterPickerSheet({ events, onClose, onPick }: Props) {
           <FlatList
             data={events}
             keyExtractor={(e) => e.id}
+            showsVerticalScrollIndicator={false}
             className="mt-3"
             contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
             renderItem={({ item }) => (

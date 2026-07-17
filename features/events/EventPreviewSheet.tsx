@@ -16,6 +16,7 @@ type Props = {
   onEdit?: (event: EventWithCreator) => void;
   onDirections?: (event: EventWithCreator) => void;
   onViewHost?: (event: EventWithCreator) => void;
+  onOpenChat?: (event: EventWithCreator) => void;
 };
 
 /** Mobile / narrow-desktop bottom peek sheet. Wraps `EventPreviewBody`
@@ -28,6 +29,7 @@ export function EventPreviewSheet({
   onEdit,
   onDirections,
   onViewHost,
+  onOpenChat,
 }: Props) {
   const toast = useToast();
   const { session } = useAuth();
@@ -61,6 +63,7 @@ export function EventPreviewSheet({
             onDirections={onDirections}
             onDelete={() => setConfirmDelete(true)}
             onViewHost={onViewHost}
+            onOpenChat={onOpenChat}
           />
         ) : null}
       </BottomSheet>

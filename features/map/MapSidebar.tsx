@@ -147,6 +147,7 @@ export function MapSidebar({
       {/* Event list ----------------------------------------------- */}
       <ScrollView
         className="mt-3"
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 8 }}
       >
         {events.map((event) => (

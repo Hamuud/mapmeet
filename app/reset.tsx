@@ -55,6 +55,7 @@ export default function ResetScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 20 }}
         >
           <View className="mt-6">

@@ -58,6 +58,7 @@ export default function SignUpScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 24 }}
         >
           <View className="flex-row items-center">

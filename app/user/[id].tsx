@@ -1,38 +1,54 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { eventsService } from '@/services/events.service';
 import { profilesService } from '@/services/profiles.service';
+import {
+  ratingsService,
+  type RatingSummary,
+  type RatingVote,
+  type UserReview,
+} from '@/services/ratings.service';
 import { supabase } from '@/services/supabase';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
+import { formatRelativeTime } from '@/utils/format';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
+import { formatRating } from '@/utils/rating';
 import type { EventWithCreator, Profile } from '@/types';
 
+type Tab = 'upcoming' | 'past' | 'reviews';
+
 /** Public read-only profile for a host. Reached from the "View
- *  <name>'s profile" button in the event peek. Shows the host's
- *  avatar / name / handle, their bio, interest chips, and every
- *  event they've created split into Upcoming and Past buckets.
+ *  <name>'s profile" button in the event peek and from chat avatars.
+ *  Shows avatar / name / handle, the taxi-style rating with Like /
+ *  Dislike voting, bio, interest chips, their events (Upcoming / Past)
+ *  and a Reviews tab of anonymous feedback with a composer.
  *
  *  We already have every event in the store — no separate creator-
  *  events endpoint needed. Just filter locally. */
 export default function UserProfileScreen() {
   const { id: userId } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
+  const { session } = useAuth();
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [tab, setTab] = useState<Tab>('upcoming');
+
+  const isSelf = !!(session && userId && session.user.id === userId);
 
   useEffect(() => {
     if (!userId) return;
@@ -58,6 +74,75 @@ export default function UserProfileScreen() {
       cancelled = true;
     };
   }, [userId, toast]);
+
+  // ── Rating + reviews ──────────────────────────────────────────────
+  const [summary, setSummary] = useState<RatingSummary | null>(null);
+  const [voteBusy, setVoteBusy] = useState(false);
+  const [reviews, setReviews] = useState<UserReview[]>([]);
+  const [reviewDraft, setReviewDraft] = useState('');
+  const [reviewSending, setReviewSending] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    ratingsService
+      .getSummary(userId)
+      .then((s) => {
+        if (!cancelled) setSummary(s);
+      })
+      .catch(() => {
+        /* rating hidden until the migration lands — non-fatal */
+      });
+    ratingsService
+      .listReviews(userId)
+      .then((rows) => {
+        if (!cancelled) setReviews(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const handleVote = useCallback(
+    async (value: RatingVote) => {
+      if (!userId || !summary || voteBusy) return;
+      const prev = summary;
+      // Optimistic: move the counts locally, roll back on failure.
+      setSummary({
+        likes: prev.likes - (prev.myVote === 1 ? 1 : 0) + (value === 1 ? 1 : 0),
+        dislikes:
+          prev.dislikes - (prev.myVote === -1 ? 1 : 0) + (value === -1 ? 1 : 0),
+        myVote: value,
+      });
+      setVoteBusy(true);
+      try {
+        await ratingsService.rate(userId, value);
+      } catch (e) {
+        setSummary(prev);
+        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+      } finally {
+        setVoteBusy(false);
+      }
+    },
+    [userId, summary, voteBusy, toast],
+  );
+
+  const handleSubmitReview = useCallback(async () => {
+    const text = reviewDraft.trim();
+    if (!userId || !text || reviewSending) return;
+    setReviewSending(true);
+    try {
+      await ratingsService.addReview(userId, text);
+      setReviewDraft('');
+      setReviews(await ratingsService.listReviews(userId));
+      toast.show('Review posted anonymously.', 'success');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not post review', 'error');
+    } finally {
+      setReviewSending(false);
+    }
+  }, [userId, reviewDraft, reviewSending, toast]);
 
   // Prefer events already in the store — they're enriched with
   // creator + participant_count. But a viewer arriving here without
@@ -100,7 +185,8 @@ export default function UserProfileScreen() {
     };
   }, [events, fallbackEvents, userId]);
 
-  const list = tab === 'upcoming' ? upcoming : past;
+  const list: (EventWithCreator | UserReview)[] =
+    tab === 'reviews' ? reviews : tab === 'upcoming' ? upcoming : past;
 
   const openOnMap = (event: EventWithCreator) => {
     focusEvent(event.id);
@@ -140,7 +226,8 @@ export default function UserProfileScreen() {
 
       <FlatList
         data={list}
-        keyExtractor={(e) => e.id}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, gap: 12, paddingTop: 4, flexGrow: 1 }}
         ListHeaderComponent={
           <View className="gap-5 pb-4">
@@ -162,6 +249,17 @@ export default function UserProfileScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Rating — everyone starts at 5.00; likes/dislikes from
+                other users move it. Voting hidden on your own profile. */}
+            {summary ? (
+              <RatingCard
+                summary={summary}
+                canVote={!isSelf && !!session}
+                busy={voteBusy}
+                onVote={handleVote}
+              />
+            ) : null}
 
             {/* Bio */}
             {profile.bio ? (
@@ -187,7 +285,7 @@ export default function UserProfileScreen() {
               </View>
             ) : null}
 
-            {/* Stats + segmented */}
+            {/* Segmented: events + reviews */}
             <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
               <SegmentTab
                 label={`Upcoming · ${upcoming.length}`}
@@ -199,29 +297,191 @@ export default function UserProfileScreen() {
                 active={tab === 'past'}
                 onPress={() => setTab('past')}
               />
+              <SegmentTab
+                label={`Reviews · ${reviews.length}`}
+                active={tab === 'reviews'}
+                onPress={() => setTab('reviews')}
+              />
             </View>
+
+            {/* Anonymous review composer — not on your own profile. */}
+            {tab === 'reviews' && !isSelf && session ? (
+              <View className="gap-2 rounded-2xl border border-border-light bg-panel-light p-3 dark:border-border-dark dark:bg-panel-dark">
+                <TextInput
+                  value={reviewDraft}
+                  onChangeText={setReviewDraft}
+                  placeholder="Share your experience — it's posted anonymously"
+                  placeholderTextColor="#8B8880"
+                  multiline
+                  maxLength={500}
+                  className="min-h-[60px] text-[14px] text-text-light outline-none dark:text-text-dark"
+                  style={{ textAlignVertical: 'top' }}
+                />
+                <PrimaryButton
+                  label="Post anonymously"
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={
+                    <Ionicons name="eye-off-outline" size={13} color="#4B5FE0" />
+                  }
+                  disabled={!reviewDraft.trim() || reviewSending}
+                  loading={reviewSending}
+                  onPress={handleSubmitReview}
+                  fullWidth
+                />
+              </View>
+            ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <EventCard event={item} onPress={() => openOnMap(item)} />
-        )}
+        renderItem={({ item }) =>
+          tab === 'reviews' ? (
+            <ReviewCard review={item as UserReview} />
+          ) : (
+            <EventCard
+              event={item as EventWithCreator}
+              onPress={() => openOnMap(item as EventWithCreator)}
+            />
+          )
+        }
         ListEmptyComponent={
-          <EmptyState
-            emoji={tab === 'upcoming' ? '📍' : '🗓️'}
-            title={
-              tab === 'upcoming'
-                ? "Nothing on the calendar right now"
-                : 'No past events'
-            }
-            description={
-              tab === 'upcoming'
-                ? `${profile.display_name} hasn't scheduled anything upcoming.`
-                : 'Older events they hosted will show up here.'
-            }
-          />
+          tab === 'reviews' ? (
+            <EmptyState
+              emoji="📝"
+              title="No reviews yet"
+              description={
+                isSelf
+                  ? 'Feedback others leave about you will show up here.'
+                  : `Be the first to leave ${profile.display_name} an anonymous review.`
+              }
+            />
+          ) : (
+            <EmptyState
+              emoji={tab === 'upcoming' ? '📍' : '🗓️'}
+              title={
+                tab === 'upcoming'
+                  ? 'Nothing on the calendar right now'
+                  : 'No past events'
+              }
+              description={
+                tab === 'upcoming'
+                  ? `${profile.display_name} hasn't scheduled anything upcoming.`
+                  : 'Older events they hosted will show up here.'
+              }
+            />
+          )
         }
       />
     </SafeAreaView>
+  );
+}
+
+/** ★ score + vote counts on the left, thumbs-up / thumbs-down on the
+ *  right. Tapping your current vote again withdraws it (vote 0). */
+function RatingCard({
+  summary,
+  canVote,
+  busy,
+  onVote,
+}: {
+  summary: RatingSummary;
+  canVote: boolean;
+  busy: boolean;
+  onVote: (value: RatingVote) => void;
+}) {
+  return (
+    <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
+      <View>
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="star" size={16} color="#E68A5E" />
+          <Text className="font-display text-2xl leading-none text-text-light dark:text-text-dark">
+            {formatRating(summary.likes, summary.dislikes)}
+          </Text>
+        </View>
+        <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
+          {summary.likes} {summary.likes === 1 ? 'like' : 'likes'} ·{' '}
+          {summary.dislikes} {summary.dislikes === 1 ? 'dislike' : 'dislikes'}
+        </Text>
+      </View>
+      {canVote ? (
+        <View className="flex-row gap-2">
+          <VoteButton
+            icon="thumbs-up"
+            active={summary.myVote === 1}
+            activeClass="bg-brand-500"
+            disabled={busy}
+            label={summary.myVote === 1 ? 'Remove like' : 'Like this user'}
+            onPress={() => onVote(summary.myVote === 1 ? 0 : 1)}
+          />
+          <VoteButton
+            icon="thumbs-down"
+            active={summary.myVote === -1}
+            activeClass="bg-red-500"
+            disabled={busy}
+            label={summary.myVote === -1 ? 'Remove dislike' : 'Dislike this user'}
+            onPress={() => onVote(summary.myVote === -1 ? 0 : -1)}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function VoteButton({
+  icon,
+  active,
+  activeClass,
+  disabled,
+  label,
+  onPress,
+}: {
+  icon: 'thumbs-up' | 'thumbs-down';
+  active: boolean;
+  activeClass: string;
+  disabled: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const iconColor = useIconColor();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={label}
+      className={[
+        'h-10 w-10 items-center justify-center rounded-full border',
+        active
+          ? `${activeClass} border-transparent`
+          : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
+      ].join(' ')}
+    >
+      <Ionicons
+        name={active ? icon : `${icon}-outline`}
+        size={16}
+        color={active ? '#fff' : iconColor}
+      />
+    </Pressable>
+  );
+}
+
+/** One anonymous review row for the Reviews tab. */
+function ReviewCard({ review }: { review: UserReview }) {
+  return (
+    <View className="gap-1.5 rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="person-circle-outline" size={14} color="#8B8880" />
+          <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+            Anonymous
+          </Text>
+        </View>
+        <Text className="font-mono text-[9px] uppercase text-muted-light">
+          {formatRelativeTime(review.created_at)}
+        </Text>
+      </View>
+      <Text className="text-[14px] leading-snug text-text-light dark:text-text-dark">
+        {review.text}
+      </Text>
+    </View>
   );
 }
 

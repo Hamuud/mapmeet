@@ -68,7 +68,11 @@ export function MembersSheet({ event, open, viewerId, onClose }: Props) {
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
           Members · {members.length}
         </Text>
-        <ScrollView className="mt-3" style={{ maxHeight: 380 }}>
+        <ScrollView
+          className="mt-3"
+          style={{ maxHeight: 380 }}
+          showsVerticalScrollIndicator={false}
+        >
           {members.map((m) => {
             const memberIsHost = m.id === event.creator_id;
             return (

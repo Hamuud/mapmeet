@@ -233,6 +233,7 @@ export function MessageBubble({
           <AudioBubble
             uri={message.media_url}
             durationMs={message.duration_ms}
+            waveform={message.waveform}
             isOwn={isOwn}
           />
         ) : message.type === 'location' ? (

@@ -1,10 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+
+import { WAVEFORM_BARS } from '@/features/chat/useVoiceRecorder';
 
 type Props = {
   uri: string;
   durationMs: number | null;
+  /** Recorded amplitude samples (0-100). Null = pre-waveform message →
+   *  a deterministic placeholder wave is drawn from the uri instead. */
+  waveform?: number[] | null;
   /** Own bubbles sit on the ink background → light foreground. */
   isOwn: boolean;
 };
@@ -14,10 +19,45 @@ function fmt(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Minimal voice-note player: play/pause + progress bar + time. Loads
- *  the sound lazily on first play (expo-av via require — see
+const MIN_BAR = 4;
+const MAX_BAR = 26;
+
+/** Deterministic speech-looking placeholder for messages recorded
+ *  before waveforms were stored — seeded from the uri so the same
+ *  message always renders the same wave. */
+function placeholderWave(seedStr: string): number[] {
+  let seed = 2166136261;
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = Math.imul(seed ^ seedStr.charCodeAt(i), 16777619);
+  }
+  const out: number[] = [];
+  let prev = 50;
+  for (let i = 0; i < WAVEFORM_BARS; i++) {
+    seed = Math.imul(seed, 1597334677) + 12345;
+    const rnd = ((seed >>> 8) % 1000) / 1000;
+    // Random walk keeps neighbours related — reads as speech, not noise.
+    prev = Math.max(10, Math.min(95, prev + (rnd - 0.5) * 55));
+    out.push(Math.round(prev));
+  }
+  return out;
+}
+
+/** Resample a stored waveform to the render bar count (older/newer
+ *  messages may have been stored at a different resolution). */
+function fitBars(wave: number[]): number[] {
+  if (wave.length === WAVEFORM_BARS) return wave;
+  const out: number[] = [];
+  for (let i = 0; i < WAVEFORM_BARS; i++) {
+    out.push(wave[Math.floor((i * wave.length) / WAVEFORM_BARS)] ?? 0);
+  }
+  return out;
+}
+
+/** Voice-note player: play/pause + amplitude waveform (Telegram/
+ *  WhatsApp-style bars that fill left-to-right with playback) + time.
+ *  Loads the sound lazily on first play (expo-av via require — see
  *  useVoiceRecorder for why it can't be a static import yet). */
-export function AudioBubble({ uri, durationMs, isOwn }: Props) {
+export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
   const [playing, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [totalMs, setTotalMs] = useState(durationMs ?? 0);
@@ -28,6 +68,12 @@ export function AudioBubble({ uri, durationMs, isOwn }: Props) {
     setPositionAsync: (ms: number) => Promise<unknown>;
     unloadAsync: () => Promise<unknown>;
   } | null>(null);
+
+  const bars = useMemo(
+    () =>
+      waveform && waveform.length >= 3 ? fitBars(waveform) : placeholderWave(uri),
+    [waveform, uri],
+  );
 
   useEffect(() => {
     return () => {
@@ -74,6 +120,7 @@ export function AudioBubble({ uri, durationMs, isOwn }: Props) {
     ? 'text-surface-light dark:text-surface-dark'
     : 'text-text-light dark:text-text-dark';
   const progress = totalMs > 0 ? Math.min(1, positionMs / totalMs) : 0;
+  const playedBars = Math.round(progress * bars.length);
 
   if (error) {
     return (
@@ -84,7 +131,7 @@ export function AudioBubble({ uri, durationMs, isOwn }: Props) {
   }
 
   return (
-    <View className="w-48 flex-row items-center gap-2.5">
+    <View className="w-56 flex-row items-center gap-2.5">
       <Pressable
         onPress={toggle}
         accessibilityLabel={playing ? 'Pause voice message' : 'Play voice message'}
@@ -101,16 +148,29 @@ export function AudioBubble({ uri, durationMs, isOwn }: Props) {
       </Pressable>
       <View className="flex-1 gap-1">
         <View
-          className={
-            isOwn
-              ? 'h-1 overflow-hidden rounded-full bg-surface-light/25 dark:bg-surface-dark/25'
-              : 'h-1 overflow-hidden rounded-full bg-border-light dark:bg-border-dark'
-          }
+          className="flex-row items-center"
+          style={{ height: MAX_BAR, gap: 2 }}
+          accessibilityLabel="Voice message waveform"
         >
-          <View
-            className={isOwn ? 'h-1 bg-surface-light dark:bg-surface-dark' : 'h-1 bg-brand-500'}
-            style={{ width: `${progress * 100}%` }}
-          />
+          {bars.map((v, i) => (
+            <View
+              key={i}
+              className={
+                i < playedBars
+                  ? isOwn
+                    ? 'bg-surface-light dark:bg-surface-dark'
+                    : 'bg-brand-500'
+                  : isOwn
+                    ? 'bg-surface-light/30 dark:bg-surface-dark/30'
+                    : 'bg-border-light dark:bg-border-dark'
+              }
+              style={{
+                flex: 1,
+                borderRadius: 2,
+                height: MIN_BAR + (Math.min(100, Math.max(0, v)) / 100) * (MAX_BAR - MIN_BAR),
+              }}
+            />
+          ))}
         </View>
         <Text className={`font-mono text-[9px] uppercase ${fg} opacity-70`}>
           {playing || positionMs > 0 ? fmt(positionMs) : fmt(totalMs)}

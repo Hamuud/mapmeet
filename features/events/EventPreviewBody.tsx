@@ -27,6 +27,9 @@ type Props = {
   onDirections?: (event: EventWithCreator) => void;
   onDelete?: (event: EventWithCreator) => void;
   onViewHost?: (event: EventWithCreator) => void;
+  /** Members only: jump straight into the event's group chat. Omitted
+   *  by callers already inside the chat (the pinned-event sheet). */
+  onOpenChat?: (event: EventWithCreator) => void;
   /** Called after a successful DB deletion so parent can refresh
    *  local state / close the peek. Delete confirmation lives with the
    *  parent (BottomSheet in the mobile case, panel header on desktop),
@@ -47,6 +50,7 @@ export function EventPreviewBody({
   onDirections,
   onDelete,
   onViewHost,
+  onOpenChat,
 }: Props) {
   const toast = useToast();
   const { session } = useAuth();
@@ -261,6 +265,21 @@ export function EventPreviewBody({
           )}
         </View>
       </View>
+
+      {/* Open chat — members (host or joined) get a straight path into
+          the event's group chat from the pin itself. */}
+      {onOpenChat && (isCreator || event.is_joined) ? (
+        <PrimaryButton
+          label="Chat"
+          variant="secondary"
+          size="sm"
+          leftIcon={
+            <Ionicons name="chatbubbles-outline" size={13} color="#4B5FE0" />
+          }
+          onPress={() => onOpenChat(event)}
+          fullWidth
+        />
+      ) : null}
 
       {/* View host — hidden when this IS the host to avoid pointing
           users at their own profile from their own event. */}

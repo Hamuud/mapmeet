@@ -104,6 +104,7 @@ export type Database = {
           reply_to: string | null;
           reactions: Record<string, string[]>;
           duration_ms: number | null;
+          waveform: number[] | null;
           read_by: string[];
           deleted_for: string[];
           hidden: boolean;
@@ -119,6 +120,7 @@ export type Database = {
           longitude?: number | null;
           reply_to?: string | null;
           duration_ms?: number | null;
+          waveform?: number[] | null;
         };
         // Mutations (read_by / deleted_for / hidden) go through RPCs —
         // there is no client-side UPDATE path.
@@ -156,6 +158,22 @@ export type Database = {
       post_archive_warning: {
         Args: { p_event_id: string };
         Returns: undefined;
+      };
+      rate_user: {
+        Args: { p_target_id: string; p_value: number };
+        Returns: undefined;
+      };
+      get_user_rating: {
+        Args: { p_user_id: string };
+        Returns: { likes: number; dislikes: number; my_vote: number }[];
+      };
+      add_user_review: {
+        Args: { p_target_id: string; p_text: string };
+        Returns: undefined;
+      };
+      list_user_reviews: {
+        Args: { p_user_id: string };
+        Returns: { id: string; text: string; created_at: string }[];
       };
     };
     Enums: Record<string, never>;

@@ -109,6 +109,7 @@ function ChatListBody() {
       <FlatList
         data={sorted}
         keyExtractor={(e) => e.id}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 10, flexGrow: 1 }}
         renderItem={({ item }) => (
           <ChatRow

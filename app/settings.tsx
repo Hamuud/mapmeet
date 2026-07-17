@@ -92,6 +92,7 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, gap: 24, paddingBottom: 80 }}
       >
         {/* Profile row */}

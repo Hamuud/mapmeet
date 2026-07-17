@@ -190,7 +190,7 @@ export default function ProfileEditScreen() {
         <ScrollView
           contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 80 }}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={false}
         >
           {/* Avatar */}
           <View className="items-center">
