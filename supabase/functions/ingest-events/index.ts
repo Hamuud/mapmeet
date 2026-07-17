@@ -33,11 +33,11 @@ function isoDate(d: Date): string {
  *  chars. Lowercase, spaces → hyphens, strip anything that can't sit in
  *  a tag, then bound the length. */
 function normalizeTag(raw: string): string | null {
-  const t = raw
+  const t = (raw.split('(')[0] ?? raw) // "Рокитне (Рівненська обл.)" → "Рокитне"
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
-    .replace(/["'`«»]/g, '')
+    .replace(/["'`«».,]/g, '')
     .slice(0, 24);
   return t.length >= 2 ? t : null;
 }

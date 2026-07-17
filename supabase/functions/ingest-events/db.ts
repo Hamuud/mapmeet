@@ -55,8 +55,18 @@ export async function rpc<T = any>(name: string, args: Record<string, unknown>):
     body: JSON.stringify(args),
   });
   if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`rpc ${name} → ${res.status}: ${detail.slice(0, 300)}`);
+    const raw = await res.text().catch(() => '');
+    // PostgREST errors: {code, message, details, hint}. The MESSAGE names
+    // the violated constraint — surface it first; `details` is a dump of
+    // the whole failing row and drowned it out when truncated blindly.
+    let summary = raw.slice(0, 300);
+    try {
+      const err = JSON.parse(raw) as { code?: string; message?: string; hint?: string };
+      summary = `${err.code ?? ''} ${err.message ?? ''} ${err.hint ?? ''}`.trim().slice(0, 300);
+    } catch {
+      // not JSON — keep the raw slice
+    }
+    throw new Error(`rpc ${name} → ${res.status}: ${summary}`);
   }
   const raw = await res.text();
   return (raw ? JSON.parse(raw) : null) as T;
