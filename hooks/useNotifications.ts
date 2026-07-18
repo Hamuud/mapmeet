@@ -35,7 +35,7 @@ export function useNotifications() {
     const unsub = addNotificationResponseListener((data) => {
       const eventId = typeof data.eventId === 'string' ? data.eventId : null;
       if (eventId) {
-        router.push({ pathname: '/chat/[id]', params: { id: eventId } });
+        router.navigate({ pathname: '/chat/[id]', params: { id: eventId } });
       }
     });
     return unsub;

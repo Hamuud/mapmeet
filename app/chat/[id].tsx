@@ -31,6 +31,7 @@ import { messagesService } from '@/services/messages.service';
 import { useEventsStore } from '@/store/events.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { formatEventDate, formatEventTime } from '@/utils/format';
+import { goBack } from '@/utils/nav';
 import type { EventWithCreator, MessageWithSender } from '@/types';
 
 /** Quick-reaction palette — must match the whitelist in the
@@ -162,7 +163,7 @@ export default function ChatRoomScreen() {
           title="Chat not found"
           description="This event may have ended or been deleted."
           actionLabel="Back to chats"
-          onAction={() => router.back()}
+          onAction={() => goBack('/(tabs)/chat')}
         />
       </SafeAreaView>
     );
@@ -175,7 +176,7 @@ export default function ChatRoomScreen() {
           sheet); the members icon sits beside it. No duplicate title. */}
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack('/(tabs)/chat')}
           accessibilityLabel="Back"
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
@@ -258,7 +259,7 @@ export default function ChatRoomScreen() {
                   onContextMenu={(m) => setActionTarget(m)}
                   onReply={(m) => setReplyingTo(m)}
                   onPressAvatar={(userId) =>
-                    router.push({ pathname: '/user/[id]', params: { id: userId } })
+                    router.navigate({ pathname: '/user/[id]', params: { id: userId } })
                   }
                   onToggleReaction={handleToggleReaction}
                 />
@@ -313,7 +314,7 @@ export default function ChatRoomScreen() {
             }}
             onViewHost={(e) => {
               setEventOpen(false);
-              router.push({ pathname: '/user/[id]', params: { id: e.creator_id } });
+              router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
             }}
           />
         ) : null}

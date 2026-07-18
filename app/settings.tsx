@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
+import { goBack } from '@/utils/nav';
 
 const APPEARANCE_OPTIONS: readonly Appearance[] = ['light', 'dark', 'auto'] as const;
 const RADII_KM = [1, 3, 5, 10, 25, 50] as const;
@@ -78,7 +79,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack('/(tabs)/profile')}
           accessibilityLabel="Back"
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"

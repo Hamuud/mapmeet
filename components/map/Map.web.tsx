@@ -242,44 +242,72 @@ function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
   }
 }
 
-/** (Re)build a cluster chip's DOM: up to 5 emojis (3 per row) + a count
- *  badge when the cluster holds more events than emojis shown. */
+/** Brand indigo — the cluster circle's fill (deliberately not ink:
+ *  "the circle shouldn't be black"). */
+const CLUSTER_BG = '#4B5FE0';
+const ORBIT_SECONDS = 16;
+
+/** (Re)build a cluster's DOM: a colored circle with the events' emojis
+ *  slowly orbiting inside it, plus a count badge when the cluster holds
+ *  more events than emojis shown. The ring rotates as a whole; each
+ *  emoji counter-rotates at the same rate so the glyphs stay upright
+ *  while travelling the circle. */
 function styleClusterElement(
   el: HTMLDivElement,
   emojis: string[],
   count: number,
 ) {
+  if (!document.getElementById('mm-cluster-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'mm-cluster-keyframes';
+    style.textContent = `
+      @keyframes mm-orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes mm-orbit-rev { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+    `;
+    document.head.appendChild(style);
+  }
+
   el.textContent = '';
   el.style.cssText = `position:relative;cursor:pointer;`;
 
-  // Row shape: 1-3 emojis one line, 4 → 2×2, 5 → 3+2. content-box so
-  // the max-width is exactly N emoji slots — border-box ate the border
-  // and wrapped a 3-row into 2+1.
-  const perRow = emojis.length === 4 ? 2 : 3;
-  const chip = document.createElement('div');
-  chip.style.cssText = `
-    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
-    box-sizing:content-box;
-    max-width:${perRow * 24}px;
-    padding:7px 10px;border-radius:24px;
-    background:${DS.panel};border:1px solid ${DS.border};
-    box-shadow:0 8px 16px rgba(0,0,0,0.2);
-    line-height:1;
+  const n = emojis.length;
+  const size = n <= 2 ? 52 : n === 3 ? 58 : 64;
+  const radius = n === 1 ? 0 : size / 2 - 15;
+
+  const circle = document.createElement('div');
+  circle.style.cssText = `
+    position:relative;width:${size}px;height:${size}px;border-radius:9999px;
+    background:${CLUSTER_BG};
+    border:2px solid rgba(253,252,248,0.95);
+    box-shadow:0 8px 16px rgba(0,0,0,0.28);
   `;
-  for (const emoji of emojis) {
-    const span = document.createElement('span');
-    span.style.cssText = 'font-size:16px;line-height:22px;width:24px;text-align:center;';
-    span.textContent = emoji;
-    chip.appendChild(span);
-  }
-  el.appendChild(chip);
+
+  const ring = document.createElement('div');
+  ring.style.cssText = `position:absolute;inset:0;animation:mm-orbit ${ORBIT_SECONDS}s linear infinite;`;
+  emojis.forEach((emoji, i) => {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    const x = size / 2 - 2 + radius * Math.cos(angle); // -2: border offset
+    const y = size / 2 - 2 + radius * Math.sin(angle);
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `
+      position:absolute;left:${Math.round(x - 11)}px;top:${Math.round(y - 11)}px;
+      width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+      font-size:14px;line-height:1;
+      animation:mm-orbit-rev ${ORBIT_SECONDS}s linear infinite;
+    `;
+    wrap.textContent = emoji;
+    ring.appendChild(wrap);
+  });
+  circle.appendChild(ring);
+  el.appendChild(circle);
 
   if (count > emojis.length) {
     const badge = document.createElement('div');
     badge.style.cssText = `
-      position:absolute;top:-6px;right:-6px;
+      position:absolute;top:-5px;right:-5px;
       height:20px;min-width:20px;padding:0 4px;border-radius:9999px;
       background:${DS.ink};color:${DS.paper};
+      border:1px solid rgba(253,252,248,0.9);
       display:flex;align-items:center;justify-content:center;
       font-size:10px;font-weight:700;
       font-family: Manrope, -apple-system, sans-serif;

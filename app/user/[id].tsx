@@ -24,6 +24,7 @@ import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
 import { formatRelativeTime } from '@/utils/format';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
+import { goBack } from '@/utils/nav';
 import { formatRating } from '@/utils/rating';
 import type { EventWithCreator, Profile } from '@/types';
 
@@ -204,13 +205,13 @@ export default function UserProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <Header onBack={() => router.back()} title="Profile" />
+        <Header onBack={() => goBack('/(tabs)/map')} title="Profile" />
         <EmptyState
           emoji="👤"
           title="Profile not found"
           description="This user may have deleted their account."
           actionLabel="Go back"
-          onAction={() => router.back()}
+          onAction={() => goBack('/(tabs)/map')}
         />
       </SafeAreaView>
     );
@@ -222,7 +223,7 @@ export default function UserProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
-      <Header onBack={() => router.back()} title={`@${profile.username}`} />
+      <Header onBack={() => goBack('/(tabs)/map')} title={`@${profile.username}`} />
 
       <FlatList
         data={list}

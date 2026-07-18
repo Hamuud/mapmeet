@@ -224,7 +224,7 @@ function ChatRow({
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/chat/[id]', params: { id: event.id } })}
+      onPress={() => router.navigate({ pathname: '/chat/[id]', params: { id: event.id } })}
       className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 active:opacity-80 dark:border-border-dark dark:bg-panel-dark"
     >
       <View className="h-12 w-12 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">

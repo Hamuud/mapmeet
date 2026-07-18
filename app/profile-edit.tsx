@@ -22,6 +22,7 @@ import { authService } from '@/services/auth.service';
 import { profilesService } from '@/services/profiles.service';
 import { useAuthStore } from '@/store/auth.store';
 import { INTERESTS, MAX_INTERESTS } from '@/utils/interests';
+import { goBack } from '@/utils/nav';
 
 /** Edit-profile screen. Reached from the "You" tab (Edit profile button)
  *  and from Settings (Personal info / Edit chip). Persists to Supabase
@@ -170,7 +171,7 @@ export default function ProfileEditScreen() {
       });
       setProfile(updated);
       toast.show('Profile updated.', 'success');
-      router.back();
+      goBack('/(tabs)/profile');
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not save', 'error');
     } finally {
@@ -187,7 +188,7 @@ export default function ProfileEditScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => goBack('/(tabs)/profile')}
             accessibilityLabel="Back"
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"

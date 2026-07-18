@@ -1,12 +1,13 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
   PROVIDER_DEFAULT,
@@ -155,7 +156,11 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
             // Center anchor — the bubble is a round chip, not a pin.
             anchor={{ x: 0.5, y: 0.5 }}
             onPress={() => onClusterTap?.(c.leaves())}
-            tracksViewChanges={false}
+            // Live view, NOT a snapshot: tracksViewChanges={false}
+            // freezes the marker as a bitmap and the orbit animation
+            // would never draw. Clusters are few, so the re-render cost
+            // is fine — individual pins below stay snapshotted.
+            tracksViewChanges
           >
             <ClusterBubble events={c.leaves()} count={c.count} />
           </Marker>
@@ -180,9 +185,14 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   );
 });
 
-/** Cluster chip: the emojis of the events inside it, not an anonymous
- *  circle. ≤5 events → one emoji each (🎫🎫 reads as "two events");
- *  more → up to 5 distinct emojis + a count badge for the total. */
+/** Brand indigo — the cluster circle's fill (deliberately not ink). */
+const CLUSTER_BG = '#4B5FE0';
+const ORBIT_MS = 16000;
+
+/** Cluster marker: a colored circle with the events' emojis slowly
+ *  orbiting inside it. ≤5 events → one emoji each (🎫🎫 reads as "two
+ *  events"); more → up to 5 distinct emojis + a count badge. The ring
+ *  spins as a whole; each emoji counter-rotates to stay upright. */
 function ClusterBubble({
   events,
   count,
@@ -192,32 +202,78 @@ function ClusterBubble({
 }) {
   const emojis = clusterEmojis(events);
   const showBadge = count > emojis.length;
+
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: ORBIT_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const counterRotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['360deg', '0deg'],
+  });
+
+  const n = emojis.length;
+  const size = n <= 2 ? 52 : n === 3 ? 58 : 64;
+  const radius = n === 1 ? 0 : size / 2 - 15;
+
   return (
     <View>
       <View
-        className="flex-row flex-wrap items-center justify-center rounded-3xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
         style={{
-          // Row shape: 1-3 emojis one line, 4 → 2×2, 5 → 3+2. RN sizes
-          // border-box, so the cap = slots + padding (20) + border (2).
-          maxWidth: (emojis.length === 4 ? 2 : 3) * 24 + 22,
-          paddingHorizontal: 10,
-          paddingVertical: 7,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: CLUSTER_BG,
+          borderWidth: 2,
+          borderColor: 'rgba(253,252,248,0.95)',
           shadowColor: '#000',
-          shadowOpacity: 0.25,
+          shadowOpacity: 0.28,
           shadowRadius: 8,
           shadowOffset: { width: 0, height: 4 },
           elevation: 4,
         }}
       >
-        {emojis.map((emoji, i) => (
-          <Text key={`${emoji}-${i}`} style={{ fontSize: 16, lineHeight: 22, width: 24, textAlign: 'center' }}>
-            {emoji}
-          </Text>
-        ))}
+        <Animated.View
+          style={[StyleSheet.absoluteFillObject, { transform: [{ rotate }] }]}
+        >
+          {emojis.map((emoji, i) => {
+            const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+            // -2 keeps the ring centred inside the 2px border box.
+            const x = size / 2 - 2 + radius * Math.cos(angle);
+            const y = size / 2 - 2 + radius * Math.sin(angle);
+            return (
+              <Animated.View
+                key={`${emoji}-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: Math.round(x - 11),
+                  top: Math.round(y - 11),
+                  width: 22,
+                  height: 22,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transform: [{ rotate: counterRotate }],
+                }}
+              >
+                <Text style={{ fontSize: 14, lineHeight: 18 }}>{emoji}</Text>
+              </Animated.View>
+            );
+          })}
+        </Animated.View>
       </View>
       {showBadge ? (
         <View
-          className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-text-light dark:bg-text-dark"
+          className="absolute -right-1 -top-1 items-center justify-center rounded-full bg-text-light dark:bg-text-dark"
           style={{ height: 20, minWidth: 20, paddingHorizontal: 4 }}
         >
           <Text className="text-[10px] font-bold text-surface-light dark:text-surface-dark">

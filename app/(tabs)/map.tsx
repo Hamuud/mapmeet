@@ -228,10 +228,10 @@ export default function MapScreen() {
           }}
           onDirections={handleDirections}
           onViewHost={(e) => {
-            router.push({ pathname: '/user/[id]', params: { id: e.creator_id } });
+            router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
           }}
           onOpenChat={(e) => {
-            router.push({ pathname: '/chat/[id]', params: { id: e.id } });
+            router.navigate({ pathname: '/chat/[id]', params: { id: e.id } });
           }}
         />
       ) : isDesktop && !pickMode ? (
@@ -404,11 +404,11 @@ export default function MapScreen() {
         }}
         onDirections={handleDirections}
         onViewHost={(e) => {
-          router.push({ pathname: '/user/[id]', params: { id: e.creator_id } });
+          router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
         }}
         onOpenChat={(e) => {
           selectEvent(null);
-          router.push({ pathname: '/chat/[id]', params: { id: e.id } });
+          router.navigate({ pathname: '/chat/[id]', params: { id: e.id } });
         }}
       />
 
