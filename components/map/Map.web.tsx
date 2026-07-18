@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
+import { clusterEmojis } from './clusterEmojis';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
 import type { EventWithCreator } from '@/types';
 
@@ -58,8 +59,6 @@ const STYLE_FOR: Record<MapStyle, maplibregl.StyleSpecification> = {
 };
 
 const SOURCE_ID = 'mapmeet-events';
-const CLUSTER_LAYER_ID = 'mapmeet-clusters';
-const CLUSTER_COUNT_LAYER_ID = 'mapmeet-cluster-count';
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_TOLERANCE_PX = 8;
 
@@ -221,6 +220,12 @@ function buildPendingElement(): HTMLDivElement {
   return el;
 }
 
+/** The clustered GeoJSON source is the clustering ENGINE only — no
+ *  MapLibre layers render it. Clusters draw as DOM markers (emoji
+ *  chips, see styleClusterElement) synced from the source's cluster
+ *  features, same as individual event markers. The old circle+count
+ *  layers were anonymous black dots — and the count never rendered
+ *  anyway because the raster styles ship no glyph fonts. */
 function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
   if (!map.getSource(SOURCE_ID)) {
     map.addSource(SOURCE_ID, {
@@ -235,35 +240,52 @@ function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
       eventsToGeoJson(events),
     );
   }
-  if (!map.getLayer(CLUSTER_LAYER_ID)) {
-    map.addLayer({
-      id: CLUSTER_LAYER_ID,
-      type: 'circle',
-      source: SOURCE_ID,
-      filter: ['has', 'point_count'],
-      paint: {
-        // Ink on paper — matches the new PrimaryButton primary + active
-        // FilterBar chip. Coral is reserved for the create CTA.
-        'circle-color': '#0E0E10',
-        'circle-radius': ['step', ['get', 'point_count'], 22, 10, 28, 50, 34],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': 'rgba(253,252,248,0.95)',
-      },
-    });
+}
+
+/** (Re)build a cluster chip's DOM: up to 5 emojis (3 per row) + a count
+ *  badge when the cluster holds more events than emojis shown. */
+function styleClusterElement(
+  el: HTMLDivElement,
+  emojis: string[],
+  count: number,
+) {
+  el.textContent = '';
+  el.style.cssText = `position:relative;cursor:pointer;`;
+
+  // Row shape: 1-3 emojis one line, 4 → 2×2, 5 → 3+2. content-box so
+  // the max-width is exactly N emoji slots — border-box ate the border
+  // and wrapped a 3-row into 2+1.
+  const perRow = emojis.length === 4 ? 2 : 3;
+  const chip = document.createElement('div');
+  chip.style.cssText = `
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+    box-sizing:content-box;
+    max-width:${perRow * 24}px;
+    padding:7px 10px;border-radius:24px;
+    background:${DS.panel};border:1px solid ${DS.border};
+    box-shadow:0 8px 16px rgba(0,0,0,0.2);
+    line-height:1;
+  `;
+  for (const emoji of emojis) {
+    const span = document.createElement('span');
+    span.style.cssText = 'font-size:16px;line-height:22px;width:24px;text-align:center;';
+    span.textContent = emoji;
+    chip.appendChild(span);
   }
-  if (!map.getLayer(CLUSTER_COUNT_LAYER_ID)) {
-    map.addLayer({
-      id: CLUSTER_COUNT_LAYER_ID,
-      type: 'symbol',
-      source: SOURCE_ID,
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': ['get', 'point_count_abbreviated'],
-        'text-size': 14,
-        'text-font': ['Noto Sans Regular'],
-      },
-      paint: { 'text-color': '#fff' },
-    });
+  el.appendChild(chip);
+
+  if (count > emojis.length) {
+    const badge = document.createElement('div');
+    badge.style.cssText = `
+      position:absolute;top:-6px;right:-6px;
+      height:20px;min-width:20px;padding:0 4px;border-radius:9999px;
+      background:${DS.ink};color:${DS.paper};
+      display:flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:700;
+      font-family: Manrope, -apple-system, sans-serif;
+    `;
+    badge.textContent = String(count);
+    el.appendChild(badge);
   }
 }
 
@@ -288,6 +310,16 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   const markersRef = useRef<globalThis.Map<string, maplibregl.Marker>>(
     new globalThis.Map(),
   );
+  /** Emoji-chip markers for clusters, keyed by MapLibre cluster_id.
+   *  `key` fingerprints the rendered content (emojis + count) so a sync
+   *  pass can skip restyling untouched chips. */
+  const clusterMarkersRef = useRef<
+    globalThis.Map<number, { marker: maplibregl.Marker; key: string }>
+  >(new globalThis.Map());
+  /** Monotonic token: getClusterLeaves is async, so a pan can start a
+   *  newer sync pass while an older one is mid-await — the older pass
+   *  must not mutate the DOM with stale geometry. */
+  const clusterSyncTokenRef = useRef(0);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const pendingMarkerRef = useRef<maplibregl.Marker | null>(null);
   const onMarkerPressRef = useRef(onMarkerPress);
@@ -335,41 +367,6 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
     map.on('load', () => {
       installCustomLayers(map, eventsRef.current);
-
-      map.on('click', CLUSTER_LAYER_ID, async (e) => {
-        const feature = map.queryRenderedFeatures(e.point, {
-          layers: [CLUSTER_LAYER_ID],
-        })[0];
-        if (!feature) return;
-        const clusterId = feature.properties?.cluster_id as number | undefined;
-        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-        if (clusterId == null) return;
-
-        // Prefer opening the picker; the caller can decide whether to
-        // dismiss it and zoom in instead. Falls back to expansion-zoom
-        // only when no handler is wired.
-        const leaves = await src.getClusterLeaves(clusterId, Infinity, 0);
-        const ids = leaves
-          .map((leaf) => leaf.properties?.eventId as string | undefined)
-          .filter((id): id is string => !!id);
-        const clusterEvents = ids
-          .map((id) => eventsRef.current.find((ev) => ev.id === id))
-          .filter((ev): ev is EventWithCreator => !!ev);
-
-        if (onClusterTapRef.current && clusterEvents.length > 0) {
-          onClusterTapRef.current(clusterEvents);
-        } else {
-          const zoom = await src.getClusterExpansionZoom(clusterId);
-          const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
-          map.easeTo({ center: [lng!, lat!], zoom });
-        }
-      });
-      map.on('mouseenter', CLUSTER_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', CLUSTER_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
     });
 
     map.on('styledata', () => {
@@ -452,6 +449,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
+      clusterMarkersRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -526,46 +524,113 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     }
   }, [events, selectedEventId]);
 
-  // Visibility sync — hides markers whose event is currently rolled up
-  // into a cluster. Runs on every moveend but is cheap: just toggles
-  // `display` on already-mounted elements. No teardown, no flicker.
+  // Cluster sync — replaces the old circle/count layers. Enumerates the
+  // source's cluster features (dedup by cluster_id: tiles overlap),
+  // renders each as an emoji-chip DOM marker, hides the individual
+  // markers it swallows, and prunes chips whose cluster dissolved.
+  // Runs on every moveend/sourcedata; markers mutate in place so
+  // there's no flicker.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const syncVisibility = async () => {
+    const syncClusters = async () => {
       const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
       if (!src) return;
-      const clusterFeatures = map.queryRenderedFeatures({
-        layers: [CLUSTER_LAYER_ID],
-      });
-      const clustered = new Set<string>();
-      await Promise.all(
-        clusterFeatures.map(async (feature) => {
-          const cid = feature.properties?.cluster_id as number | undefined;
-          if (cid == null) return;
-          const leaves = await src.getClusterLeaves(cid, Infinity, 0);
-          for (const leaf of leaves) {
-            const id = leaf.properties?.eventId as string | undefined;
-            if (id) clustered.add(id);
+      const token = ++clusterSyncTokenRef.current;
+
+      const clusterFeats = new globalThis.Map<
+        number,
+        maplibregl.MapGeoJSONFeature
+      >();
+      for (const f of map.querySourceFeatures(SOURCE_ID)) {
+        const cid = f.properties?.cluster_id as number | undefined;
+        if (typeof cid === 'number' && !clusterFeats.has(cid)) {
+          clusterFeats.set(cid, f);
+        }
+      }
+
+      const clusteredIds = new Set<string>();
+      const alive = new Set<number>();
+      for (const [cid, feature] of clusterFeats) {
+        let leaves;
+        try {
+          leaves = await src.getClusterLeaves(cid, Infinity, 0);
+        } catch {
+          continue; // cluster dissolved mid-flight (zoom changed)
+        }
+        // A newer pass superseded this one — bail before mutating DOM
+        // with stale cluster geometry.
+        if (token !== clusterSyncTokenRef.current) return;
+
+        const members = leaves
+          .map((leaf) => leaf.properties?.eventId as string | undefined)
+          .map((id) => (id ? eventsRef.current.find((ev) => ev.id === id) : undefined))
+          .filter((ev): ev is EventWithCreator => !!ev);
+        if (members.length === 0) continue;
+
+        for (const m of members) clusteredIds.add(m.id);
+        alive.add(cid);
+
+        const emojis = clusterEmojis(members);
+        const key = `${emojis.join('')}|${members.length}`;
+        const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
+
+        const existing = clusterMarkersRef.current.get(cid);
+        if (existing) {
+          existing.marker.setLngLat([lng!, lat!]);
+          if (existing.key !== key) {
+            styleClusterElement(
+              existing.marker.getElement() as HTMLDivElement,
+              emojis,
+              members.length,
+            );
+            existing.key = key;
           }
-        }),
-      );
+          continue;
+        }
+
+        const el = document.createElement('div');
+        styleClusterElement(el, emojis, members.length);
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          // Resolve membership at CLICK time — the closure's snapshot
+          // would go stale as events churn under a live cluster.
+          void src.getClusterLeaves(cid, Infinity, 0).then((fresh) => {
+            const evs = fresh
+              .map((leaf) => leaf.properties?.eventId as string | undefined)
+              .map((id) =>
+                id ? eventsRef.current.find((e2) => e2.id === id) : undefined,
+              )
+              .filter((e2): e2 is EventWithCreator => !!e2);
+            if (evs.length > 0) onClusterTapRef.current?.(evs);
+          });
+        });
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([lng!, lat!])
+          .addTo(map);
+        clusterMarkersRef.current.set(cid, { marker, key });
+      }
+
+      for (const [cid, entry] of clusterMarkersRef.current) {
+        if (!alive.has(cid)) {
+          entry.marker.remove();
+          clusterMarkersRef.current.delete(cid);
+        }
+      }
       for (const [id, marker] of markersRef.current) {
-        marker.getElement().style.display = clustered.has(id) ? 'none' : 'flex';
+        marker.getElement().style.display = clusteredIds.has(id) ? 'none' : 'flex';
       }
     };
 
-    const armed = () => {
-      if (map.isStyleLoaded()) void syncVisibility();
-      else map.once('load', syncVisibility);
-    };
-    armed();
-    map.on('moveend', syncVisibility);
-    map.on('sourcedata', syncVisibility);
+    const handler = () => void syncClusters();
+    if (map.isStyleLoaded()) void syncClusters();
+    else map.once('load', handler);
+    map.on('moveend', handler);
+    map.on('sourcedata', handler);
     return () => {
-      map.off('moveend', syncVisibility);
-      map.off('sourcedata', syncVisibility);
+      map.off('moveend', handler);
+      map.off('sourcedata', handler);
     };
   }, [events]);
 

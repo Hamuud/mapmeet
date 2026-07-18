@@ -17,9 +17,11 @@ import MapView, {
   type Region,
 } from 'react-native-maps';
 
+import { clusterEmojis } from './clusterEmojis';
 import { MapMarker, PendingMarker } from './MapMarker';
 import { useCluster } from './useCluster';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
+import type { EventWithCreator } from '@/types';
 
 const DEFAULT_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
@@ -84,12 +86,12 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
       // Native uses pinch — desktop-only stack doesn't call these on iOS.
       // Kept in the shape for MapRef type coherence.
       zoomIn: () => {
-        mapRef.current?.getCamera().then((cam) => {
+        mapRef.current?.getCamera().then((cam: { zoom?: number }) => {
           if (cam.zoom != null) mapRef.current?.animateCamera({ zoom: cam.zoom + 1 });
         });
       },
       zoomOut: () => {
-        mapRef.current?.getCamera().then((cam) => {
+        mapRef.current?.getCamera().then((cam: { zoom?: number }) => {
           if (cam.zoom != null) mapRef.current?.animateCamera({ zoom: cam.zoom - 1 });
         });
       },
@@ -155,7 +157,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
             onPress={() => onClusterTap?.(c.leaves())}
             tracksViewChanges={false}
           >
-            <ClusterBubble count={c.count} />
+            <ClusterBubble events={c.leaves()} count={c.count} />
           </Marker>
         ) : (
           <Marker
@@ -178,26 +180,51 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   );
 });
 
-function ClusterBubble({ count }: { count: number }) {
-  const size = count >= 50 ? 60 : count >= 10 ? 52 : 44;
+/** Cluster chip: the emojis of the events inside it, not an anonymous
+ *  circle. ≤5 events → one emoji each (🎫🎫 reads as "two events");
+ *  more → up to 5 distinct emojis + a count badge for the total. */
+function ClusterBubble({
+  events,
+  count,
+}: {
+  events: EventWithCreator[];
+  count: number;
+}) {
+  const emojis = clusterEmojis(events);
+  const showBadge = count > emojis.length;
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#3757FF',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: 'rgba(255,255,255,0.9)',
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-      }}
-    >
-      <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>{count}</Text>
+    <View>
+      <View
+        className="flex-row flex-wrap items-center justify-center rounded-3xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
+        style={{
+          // Row shape: 1-3 emojis one line, 4 → 2×2, 5 → 3+2. RN sizes
+          // border-box, so the cap = slots + padding (20) + border (2).
+          maxWidth: (emojis.length === 4 ? 2 : 3) * 24 + 22,
+          paddingHorizontal: 10,
+          paddingVertical: 7,
+          shadowColor: '#000',
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 4,
+        }}
+      >
+        {emojis.map((emoji, i) => (
+          <Text key={`${emoji}-${i}`} style={{ fontSize: 16, lineHeight: 22, width: 24, textAlign: 'center' }}>
+            {emoji}
+          </Text>
+        ))}
+      </View>
+      {showBadge ? (
+        <View
+          className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-text-light dark:bg-text-dark"
+          style={{ height: 20, minWidth: 20, paddingHorizontal: 4 }}
+        >
+          <Text className="text-[10px] font-bold text-surface-light dark:text-surface-dark">
+            {count}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
