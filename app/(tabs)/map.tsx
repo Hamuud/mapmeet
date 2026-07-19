@@ -228,7 +228,7 @@ export default function MapScreen() {
           }}
           onDirections={handleDirections}
           onViewHost={(e) => {
-            router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
+            router.navigate({ pathname: '/user/[username]', params: { username: e.creator.username } });
           }}
           onOpenChat={(e) => {
             router.navigate({ pathname: '/chat/[id]', params: { id: e.id } });
@@ -404,7 +404,7 @@ export default function MapScreen() {
         }}
         onDirections={handleDirections}
         onViewHost={(e) => {
-          router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
+          router.navigate({ pathname: '/user/[username]', params: { username: e.creator.username } });
         }}
         onOpenChat={(e) => {
           selectEvent(null);

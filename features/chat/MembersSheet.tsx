@@ -80,7 +80,7 @@ export function MembersSheet({ event, open, viewerId, onClose }: Props) {
                 <Pressable
                   onPress={() => {
                     onClose();
-                    router.navigate({ pathname: '/user/[id]', params: { id: m.id } });
+                    router.navigate({ pathname: '/user/[username]', params: { username: m.username } });
                   }}
                   className="flex-1 flex-row items-center gap-3"
                 >

@@ -12,7 +12,7 @@ import { useIconColor } from '@/hooks/useIconColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { eventsService } from '@/services/events.service';
-import { profilesService } from '@/services/profiles.service';
+import { looksLikeUuid, profilesService } from '@/services/profiles.service';
 import {
   ratingsService,
   type RatingSummary,
@@ -39,7 +39,12 @@ type Tab = 'upcoming' | 'past' | 'reviews';
  *  We already have every event in the store — no separate creator-
  *  events endpoint needed. Just filter locally. */
 export default function UserProfileScreen() {
-  const { id: userId } = useLocalSearchParams<{ id: string }>();
+  // Route param name matches the file (`/user/[username].tsx`). We still
+  // accept a UUID-shaped segment for the transition — profilesService
+  // routes it to getById — and then quietly replace(...) the URL to the
+  // pretty /user/<handle> form so the address bar stops leaking ids.
+  const { username: handleParam } = useLocalSearchParams<{ username: string }>();
+  const handle = (handleParam ?? '').trim();
   const toast = useToast();
   const { session } = useAuth();
   const events = useEventsStore((s) => s.events);
@@ -49,16 +54,31 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('upcoming');
 
-  const isSelf = !!(session && userId && session.user.id === userId);
+  // isSelf can only be answered after the profile row lands — the URL no
+  // longer carries the viewer's uuid.
+  const isSelf = !!(session && profile && session.user.id === profile.id);
+  // Ratings/reviews RPCs take a uuid; use the resolved profile id, not
+  // the URL segment.
+  const targetId = profile?.id ?? null;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!handle) return;
     let cancelled = false;
     setLoading(true);
     profilesService
-      .getById(userId)
+      .getByHandle(handle)
       .then((row) => {
-        if (!cancelled) setProfile(row);
+        if (cancelled) return;
+        setProfile(row);
+        // Landed via a legacy /user/<uuid> URL → swap the address bar
+        // for /user/<username> so the id doesn't linger in someone's
+        // history or share sheet.
+        if (row && looksLikeUuid(handle) && row.username !== handle) {
+          router.replace({
+            pathname: '/user/[username]',
+            params: { username: row.username },
+          });
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -74,7 +94,7 @@ export default function UserProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [userId, toast]);
+  }, [handle, toast]);
 
   // ── Rating + reviews ──────────────────────────────────────────────
   const [summary, setSummary] = useState<RatingSummary | null>(null);
@@ -84,10 +104,10 @@ export default function UserProfileScreen() {
   const [reviewSending, setReviewSending] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!targetId) return;
     let cancelled = false;
     ratingsService
-      .getSummary(userId)
+      .getSummary(targetId)
       .then((s) => {
         if (!cancelled) setSummary(s);
       })
@@ -95,7 +115,7 @@ export default function UserProfileScreen() {
         /* rating hidden until the migration lands — non-fatal */
       });
     ratingsService
-      .listReviews(userId)
+      .listReviews(targetId)
       .then((rows) => {
         if (!cancelled) setReviews(rows);
       })
@@ -103,11 +123,11 @@ export default function UserProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [targetId]);
 
   const handleVote = useCallback(
     async (value: RatingVote) => {
-      if (!userId || !summary || voteBusy) return;
+      if (!targetId || !summary || voteBusy) return;
       const prev = summary;
       // Optimistic: move the counts locally, roll back on failure.
       setSummary({
@@ -118,7 +138,7 @@ export default function UserProfileScreen() {
       });
       setVoteBusy(true);
       try {
-        await ratingsService.rate(userId, value);
+        await ratingsService.rate(targetId, value);
       } catch (e) {
         setSummary(prev);
         toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
@@ -126,24 +146,24 @@ export default function UserProfileScreen() {
         setVoteBusy(false);
       }
     },
-    [userId, summary, voteBusy, toast],
+    [targetId, summary, voteBusy, toast],
   );
 
   const handleSubmitReview = useCallback(async () => {
     const text = reviewDraft.trim();
-    if (!userId || !text || reviewSending) return;
+    if (!targetId || !text || reviewSending) return;
     setReviewSending(true);
     try {
-      await ratingsService.addReview(userId, text);
+      await ratingsService.addReview(targetId, text);
       setReviewDraft('');
-      setReviews(await ratingsService.listReviews(userId));
+      setReviews(await ratingsService.listReviews(targetId));
       toast.show('Review posted anonymously.', 'success');
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not post review', 'error');
     } finally {
       setReviewSending(false);
     }
-  }, [userId, reviewDraft, reviewSending, toast]);
+  }, [targetId, reviewDraft, reviewSending, toast]);
 
   // Prefer events already in the store — they're enriched with
   // creator + participant_count. But a viewer arriving here without
@@ -151,8 +171,8 @@ export default function UserProfileScreen() {
   // one-shot fetch when the store is empty for this host.
   const [fallbackEvents, setFallbackEvents] = useState<EventWithCreator[]>([]);
   useEffect(() => {
-    if (!userId) return;
-    const inStore = events.some((e) => e.creator_id === userId);
+    if (!targetId) return;
+    const inStore = events.some((e) => e.creator_id === targetId);
     if (inStore || events.length > 0) return;
     let cancelled = false;
     (async () => {
@@ -168,12 +188,13 @@ export default function UserProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [userId, events]);
+  }, [targetId, events]);
 
   const { upcoming, past } = useMemo(() => {
+    if (!targetId) return { upcoming: [], past: [] };
     const src = events.length > 0 ? events : fallbackEvents;
     const now = new Date();
-    const mine = src.filter((e) => e.creator_id === userId);
+    const mine = src.filter((e) => e.creator_id === targetId);
     return {
       upcoming: mine.filter((e) => !isEventPast(e, now)),
       past: mine
@@ -184,7 +205,7 @@ export default function UserProfileScreen() {
           ),
         ),
     };
-  }, [events, fallbackEvents, userId]);
+  }, [events, fallbackEvents, targetId]);
 
   const list: (EventWithCreator | UserReview)[] =
     tab === 'reviews' ? reviews : tab === 'upcoming' ? upcoming : past;

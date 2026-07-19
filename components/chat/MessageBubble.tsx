@@ -25,7 +25,9 @@ type Props = {
   /** The viewer's favourite emoji — powers the desktop hover chip. */
   favoriteReaction?: string;
   onLongPress?: (message: MessageWithSender) => void;
-  onPressAvatar?: (userId: string) => void;
+  /** Full sender profile (not just the id) so the caller can route by
+   *  username — /user/<username>, not /user/<uuid>. */
+  onPressAvatar?: (sender: { id: string; username: string }) => void;
   onToggleReaction?: (message: MessageWithSender, emoji: string) => void;
   /** Swipe (native) → reply, same as Telegram. */
   onReply?: (message: MessageWithSender) => void;
@@ -390,7 +392,7 @@ export function MessageBubble({
     >
       {!isOwn ? (
         <Pressable
-          onPress={() => message.sender && onPressAvatar?.(message.sender.id)}
+          onPress={() => message.sender && onPressAvatar?.(message.sender)}
           className="mr-2 self-end"
           hitSlop={6}
         >

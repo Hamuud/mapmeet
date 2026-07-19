@@ -258,8 +258,8 @@ export default function ChatRoomScreen() {
                   onLongPress={(m) => setActionTarget(m)}
                   onContextMenu={(m) => setActionTarget(m)}
                   onReply={(m) => setReplyingTo(m)}
-                  onPressAvatar={(userId) =>
-                    router.navigate({ pathname: '/user/[id]', params: { id: userId } })
+                  onPressAvatar={(sender) =>
+                    router.navigate({ pathname: '/user/[username]', params: { username: sender.username } })
                   }
                   onToggleReaction={handleToggleReaction}
                 />
@@ -314,7 +314,7 @@ export default function ChatRoomScreen() {
             }}
             onViewHost={(e) => {
               setEventOpen(false);
-              router.navigate({ pathname: '/user/[id]', params: { id: e.creator_id } });
+              router.navigate({ pathname: '/user/[username]', params: { username: e.creator.username } });
             }}
           />
         ) : null}
