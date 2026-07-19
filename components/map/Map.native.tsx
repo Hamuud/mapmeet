@@ -187,7 +187,10 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
 /** Brand indigo — the cluster circle's fill (deliberately not ink). */
 const CLUSTER_BG = '#4B5FE0';
-const ORBIT_MS = 16000;
+// "Barely noticeable" — 40 s per revolution. At two/three emojis this
+// reads as a slow drift, not a spin; the eye picks up motion only when
+// something else on screen is still.
+const ORBIT_MS = 40000;
 
 /** Cluster marker: a colored circle with the events' emojis slowly
  *  orbiting inside it. ≤5 events → one emoji each (🎫🎫 reads as "two
@@ -223,8 +226,12 @@ function ClusterBubble({
   });
 
   const n = emojis.length;
-  const size = n <= 2 ? 52 : n === 3 ? 58 : 64;
-  const radius = n === 1 ? 0 : size / 2 - 15;
+  // Slightly larger than the previous chip — the cluster reads as
+  // "a group" rather than "another pin". n=1 keeps the circle so the
+  // marker's identity as a cluster stays legible; the emoji just sits
+  // centred.
+  const size = n === 1 ? 52 : n === 2 ? 60 : n === 3 ? 68 : n === 4 ? 74 : 80;
+  const radius = n === 1 ? 0 : size / 2 - 16;
 
   return (
     <View>

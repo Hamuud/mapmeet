@@ -245,7 +245,9 @@ function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
 /** Brand indigo — the cluster circle's fill (deliberately not ink:
  *  "the circle shouldn't be black"). */
 const CLUSTER_BG = '#4B5FE0';
-const ORBIT_SECONDS = 16;
+// "Barely noticeable" — 40 s per revolution. Kept in lockstep with the
+// native ORBIT_MS.
+const ORBIT_SECONDS = 40;
 
 /** (Re)build a cluster's DOM: a colored circle with the events' emojis
  *  slowly orbiting inside it, plus a count badge when the cluster holds
@@ -271,8 +273,10 @@ function styleClusterElement(
   el.style.cssText = `position:relative;cursor:pointer;`;
 
   const n = emojis.length;
-  const size = n <= 2 ? 52 : n === 3 ? 58 : 64;
-  const radius = n === 1 ? 0 : size / 2 - 15;
+  // Kept in lockstep with the native ClusterBubble sizes so the two
+  // platforms feel identical.
+  const size = n === 1 ? 52 : n === 2 ? 60 : n === 3 ? 68 : n === 4 ? 74 : 80;
+  const radius = n === 1 ? 0 : size / 2 - 16;
 
   const circle = document.createElement('div');
   circle.style.cssText = `

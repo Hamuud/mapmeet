@@ -1,20 +1,21 @@
-/** Which emojis a map cluster shows instead of an anonymous count circle.
+/** Which emojis a map cluster shows.
  *
- *  ≤ 5 events  → one emoji PER EVENT, duplicates kept — two 🎫 events
- *                render 🎫🎫, so the chip itself says "two events here".
- *  > 5 events  → up to 5 DISTINCT emojis sampled from the cluster (the
- *                variety is the signal now; a count badge carries the
- *                number). The sample is seeded by the member ids so a
- *                pan/zoom doesn't reshuffle the picks — "random" per
- *                cluster, stable per composition. */
+ *  ALWAYS DISTINCT. If several events in the cluster share an emoji,
+ *  that emoji occupies one slot and the remaining slots are filled from
+ *  the OTHER events in the cluster — never from a duplicate. So a
+ *  cluster of {🎤,🎤,🍰,🍰,⚽} orbits three glyphs, not five; and if
+ *  the cluster is a single dominant emoji ({🎤,🎤,🎤}) the marker
+ *  shows just 🎤 (with the count badge carrying the real total).
+ *
+ *  Distinct count > 5 → we can't fit them all, so five are sampled
+ *  deterministically (seeded by the member ids) — same composition,
+ *  same picks, so panning/zooming doesn't reshuffle the marker. */
 export const CLUSTER_EMOJI_MAX = 5;
 
 export function clusterEmojis(
   events: Array<{ id: string; emoji: string }>,
   max = CLUSTER_EMOJI_MAX,
 ): string[] {
-  if (events.length <= max) return events.map((e) => e.emoji);
-
   const distinct = [...new Set(events.map((e) => e.emoji))];
   if (distinct.length <= max) return distinct;
 
