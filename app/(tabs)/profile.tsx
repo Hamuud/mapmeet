@@ -153,6 +153,17 @@ export default function YouScreen() {
               </View>
               <View className="flex-1">
                 <PrimaryButton
+                  label="Friends"
+                  variant="secondary"
+                  leftIcon={
+                    <Ionicons name="people-outline" size={14} color={iconColor} />
+                  }
+                  onPress={() => router.push('/friends')}
+                  fullWidth
+                />
+              </View>
+              <View className="flex-1">
+                <PrimaryButton
                   label="Settings"
                   variant="secondary"
                   leftIcon={

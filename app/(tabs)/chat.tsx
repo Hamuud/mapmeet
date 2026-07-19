@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
+import { dmsService, type DmRoom } from '@/services/dms.service';
 import { type ChatPreview } from '@/services/messages.service';
 import { useChatStore } from '@/store/chat.store';
 import { useEventsStore } from '@/store/events.store';
@@ -14,7 +16,7 @@ import { isEventPast } from '@/utils/eventTime';
 import { formatRelativeTime } from '@/utils/format';
 import type { EventWithCreator } from '@/types';
 
-type Folder = 'active' | 'archive';
+type Folder = 'active' | 'archive' | 'direct';
 
 export default function ChatScreen() {
   return (
@@ -81,6 +83,32 @@ function ChatListBody() {
     0,
   );
 
+  // Direct messages — 1:1 chats with friends (and any 1-message cold
+  // conversations). Loaded when the Direct segment is picked; realtime
+  // isn't wired in the list here yet, so also refresh on tab change.
+  const [dms, setDms] = useState<DmRoom[]>([]);
+  const [dmsLoading, setDmsLoading] = useState(false);
+  useEffect(() => {
+    if (folder !== 'direct' || !viewerId) return;
+    let cancelled = false;
+    setDmsLoading(true);
+    dmsService
+      .listRooms(viewerId)
+      .then((rows) => {
+        if (!cancelled) setDms(rows);
+      })
+      .catch(() => {
+        /* migration might not be applied yet — hide silently */
+      })
+      .finally(() => {
+        if (!cancelled) setDmsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [folder, viewerId]);
+  const directUnread = dms.reduce((s, r) => s + r.unreadCount, 0);
+
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <View className="px-5 pb-3 pt-2">
@@ -103,40 +131,82 @@ function ChatListBody() {
             selected={folder === 'archive'}
             onPress={() => setFolder('archive')}
           />
+          <FolderTab
+            label="Direct"
+            count={dms.length}
+            unread={directUnread}
+            selected={folder === 'direct'}
+            onPress={() => setFolder('direct')}
+          />
         </View>
       </View>
 
-      <FlatList
-        data={sorted}
-        keyExtractor={(e) => e.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 10, flexGrow: 1 }}
-        renderItem={({ item }) => (
-          <ChatRow
-            event={item}
-            preview={previews.get(item.id)}
-            isHost={item.creator_id === viewerId}
-            viewerId={viewerId}
-          />
-        )}
-        ListEmptyComponent={
-          folder === 'active' ? (
-            <EmptyState
-              emoji="💬"
-              title="No active chats"
-              description="Join an event on the map — every event comes with its own group chat."
-              actionLabel="Open map"
-              onAction={() => router.push('/(tabs)/map')}
+      {folder === 'direct' ? (
+        <FlatList
+          data={dms}
+          keyExtractor={(r) => r.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+            gap: 10,
+            flexGrow: 1,
+          }}
+          renderItem={({ item }) => (
+            <DmRow room={item} viewerId={viewerId} />
+          )}
+          ListEmptyComponent={
+            dmsLoading ? (
+              <EmptyState emoji="⏳" title="Loading DMs…" />
+            ) : (
+              <EmptyState
+                emoji="✉️"
+                title="No direct messages yet"
+                description="Tap Message on a profile to start a DM. Not friends? You each get one message to break the ice."
+                actionLabel="Find friends"
+                onAction={() => router.push('/friends')}
+              />
+            )
+          }
+        />
+      ) : (
+        <FlatList
+          data={sorted}
+          keyExtractor={(e) => e.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+            gap: 10,
+            flexGrow: 1,
+          }}
+          renderItem={({ item }) => (
+            <ChatRow
+              event={item}
+              preview={previews.get(item.id)}
+              isHost={item.creator_id === viewerId}
+              viewerId={viewerId}
             />
-          ) : (
-            <EmptyState
-              emoji="🗂️"
-              title="Archive is empty"
-              description="Once an event wraps, its chat moves here so the history stays readable."
-            />
-          )
-        }
-      />
+          )}
+          ListEmptyComponent={
+            folder === 'active' ? (
+              <EmptyState
+                emoji="💬"
+                title="No active chats"
+                description="Join an event on the map — every event comes with its own group chat."
+                actionLabel="Open map"
+                onAction={() => router.push('/(tabs)/map')}
+              />
+            ) : (
+              <EmptyState
+                emoji="🗂️"
+                title="Archive is empty"
+                description="Once an event wraps, its chat moves here so the history stays readable."
+              />
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -205,6 +275,71 @@ function previewText(preview: ChatPreview | undefined): string {
     case 'system':
       return m.text ?? '';
   }
+}
+
+function DmRow({
+  room,
+  viewerId,
+}: {
+  room: DmRoom;
+  viewerId: string | null;
+}) {
+  const last = room.lastMessage;
+  const lastIsOwn = !!(last && viewerId && last.sender_id === viewerId);
+  return (
+    <Pressable
+      onPress={() =>
+        router.navigate({
+          pathname: '/dm/[username]',
+          params: { username: room.other.username },
+        })
+      }
+      className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 active:opacity-80 dark:border-border-dark dark:bg-panel-dark"
+    >
+      <Avatar
+        name={room.other.display_name}
+        uri={room.other.avatar_url}
+        size="md"
+      />
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1.5">
+          <Text
+            className="flex-1 text-[15px] font-semibold text-text-light dark:text-text-dark"
+            numberOfLines={1}
+          >
+            {room.other.display_name}
+          </Text>
+          {last ? (
+            <Text className="font-mono text-[9px] uppercase text-muted-light">
+              {formatRelativeTime(last.created_at)}
+            </Text>
+          ) : null}
+        </View>
+        <Text
+          className={[
+            'mt-0.5 text-[13px]',
+            room.unreadCount > 0
+              ? 'font-semibold text-text-light dark:text-text-dark'
+              : 'text-muted-light dark:text-muted-dark',
+          ].join(' ')}
+          numberOfLines={1}
+        >
+          {last?.type === 'invite'
+            ? `${lastIsOwn ? 'You: ' : ''}🎟 Event invite`
+            : last
+              ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
+              : `Say hi to @${room.other.username}`}
+        </Text>
+      </View>
+      {room.unreadCount > 0 ? (
+        <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-accent-400 px-1.5">
+          <Text className="text-[11px] font-bold text-white">
+            {room.unreadCount > 99 ? '99+' : room.unreadCount}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
 }
 
 function ChatRow({

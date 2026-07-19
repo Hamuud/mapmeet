@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import {
   Image,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   Text,
   useWindowDimensions,
   View,
@@ -16,6 +18,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useVenue } from '@/hooks/useVenue';
 import { eventsService } from '@/services/events.service';
+import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
 import { distanceKm, formatDistance } from '@/utils/distance';
 import { formatEventDate, formatEventTime } from '@/utils/format';
@@ -315,6 +318,46 @@ export function EventPreviewBody({
             void Linking.openURL(url).catch(() =>
               toast.show('Could not open the ticket page.', 'error'),
             );
+          }}
+          fullWidth
+        />
+      ) : null}
+
+      {/* Invite — host + participants can mint a 24h shareable link.
+          Native: system share sheet; web: clipboard + toast. Available
+          only for user-created events (imported ones already carry
+          their own Get-tickets link). */}
+      {!isImported && (isCreator || event.is_joined) ? (
+        <PrimaryButton
+          label="Invite friends"
+          variant="secondary"
+          size="sm"
+          leftIcon={
+            <Ionicons name="share-social-outline" size={13} color="#4B5FE0" />
+          }
+          onPress={async () => {
+            try {
+              const token = await invitesService.create(event.id);
+              const url = invitesService.shareUrl(token);
+              const message = `${event.emoji} You're invited: ${event.title}\n${url}`;
+              if (Platform.OS === 'web') {
+                if (typeof navigator !== 'undefined' && navigator.share) {
+                  await navigator.share({ title: event.title, url, text: message });
+                } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  await navigator.clipboard.writeText(url);
+                  toast.show('Invite link copied. Good for 24 hours.', 'success');
+                } else {
+                  toast.show(url, 'info');
+                }
+              } else {
+                await Share.share({ message, url, title: event.title });
+              }
+            } catch (e) {
+              toast.show(
+                e instanceof Error ? e.message : 'Could not create invite',
+                'error',
+              );
+            }
           }}
           fullWidth
         />

@@ -12,6 +12,10 @@ import { useIconColor } from '@/hooks/useIconColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { eventsService } from '@/services/events.service';
+import {
+  friendshipsService,
+  type FriendshipState,
+} from '@/services/friendships.service';
 import { looksLikeUuid, profilesService } from '@/services/profiles.service';
 import {
   ratingsService,
@@ -95,6 +99,47 @@ export default function UserProfileScreen() {
       cancelled = true;
     };
   }, [handle, toast]);
+
+  // ── Friendship (viewer ↔ this profile) ────────────────────────────
+  const [friendship, setFriendship] = useState<FriendshipState>('none');
+  const [friendBusy, setFriendBusy] = useState(false);
+  const viewerId = session?.user.id ?? null;
+
+  useEffect(() => {
+    if (!viewerId || !targetId || isSelf) return;
+    let cancelled = false;
+    friendshipsService
+      .getState(viewerId, targetId)
+      .then((s) => {
+        if (!cancelled) setFriendship(s);
+      })
+      .catch(() => {
+        /* migration not applied yet — hide the buttons rather than
+         * blocking the whole profile page */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerId, targetId, isSelf]);
+
+  const handleFriendAction = useCallback(async () => {
+    if (!viewerId || !targetId || friendBusy) return;
+    setFriendBusy(true);
+    try {
+      if (friendship === 'friends') {
+        await friendshipsService.remove(targetId);
+      } else {
+        // Send-or-accept: the RPC auto-accepts an inbound pending
+        // request when I click Add friend.
+        await friendshipsService.request(targetId);
+      }
+      setFriendship(await friendshipsService.getState(viewerId, targetId));
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not update friendship', 'error');
+    } finally {
+      setFriendBusy(false);
+    }
+  }, [viewerId, targetId, friendBusy, friendship, toast]);
 
   // ── Rating + reviews ──────────────────────────────────────────────
   const [summary, setSummary] = useState<RatingSummary | null>(null);
@@ -271,6 +316,64 @@ export default function UserProfileScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Friendship + DM buttons — hidden on your own profile,
+                and while not signed in. Add friend / Requested /
+                Accept / Friends map onto the four FriendshipStates. */}
+            {!isSelf && session ? (
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <PrimaryButton
+                    label={
+                      friendship === 'friends'
+                        ? 'Friends ✓'
+                        : friendship === 'outgoing'
+                          ? 'Requested'
+                          : friendship === 'incoming'
+                            ? 'Accept request'
+                            : 'Add friend'
+                    }
+                    variant={friendship === 'friends' ? 'secondary' : 'primary'}
+                    leftIcon={
+                      <Ionicons
+                        name={
+                          friendship === 'friends'
+                            ? 'people'
+                            : friendship === 'outgoing'
+                              ? 'time-outline'
+                              : 'person-add-outline'
+                        }
+                        size={14}
+                        color={
+                          friendship === 'friends'
+                            ? '#4B5FE0'
+                            : '#F6F4EE'
+                        }
+                      />
+                    }
+                    loading={friendBusy}
+                    onPress={handleFriendAction}
+                    fullWidth
+                  />
+                </View>
+                <View className="flex-1">
+                  <PrimaryButton
+                    label="Message"
+                    variant="secondary"
+                    leftIcon={
+                      <Ionicons name="chatbubble-outline" size={14} color="#4B5FE0" />
+                    }
+                    onPress={() =>
+                      router.navigate({
+                        pathname: '/dm/[username]',
+                        params: { username: profile.username },
+                      })
+                    }
+                    fullWidth
+                  />
+                </View>
+              </View>
+            ) : null}
 
             {/* Rating — everyone starts at 5.00; likes/dislikes from
                 other users move it. Voting hidden on your own profile. */}

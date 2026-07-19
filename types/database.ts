@@ -139,6 +139,57 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      friendships: {
+        Row: {
+          id: string;
+          requester_id: string;
+          recipient_id: string;
+          status: 'pending' | 'accepted';
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      dms: {
+        Row: {
+          id: string;
+          user_a: string;
+          user_b: string;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      dm_messages: {
+        Row: {
+          id: string;
+          dm_id: string;
+          sender_id: string;
+          type: 'text' | 'invite';
+          text: string | null;
+          event_invite_token: string | null;
+          read_by: string[];
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      event_invites: {
+        Row: {
+          token: string;
+          event_id: string;
+          inviter_id: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     // supabase-js's GenericSchema needs Views / Functions / Enums keys
     // present or the whole schema degrades to `never` and every
@@ -187,6 +238,29 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: { id: string; text: string; created_at: string }[];
       };
+      request_friendship: { Args: { p_target: string }; Returns: string };
+      remove_friendship: { Args: { p_other: string }; Returns: undefined };
+      get_or_create_dm: { Args: { p_other: string }; Returns: string };
+      send_dm: { Args: { p_recipient: string; p_text: string }; Returns: string };
+      mark_dm_read: { Args: { p_dm: string }; Returns: undefined };
+      create_event_invite: { Args: { p_event_id: string }; Returns: string };
+      get_event_invite: {
+        Args: { p_token: string };
+        Returns: {
+          event_id: string;
+          event_title: string;
+          event_emoji: string;
+          event_date: string;
+          event_time: string;
+          event_address: string | null;
+          event_image_url: string | null;
+          inviter_display_name: string;
+          inviter_username: string;
+          expires_at: string;
+          expired: boolean;
+        }[];
+      };
+      accept_event_invite: { Args: { p_token: string }; Returns: string };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
