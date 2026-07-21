@@ -115,7 +115,7 @@ function ChatListBody() {
         <Text className="font-display text-4xl text-text-light dark:text-text-dark">
           Chats
         </Text>
-        {/* Active / Archive folders */}
+        {/* Active / Direct / Archive folders */}
         <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <FolderTab
             label="Active"
@@ -125,18 +125,18 @@ function ChatListBody() {
             onPress={() => setFolder('active')}
           />
           <FolderTab
-            label="Archive"
-            count={archive.length}
-            unread={archiveUnread}
-            selected={folder === 'archive'}
-            onPress={() => setFolder('archive')}
-          />
-          <FolderTab
             label="Direct"
             count={dms.length}
             unread={directUnread}
             selected={folder === 'direct'}
             onPress={() => setFolder('direct')}
+          />
+          <FolderTab
+            label="Archive"
+            count={archive.length}
+            unread={archiveUnread}
+            selected={folder === 'archive'}
+            onPress={() => setFolder('archive')}
           />
         </View>
       </View>
