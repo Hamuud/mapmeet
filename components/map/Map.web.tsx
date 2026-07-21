@@ -232,7 +232,11 @@ function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
       type: 'geojson',
       data: eventsToGeoJson(events),
       cluster: true,
-      clusterRadius: 60,
+      // Match the native useCluster tuning: radius 80 + a 2-point
+      // minimum so even a pair of nearby events merges into the
+      // rotating-emoji circle rather than stacking as two pins.
+      clusterRadius: 80,
+      clusterMinPoints: 2,
       clusterMaxZoom: 18,
     });
   } else {

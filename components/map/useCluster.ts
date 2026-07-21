@@ -62,9 +62,14 @@ export function useCluster(
 ): ClusterPoint[] {
   const index = useMemo(() => {
     const idx = new Supercluster<EventFeature['properties']>({
-      radius: 60,
+      // Bigger grouping radius + minPoints 2 so even TWO nearby events
+      // merge into one cluster circle instead of rendering as two
+      // overlapping pins (which is what "two microphones stacked on
+      // Brovary" was). The rotating-emoji circle is the whole point of a
+      // cluster, so we want it to kick in as early as a pair.
+      radius: 80,
       maxZoom: 18,
-      minPoints: 3,
+      minPoints: 2,
     });
     const features: EventFeature[] = events.map((e) => ({
       type: 'Feature',
