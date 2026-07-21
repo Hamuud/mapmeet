@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -103,6 +104,7 @@ export default function UserProfileScreen() {
   // ── Friendship (viewer ↔ this profile) ────────────────────────────
   const [friendship, setFriendship] = useState<FriendshipState>('none');
   const [friendBusy, setFriendBusy] = useState(false);
+  const [confirmUnfriend, setConfirmUnfriend] = useState(false);
   const viewerId = session?.user.id ?? null;
 
   useEffect(() => {
@@ -124,15 +126,17 @@ export default function UserProfileScreen() {
 
   const handleFriendAction = useCallback(async () => {
     if (!viewerId || !targetId || friendBusy) return;
+    // Removing an established friend is destructive — confirm first
+    // instead of unfriending on a single tap.
+    if (friendship === 'friends') {
+      setConfirmUnfriend(true);
+      return;
+    }
     setFriendBusy(true);
     try {
-      if (friendship === 'friends') {
-        await friendshipsService.remove(targetId);
-      } else {
-        // Send-or-accept: the RPC auto-accepts an inbound pending
-        // request when I click Add friend.
-        await friendshipsService.request(targetId);
-      }
+      // Send-or-accept: the RPC auto-accepts an inbound pending
+      // request when I click Add friend.
+      await friendshipsService.request(targetId);
       setFriendship(await friendshipsService.getState(viewerId, targetId));
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not update friendship', 'error');
@@ -140,6 +144,20 @@ export default function UserProfileScreen() {
       setFriendBusy(false);
     }
   }, [viewerId, targetId, friendBusy, friendship, toast]);
+
+  const doUnfriend = useCallback(async () => {
+    if (!viewerId || !targetId) return;
+    setConfirmUnfriend(false);
+    setFriendBusy(true);
+    try {
+      await friendshipsService.remove(targetId);
+      setFriendship(await friendshipsService.getState(viewerId, targetId));
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not update friendship', 'error');
+    } finally {
+      setFriendBusy(false);
+    }
+  }, [viewerId, targetId, toast]);
 
   // ── Rating + reviews ──────────────────────────────────────────────
   const [summary, setSummary] = useState<RatingSummary | null>(null);
@@ -495,6 +513,16 @@ export default function UserProfileScreen() {
             />
           )
         }
+      />
+
+      <ConfirmationDialog
+        open={confirmUnfriend}
+        title={`Remove ${profile.display_name} from friends?`}
+        message="You'll both stop being friends and lose unlimited messaging. You can add them again later."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={doUnfriend}
+        onCancel={() => setConfirmUnfriend(false)}
       />
     </SafeAreaView>
   );

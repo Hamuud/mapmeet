@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,10 @@ export default function FriendsScreen() {
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [pending, setPending] = useState<FriendRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Unfriend is confirmed via a dialog; this holds the friend awaiting
+  // that confirmation. Rejecting a *pending request* stays immediate —
+  // it isn't removing an established friend.
+  const [pendingUnfriend, setPendingUnfriend] = useState<FriendRow | null>(null);
 
   const load = useCallback(async () => {
     if (!viewerId) return;
@@ -130,7 +135,9 @@ export default function FriendsScreen() {
               })
             }
             onAccept={() => accept(item)}
-            onRemove={() => remove(item)}
+            onRemove={() =>
+              tab === 'friends' ? setPendingUnfriend(item) : remove(item)
+            }
           />
         )}
         ListEmptyComponent={
@@ -152,6 +159,20 @@ export default function FriendsScreen() {
             />
           )
         }
+      />
+
+      <ConfirmationDialog
+        open={!!pendingUnfriend}
+        title={`Remove ${pendingUnfriend?.other.display_name ?? ''} from friends?`}
+        message="You'll both stop being friends and lose unlimited messaging. You can add them again later."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => {
+          const target = pendingUnfriend;
+          setPendingUnfriend(null);
+          if (target) void remove(target);
+        }}
+        onCancel={() => setPendingUnfriend(null)}
       />
     </SafeAreaView>
   );
