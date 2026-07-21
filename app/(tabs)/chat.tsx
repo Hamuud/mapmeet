@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { dmsService, type DmRoom } from '@/services/dms.service';
+import { groupsService, type GroupRoom } from '@/services/groups.service';
 import { type ChatPreview } from '@/services/messages.service';
 import { useChatStore } from '@/store/chat.store';
 import { useEventsStore } from '@/store/events.store';
@@ -83,38 +85,68 @@ function ChatListBody() {
     0,
   );
 
-  // Direct messages — 1:1 chats with friends (and any 1-message cold
-  // conversations). Loaded when the Direct segment is picked; realtime
-  // isn't wired in the list here yet, so also refresh on tab change.
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+
+  // Direct folder = 1:1 DMs + friend group chats, one list sorted by
+  // last activity. Loaded when the Direct segment is picked (or after a
+  // group is created); realtime for the list isn't wired here yet, so we
+  // refresh on tab change.
   const [dms, setDms] = useState<DmRoom[]>([]);
-  const [dmsLoading, setDmsLoading] = useState(false);
+  const [groups, setGroups] = useState<GroupRoom[]>([]);
+  const [directLoading, setDirectLoading] = useState(false);
+  const loadDirect = useCallback(async () => {
+    if (!viewerId) return;
+    setDirectLoading(true);
+    try {
+      const [d, g] = await Promise.all([
+        dmsService.listRooms(viewerId).catch(() => [] as DmRoom[]),
+        groupsService.listRooms(viewerId).catch(() => [] as GroupRoom[]),
+      ]);
+      setDms(d);
+      setGroups(g);
+    } finally {
+      setDirectLoading(false);
+    }
+  }, [viewerId]);
   useEffect(() => {
-    if (folder !== 'direct' || !viewerId) return;
-    let cancelled = false;
-    setDmsLoading(true);
-    dmsService
-      .listRooms(viewerId)
-      .then((rows) => {
-        if (!cancelled) setDms(rows);
-      })
-      .catch(() => {
-        /* migration might not be applied yet — hide silently */
-      })
-      .finally(() => {
-        if (!cancelled) setDmsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [folder, viewerId]);
-  const directUnread = dms.reduce((s, r) => s + r.unreadCount, 0);
+    if (folder !== 'direct') return;
+    void loadDirect();
+  }, [folder, loadDirect]);
+
+  // Interleave DMs + groups by last activity (falls back to nothing →
+  // sorts to the bottom for brand-new empty chats).
+  const directItems = useMemo(() => {
+    const items: Array<
+      | { kind: 'dm'; ts: string; room: DmRoom }
+      | { kind: 'group'; ts: string; room: GroupRoom }
+    > = [
+      ...dms.map((room) => ({ kind: 'dm' as const, ts: room.lastMessage?.created_at ?? '', room })),
+      ...groups.map((room) => ({ kind: 'group' as const, ts: room.lastMessage?.created_at ?? '', room })),
+    ];
+    return items.sort((a, b) => b.ts.localeCompare(a.ts));
+  }, [dms, groups]);
+  const directUnread =
+    dms.reduce((s, r) => s + r.unreadCount, 0) +
+    groups.reduce((s, r) => s + r.unreadCount, 0);
+  const directCount = dms.length + groups.length;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
       <View className="px-5 pb-3 pt-2">
-        <Text className="font-display text-4xl text-text-light dark:text-text-dark">
-          Chats
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <Text className="font-display text-4xl text-text-light dark:text-text-dark">
+            Chats
+          </Text>
+          {/* New group chat — friends only. */}
+          <Pressable
+            onPress={() => setNewGroupOpen(true)}
+            accessibilityLabel="New group chat"
+            hitSlop={8}
+            className="h-10 w-10 items-center justify-center rounded-full bg-accent-400"
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
+        </View>
         {/* Active / Direct / Archive folders */}
         <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <FolderTab
@@ -126,7 +158,7 @@ function ChatListBody() {
           />
           <FolderTab
             label="Direct"
-            count={dms.length}
+            count={directCount}
             unread={directUnread}
             selected={folder === 'direct'}
             onPress={() => setFolder('direct')}
@@ -143,8 +175,8 @@ function ChatListBody() {
 
       {folder === 'direct' ? (
         <FlatList
-          data={dms}
-          keyExtractor={(r) => r.id}
+          data={directItems}
+          keyExtractor={(item) => `${item.kind}:${item.room.id}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
@@ -152,17 +184,21 @@ function ChatListBody() {
             gap: 10,
             flexGrow: 1,
           }}
-          renderItem={({ item }) => (
-            <DmRow room={item} viewerId={viewerId} />
-          )}
+          renderItem={({ item }) =>
+            item.kind === 'group' ? (
+              <GroupRow room={item.room} viewerId={viewerId} />
+            ) : (
+              <DmRow room={item.room} viewerId={viewerId} />
+            )
+          }
           ListEmptyComponent={
-            dmsLoading ? (
-              <EmptyState emoji="⏳" title="Loading DMs…" />
+            directLoading ? (
+              <EmptyState emoji="⏳" title="Loading…" />
             ) : (
               <EmptyState
                 emoji="✉️"
                 title="No direct messages yet"
-                description="Tap Message on a profile to start a DM. Not friends? You each get one message to break the ice."
+                description="Tap + to start a group with friends, or Message on a profile for a DM."
                 actionLabel="Find friends"
                 onAction={() => router.push('/friends')}
               />
@@ -207,6 +243,13 @@ function ChatListBody() {
           }
         />
       )}
+
+      <NewGroupSheet
+        open={newGroupOpen}
+        viewerId={viewerId}
+        onClose={() => setNewGroupOpen(false)}
+        onCreated={() => void loadDirect()}
+      />
     </SafeAreaView>
   );
 }
@@ -329,6 +372,66 @@ function DmRow({
             : last
               ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
               : `Say hi to @${room.other.username}`}
+        </Text>
+      </View>
+      {room.unreadCount > 0 ? (
+        <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-accent-400 px-1.5">
+          <Text className="text-[11px] font-bold text-white">
+            {room.unreadCount > 99 ? '99+' : room.unreadCount}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function GroupRow({
+  room,
+  viewerId,
+}: {
+  room: GroupRoom;
+  viewerId: string | null;
+}) {
+  const last = room.lastMessage;
+  const lastIsOwn = !!(last && viewerId && last.sender_id === viewerId);
+  return (
+    <Pressable
+      onPress={() => router.navigate({ pathname: '/group/[id]', params: { id: room.id } })}
+      className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 active:opacity-80 dark:border-border-dark dark:bg-panel-dark"
+    >
+      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">
+        <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1.5">
+          <Text
+            className="flex-1 text-[15px] font-semibold text-text-light dark:text-text-dark"
+            numberOfLines={1}
+          >
+            {room.name}
+          </Text>
+          <Ionicons name="people" size={11} color="#8B8880" />
+          <Text className="font-mono text-[9px] text-muted-light">{room.memberCount}</Text>
+          {last ? (
+            <Text className="font-mono text-[9px] uppercase text-muted-light">
+              {formatRelativeTime(last.created_at)}
+            </Text>
+          ) : null}
+        </View>
+        <Text
+          className={[
+            'mt-0.5 text-[13px]',
+            room.unreadCount > 0
+              ? 'font-semibold text-text-light dark:text-text-dark'
+              : 'text-muted-light dark:text-muted-dark',
+          ].join(' ')}
+          numberOfLines={1}
+        >
+          {last?.type === 'system'
+            ? (last.text ?? '')
+            : last
+              ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
+              : 'No messages yet — say hi 👋'}
         </Text>
       </View>
       {room.unreadCount > 0 ? (

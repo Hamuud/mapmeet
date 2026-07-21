@@ -47,18 +47,22 @@ export const invitesService = {
     return data as string;
   },
 
-  /** Public share URL — where the invite lands when tapped. Mirrors
-   *  the Expo Router route (`/invite/[token]`). Used by the share
-   *  sheet so the same link works via any medium. */
+  /** App origin including the /mapmeet base path on GitHub Pages. */
+  baseUrl(): string {
+    return typeof window !== 'undefined' && window.location
+      ? `${window.location.origin}${
+          window.location.pathname.startsWith('/mapmeet') ? '/mapmeet' : ''
+        }`
+      : 'https://hamuud.github.io/mapmeet';
+  },
+
+  /** Public share URL for an EVENT invite — mirrors `/invite/[token]`. */
   shareUrl(token: string): string {
-    // Web deploy is under /mapmeet/ on GitHub Pages; native builds get
-    // the same URL (deep links resolve via the app's scheme too).
-    const base =
-      typeof window !== 'undefined' && window.location
-        ? `${window.location.origin}${
-            window.location.pathname.startsWith('/mapmeet') ? '/mapmeet' : ''
-          }`
-        : 'https://hamuud.github.io/mapmeet';
-    return `${base}/invite/${token}`;
+    return `${this.baseUrl()}/invite/${token}`;
+  },
+
+  /** Public share URL for a GROUP invite — mirrors `/group-invite/[token]`. */
+  groupShareUrl(token: string): string {
+    return `${this.baseUrl()}/group-invite/${token}`;
   },
 };

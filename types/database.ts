@@ -190,6 +190,52 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      group_chats: {
+        Row: {
+          id: string;
+          name: string;
+          emoji: string;
+          creator_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      group_members: {
+        Row: { group_id: string; user_id: string; joined_at: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      group_messages: {
+        Row: {
+          id: string;
+          group_id: string;
+          sender_id: string | null;
+          type: 'text' | 'system';
+          text: string | null;
+          read_by: string[];
+          deleted_for: string[];
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      group_invites: {
+        Row: {
+          token: string;
+          group_id: string;
+          inviter_id: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     // supabase-js's GenericSchema needs Views / Functions / Enums keys
     // present or the whole schema degrades to `never` and every
@@ -261,6 +307,32 @@ export type Database = {
         }[];
       };
       accept_event_invite: { Args: { p_token: string }; Returns: string };
+      create_group: {
+        Args: { p_name: string; p_emoji: string; p_member_ids: string[] };
+        Returns: string;
+      };
+      add_group_members: {
+        Args: { p_group: string; p_member_ids: string[] };
+        Returns: undefined;
+      };
+      send_group_message: { Args: { p_group: string; p_text: string }; Returns: string };
+      mark_group_read: { Args: { p_group: string }; Returns: undefined };
+      leave_group: { Args: { p_group: string }; Returns: undefined };
+      create_group_invite: { Args: { p_group: string }; Returns: string };
+      get_group_invite: {
+        Args: { p_token: string };
+        Returns: {
+          group_id: string;
+          group_name: string;
+          group_emoji: string;
+          member_count: number;
+          inviter_display_name: string;
+          inviter_username: string;
+          expires_at: string;
+          expired: boolean;
+        }[];
+      };
+      accept_group_invite: { Args: { p_token: string }; Returns: string };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
