@@ -1,35 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
+import { MessageBubble } from '@/components/chat/MessageBubble';
+import { MessageInput } from '@/components/chat/MessageInput';
 import { Avatar } from '@/components/ui/Avatar';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
-import { dmsService, type DmMessage } from '@/services/dms.service';
+import { dmsService } from '@/services/dms.service';
 import { friendshipsService, type FriendshipState } from '@/services/friendships.service';
 import { looksLikeUuid, profilesService } from '@/services/profiles.service';
+import { usePreferencesStore } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
-import type { Profile } from '@/types';
+import type { MessageWithSender, Profile } from '@/types';
 
-/** 1:1 direct message room. The route param is the OTHER person's
- *  username (with UUID fallback so a legacy link stays valid). We
- *  resolve them, ensure the DM row exists, then load messages.
- *
- *  The 1-message-per-side rule (for non-friends) lives on the server —
- *  the composer just surfaces the resulting error and disables itself
- *  until the friendship flips. */
+const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
+
+/** 1:1 direct message room. Same messaging features as event + group
+ *  chats (replies, reactions, voice). The 1-message-per-side rule for
+ *  non-friends lives on the server — the composer swaps for a lock
+ *  strip once the cap is hit. */
 export default function DmRoomScreen() {
   const { username: handleParam } = useLocalSearchParams<{ username: string }>();
   const handle = (handleParam ?? '').trim();
@@ -38,15 +43,21 @@ export default function DmRoomScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
+  const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const recorder = useVoiceRecorder();
 
   const [other, setOther] = useState<Profile | null>(null);
   const [dmId, setDmId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<DmMessage[]>([]);
+  const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [friendship, setFriendship] = useState<FriendshipState>('none');
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
+  const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
 
-  // Load the other person + ensure the room + fetch history.
+  const refetch = useCallback(async (id: string) => {
+    setMessages(await dmsService.listMessages(id));
+    void dmsService.markRead(id).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!handle || !viewerId) return;
     let cancelled = false;
@@ -56,13 +67,8 @@ export default function DmRoomScreen() {
         if (!profile) throw new Error('User not found');
         if (cancelled) return;
         setOther(profile);
-        // If this was a UUID URL, replace it with the handle now that
-        // we know it — cleans up shareable /dm/<uuid> links.
         if (looksLikeUuid(handle) && profile.username !== handle) {
-          router.replace({
-            pathname: '/dm/[username]',
-            params: { username: profile.username },
-          });
+          router.replace({ pathname: '/dm/[username]', params: { username: profile.username } });
         }
         const [id, state] = await Promise.all([
           dmsService.ensureRoom(profile.id),
@@ -71,50 +77,78 @@ export default function DmRoomScreen() {
         if (cancelled) return;
         setDmId(id);
         setFriendship(state);
-        const msgs = await dmsService.listMessages(id);
-        if (!cancelled) setMessages(msgs);
-        void dmsService.markRead(id).catch(() => {});
+        await refetch(id);
       } catch (e) {
-        if (!cancelled) {
-          toast.show(e instanceof Error ? e.message : 'Could not open DM', 'error');
-        }
+        if (!cancelled) toast.show(e instanceof Error ? e.message : 'Could not open DM', 'error');
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [handle, viewerId, toast]);
+  }, [handle, viewerId, toast, refetch]);
 
-  // Realtime — pushes the other side's new messages into the list.
+  // Realtime — refetch on any change.
   useEffect(() => {
-    if (!dmId || !viewerId) return;
-    const ch = dmsService.subscribe(dmId, (msg) => {
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-      if (msg.sender_id !== viewerId) void dmsService.markRead(dmId).catch(() => {});
-    });
+    if (!dmId) return;
+    const ch = dmsService.subscribe(dmId, () => void refetch(dmId));
     return () => dmsService.unsubscribe(ch);
-  }, [dmId, viewerId]);
+  }, [dmId, refetch]);
 
-  const nonFriendMineCount = messages.filter((m) => m.sender_id === viewerId).length;
-  const nonFriendBlocked = friendship !== 'friends' && nonFriendMineCount >= 1;
+  const visible = useMemo(() => [...messages].reverse(), [messages]);
+  const byId = useMemo(() => {
+    const map = new Map<string, MessageWithSender>();
+    for (const m of messages) map.set(m.id, m);
+    return map;
+  }, [messages]);
 
-  const handleSend = useCallback(async () => {
-    if (!other || sending) return;
-    const text = draft.trim();
-    if (!text) return;
-    setSending(true);
+  const myCount = messages.filter((m) => m.sender_id === viewerId).length;
+  const nonFriendBlocked = friendship !== 'friends' && myCount >= 1;
+
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!other || !dmId) return;
+      const replyTo = replyingTo?.id ?? null;
+      setReplyingTo(null);
+      await dmsService.sendText(other.id, text, replyTo);
+      await refetch(dmId);
+    },
+    [other, dmId, replyingTo, refetch],
+  );
+
+  const handleStartVoice = useCallback(async () => {
     try {
-      await dmsService.sendText(other.id, text);
-      setDraft('');
-      // Refetch — realtime will also fire, but a manual pull covers the
-      // case where the WebSocket has drifted (iOS sim in particular).
-      if (dmId) setMessages(await dmsService.listMessages(dmId));
+      await recorder.start();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send', 'error');
-    } finally {
-      setSending(false);
+      toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
     }
-  }, [other, sending, draft, dmId, toast]);
+  }, [recorder, toast]);
+
+  const handleFinishVoice = useCallback(async () => {
+    if (!other || !dmId || !viewerId) return;
+    try {
+      const rec = await recorder.finish();
+      if (!rec) return;
+      const replyTo = replyingTo?.id ?? null;
+      setReplyingTo(null);
+      await dmsService.sendVoice(other.id, dmId, viewerId, rec.uri, rec.durationMs, rec.waveform, replyTo);
+      await refetch(dmId);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
+    }
+  }, [other, dmId, viewerId, recorder, replyingTo, refetch, toast]);
+
+  const handleToggleReaction = useCallback(
+    async (message: MessageWithSender, emoji: string) => {
+      if (!dmId) return;
+      try {
+        await dmsService.toggleReaction(message.id, emoji);
+        await refetch(dmId);
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : 'Could not react', 'error');
+      }
+    },
+    [dmId, refetch, toast],
+  );
 
   const handleAddFriend = useCallback(async () => {
     if (!other || !viewerId) return;
@@ -140,7 +174,7 @@ export default function DmRoomScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
-      {/* Header — back · avatar · name · profile chevron */}
+      {/* Header */}
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
@@ -152,19 +186,13 @@ export default function DmRoomScreen() {
         </Pressable>
         <Pressable
           onPress={() =>
-            router.navigate({
-              pathname: '/user/[username]',
-              params: { username: other.username },
-            })
+            router.navigate({ pathname: '/user/[username]', params: { username: other.username } })
           }
           className="flex-1 flex-row items-center gap-2.5 active:opacity-80"
         >
           <Avatar name={other.display_name} uri={other.avatar_url} size="sm" />
           <View className="flex-1">
-            <Text
-              className="text-[15px] font-bold text-text-light dark:text-text-dark"
-              numberOfLines={1}
-            >
+            <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
               {other.display_name}
             </Text>
             <Text className="text-xs text-muted-light" numberOfLines={1}>
@@ -176,9 +204,7 @@ export default function DmRoomScreen() {
           <Pressable
             onPress={handleAddFriend}
             className="rounded-full bg-brand-500 px-3 py-1.5"
-            accessibilityLabel={
-              friendship === 'incoming' ? 'Accept friend request' : 'Send friend request'
-            }
+            accessibilityLabel={friendship === 'incoming' ? 'Accept friend request' : 'Send friend request'}
           >
             <Text className="text-xs font-semibold text-white">
               {friendship === 'incoming'
@@ -196,14 +222,31 @@ export default function DmRoomScreen() {
         className="flex-1"
       >
         <FlatList
-          data={[...messages].reverse()}
+          data={visible}
           keyExtractor={(m) => m.id}
           inverted
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingVertical: 12 }}
-          renderItem={({ item }) => (
-            <DmBubble message={item} isOwn={item.sender_id === viewerId} />
-          )}
+          renderItem={({ item, index }) => {
+            const older = visible[index + 1];
+            const showDate = !older || dayKey(older.created_at) !== dayKey(item.created_at);
+            return (
+              <View>
+                {showDate ? <DateSeparator iso={item.created_at} /> : null}
+                <MessageBubble
+                  message={item}
+                  isOwn={item.sender_id === viewerId}
+                  repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
+                  viewerId={viewerId}
+                  favoriteReaction={favoriteReaction}
+                  onLongPress={(m) => setActionTarget(m)}
+                  onContextMenu={(m) => setActionTarget(m)}
+                  onReply={(m) => setReplyingTo(m)}
+                  onToggleReaction={handleToggleReaction}
+                />
+              </View>
+            );
+          }}
           ListEmptyComponent={
             <View style={{ transform: [{ scaleY: -1 }] }}>
               <EmptyState
@@ -212,126 +255,73 @@ export default function DmRoomScreen() {
                 description={
                   friendship === 'friends'
                     ? "You're friends — chat away."
-                    : friendship === 'outgoing'
-                      ? 'Waiting for them to accept your friend request. You can send one message meanwhile.'
-                      : friendship === 'incoming'
-                        ? "Accept the request to unlock messaging both ways."
-                        : "You aren't friends yet — you can send one message. Adding each other as friends unlocks the rest."
+                    : "You aren't friends yet — you can send one message. Adding each other as friends unlocks the rest."
                 }
               />
             </View>
           }
         />
 
-        <View
-          style={{ paddingBottom: insets.bottom }}
-          className="border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
-        >
+        <View style={{ paddingBottom: insets.bottom }}>
           {nonFriendBlocked ? (
-            <View className="flex-row items-center gap-2 px-4 py-3">
+            <View className="flex-row items-center gap-2 border-t border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
               <Ionicons name="lock-closed" size={14} color="#8B8880" />
               <Text className="flex-1 text-xs text-muted-light">
                 Add {other.display_name} as a friend to send more messages.
               </Text>
-              <Pressable
-                onPress={handleAddFriend}
-                className="rounded-full bg-brand-500 px-3 py-1.5"
-              >
+              <Pressable onPress={handleAddFriend} className="rounded-full bg-brand-500 px-3 py-1.5">
                 <Text className="text-xs font-semibold text-white">
                   {friendship === 'incoming' ? 'Accept' : 'Add friend'}
                 </Text>
               </Pressable>
             </View>
           ) : (
-            <View className="flex-row items-end gap-2 px-3 py-2">
-              <View className="max-h-28 min-h-[44px] flex-1 justify-center rounded-3xl border border-border-light bg-elevated-light px-4 py-2 dark:border-border-dark dark:bg-elevated-dark">
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={
-                    friendship === 'friends'
-                      ? 'Message…'
-                      : 'Send one message to break the ice'
-                  }
-                  placeholderTextColor="#8B8880"
-                  multiline
-                  onKeyPress={(e) => {
-                    if (Platform.OS !== 'web') return;
-                    const key = e.nativeEvent as unknown as {
-                      key: string;
-                      shiftKey?: boolean;
-                    };
-                    if (key.key === 'Enter' && !key.shiftKey) {
-                      e.preventDefault();
-                      void handleSend();
-                    }
-                  }}
-                  className="text-[15px] text-text-light outline-none dark:text-text-dark"
-                  style={{ maxHeight: 96 }}
-                />
-              </View>
-              <Pressable
-                onPress={handleSend}
-                disabled={sending || !draft.trim()}
-                accessibilityLabel="Send message"
-                className={[
-                  'h-11 w-11 items-center justify-center rounded-full',
-                  draft.trim()
-                    ? 'bg-accent-400'
-                    : 'bg-elevated-light dark:bg-elevated-dark',
-                ].join(' ')}
-              >
-                <Ionicons
-                  name="paper-plane"
-                  size={17}
-                  color={draft.trim() ? '#fff' : '#8B8880'}
-                />
-              </Pressable>
-            </View>
+            <MessageInput
+              onSend={handleSend}
+              onAttach={() => toast.show('Photos and video land next update.', 'info')}
+              replyingTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
+              recording={recorder.state === 'recording'}
+              recordingMs={recorder.elapsedMs}
+              onStartVoice={handleStartVoice}
+              onFinishVoice={handleFinishVoice}
+              onCancelVoice={() => void recorder.cancel()}
+            />
           )}
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
 
-function DmBubble({ message, isOwn }: { message: DmMessage; isOwn: boolean }) {
-  if (message.type === 'invite') {
-    // Placeholder — the invite-message card lands with the DM Invite
-    // wiring in a follow-up; today the URL still routes correctly.
-    return (
-      <View className={`my-0.5 px-4 ${isOwn ? 'items-end' : 'items-start'}`}>
-        <View className="rounded-2xl border border-brand-500/40 bg-brand-500/10 p-3">
-          <Text className="text-[13px] font-semibold text-brand-500">
-            🎟 Event invite
-          </Text>
-          <Text className="text-[12px] text-muted-light">
-            Open at /invite/{message.event_invite_token}
-          </Text>
+      {/* Message actions: reactions + reply */}
+      <BottomSheet open={!!actionTarget} onClose={() => setActionTarget(null)} autoHeight>
+        <View className="gap-3 pb-2">
+          <View className="flex-row justify-between px-1">
+            {REACTIONS.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => {
+                  const target = actionTarget;
+                  setActionTarget(null);
+                  if (target) void handleToggleReaction(target, emoji);
+                }}
+                className="h-11 w-11 items-center justify-center rounded-full bg-elevated-light active:opacity-70 dark:bg-elevated-dark"
+                accessibilityLabel={`React ${emoji}`}
+              >
+                <Text style={{ fontSize: 22 }}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <PrimaryButton
+            label="Reply"
+            variant="secondary"
+            leftIcon={<Ionicons name="arrow-undo-outline" size={14} color="#4B5FE0" />}
+            onPress={() => {
+              setReplyingTo(actionTarget);
+              setActionTarget(null);
+            }}
+            fullWidth
+          />
         </View>
-      </View>
-    );
-  }
-  return (
-    <View className={`my-0.5 px-4 ${isOwn ? 'items-end' : 'items-start'}`}>
-      <View
-        className={[
-          'max-w-[78%] rounded-2xl px-3.5 py-2.5',
-          isOwn
-            ? 'rounded-br-md bg-text-light dark:bg-text-dark'
-            : 'rounded-bl-md border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
-        ].join(' ')}
-      >
-        <Text
-          className={
-            isOwn
-              ? 'text-[15px] leading-snug text-surface-light dark:text-surface-dark'
-              : 'text-[15px] leading-snug text-text-light dark:text-text-dark'
-          }
-        >
-          {message.text}
-        </Text>
-      </View>
-    </View>
+      </BottomSheet>
+    </SafeAreaView>
   );
 }

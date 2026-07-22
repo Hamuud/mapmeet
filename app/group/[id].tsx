@@ -8,28 +8,34 @@ import {
   Pressable,
   Share,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
+import { MessageInput } from '@/components/chat/MessageInput';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { groupsService, type GroupMember } from '@/services/groups.service';
 import { invitesService } from '@/services/invites.service';
+import { usePreferencesStore } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
 import type { MessageWithSender } from '@/types';
 
-/** Standalone group chat room (not tied to an event). Reuses the event
- *  chat's MessageBubble so sender names + avatars render the same way. */
+/** Quick-reaction palette — matches the toggle_group_reaction whitelist. */
+const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
+
+/** Standalone group chat room (not tied to an event). Same messaging
+ *  features as event chats — replies, reactions, voice — reusing the
+ *  shared MessageBubble + MessageInput. */
 export default function GroupRoomScreen() {
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
@@ -37,14 +43,23 @@ export default function GroupRoomScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
+  const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const recorder = useVoiceRecorder();
 
   const [group, setGroup] = useState<{ id: string; name: string; emoji: string } | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
+  const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const refetch = useCallback(async () => {
+    if (!groupId) return;
+    const msgs = await groupsService.listMessages(groupId);
+    setMessages(msgs);
+    void groupsService.markRead(groupId).catch(() => {});
+  }, [groupId]);
 
   const load = useCallback(async () => {
     if (!groupId) return;
@@ -67,40 +82,69 @@ export default function GroupRoomScreen() {
     void load();
   }, [load]);
 
-  // Realtime — new messages from anyone in the group.
+  // Realtime — refetch on any change (new message, reaction, read receipt).
   useEffect(() => {
     if (!groupId || !viewerId) return;
-    const ch = groupsService.subscribe(groupId, () => {
-      // Cheapest correct path: refetch the window. Group chats are
-      // low-volume; a targeted insert-merge isn't worth the sender-embed
-      // refetch dance here.
-      void groupsService.listMessages(groupId).then(setMessages);
-      void groupsService.markRead(groupId).catch(() => {});
-    });
+    const ch = groupsService.subscribe(groupId, () => void refetch());
     return () => groupsService.unsubscribe(ch);
-  }, [groupId, viewerId]);
+  }, [groupId, viewerId, refetch]);
 
   const visible = useMemo(() => {
     if (!viewerId) return [];
     return messages.filter((m) => !m.deleted_for.includes(viewerId)).reverse();
   }, [messages, viewerId]);
 
-  const handleSend = useCallback(async () => {
-    if (!groupId || sending) return;
-    const text = draft.trim();
-    if (!text) return;
-    setSending(true);
-    setDraft('');
+  // Resolve reply quotes from the loaded window.
+  const byId = useMemo(() => {
+    const map = new Map<string, MessageWithSender>();
+    for (const m of messages) map.set(m.id, m);
+    return map;
+  }, [messages]);
+
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!groupId) return;
+      const replyTo = replyingTo?.id ?? null;
+      setReplyingTo(null);
+      await groupsService.send(groupId, text, replyTo);
+      await refetch();
+    },
+    [groupId, replyingTo, refetch],
+  );
+
+  const handleStartVoice = useCallback(async () => {
     try {
-      await groupsService.send(groupId, text);
-      setMessages(await groupsService.listMessages(groupId));
+      await recorder.start();
     } catch (e) {
-      setDraft(text);
-      toast.show(e instanceof Error ? e.message : 'Could not send', 'error');
-    } finally {
-      setSending(false);
+      toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
     }
-  }, [groupId, sending, draft, toast]);
+  }, [recorder, toast]);
+
+  const handleFinishVoice = useCallback(async () => {
+    if (!groupId || !viewerId) return;
+    try {
+      const rec = await recorder.finish();
+      if (!rec) return;
+      const replyTo = replyingTo?.id ?? null;
+      setReplyingTo(null);
+      await groupsService.sendVoice(groupId, viewerId, rec.uri, rec.durationMs, rec.waveform, replyTo);
+      await refetch();
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
+    }
+  }, [groupId, viewerId, recorder, replyingTo, refetch, toast]);
+
+  const handleToggleReaction = useCallback(
+    async (message: MessageWithSender, emoji: string) => {
+      try {
+        await groupsService.toggleReaction(message.id, emoji);
+        await refetch();
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : 'Could not react', 'error');
+      }
+    },
+    [refetch, toast],
+  );
 
   const handleShare = useCallback(async () => {
     if (!groupId || !group) return;
@@ -147,7 +191,7 @@ export default function GroupRoomScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
-      {/* Header — back · emoji/name/count · share · members */}
+      {/* Header — back · emoji/name/count · share */}
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
@@ -165,10 +209,7 @@ export default function GroupRoomScreen() {
             <Text style={{ fontSize: 20 }}>{group.emoji}</Text>
           </View>
           <View className="flex-1">
-            <Text
-              className="text-[15px] font-bold text-text-light dark:text-text-dark"
-              numberOfLines={1}
-            >
+            <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
               {group.name}
             </Text>
             <Text className="text-xs text-muted-light" numberOfLines={1}>
@@ -206,13 +247,16 @@ export default function GroupRoomScreen() {
                 <MessageBubble
                   message={item}
                   isOwn={item.sender_id === viewerId}
+                  repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
                   viewerId={viewerId}
+                  favoriteReaction={favoriteReaction}
+                  onLongPress={(m) => setActionTarget(m)}
+                  onContextMenu={(m) => setActionTarget(m)}
+                  onReply={(m) => setReplyingTo(m)}
                   onPressAvatar={(sender) =>
-                    router.navigate({
-                      pathname: '/user/[username]',
-                      params: { username: sender.username },
-                    })
+                    router.navigate({ pathname: '/user/[username]', params: { username: sender.username } })
                   }
+                  onToggleReaction={handleToggleReaction}
                 />
               </View>
             );
@@ -228,44 +272,52 @@ export default function GroupRoomScreen() {
           }
         />
 
-        <View
-          style={{ paddingBottom: insets.bottom }}
-          className="border-t border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
-        >
-          <View className="flex-row items-end gap-2 px-3 py-2">
-            <View className="max-h-28 min-h-[44px] flex-1 justify-center rounded-3xl border border-border-light bg-elevated-light px-4 py-2 dark:border-border-dark dark:bg-elevated-dark">
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Message the group…"
-                placeholderTextColor="#8B8880"
-                multiline
-                onKeyPress={(e) => {
-                  if (Platform.OS !== 'web') return;
-                  const key = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
-                  if (key.key === 'Enter' && !key.shiftKey) {
-                    e.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                className="text-[15px] text-text-light outline-none dark:text-text-dark"
-                style={{ maxHeight: 96 }}
-              />
-            </View>
-            <Pressable
-              onPress={handleSend}
-              disabled={sending || !draft.trim()}
-              accessibilityLabel="Send message"
-              className={[
-                'h-11 w-11 items-center justify-center rounded-full',
-                draft.trim() ? 'bg-accent-400' : 'bg-elevated-light dark:bg-elevated-dark',
-              ].join(' ')}
-            >
-              <Ionicons name="paper-plane" size={17} color={draft.trim() ? '#fff' : '#8B8880'} />
-            </Pressable>
-          </View>
+        <View style={{ paddingBottom: insets.bottom }}>
+          <MessageInput
+            onSend={handleSend}
+            onAttach={() => toast.show('Photos and video land next update.', 'info')}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            recording={recorder.state === 'recording'}
+            recordingMs={recorder.elapsedMs}
+            onStartVoice={handleStartVoice}
+            onFinishVoice={handleFinishVoice}
+            onCancelVoice={() => void recorder.cancel()}
+          />
         </View>
       </KeyboardAvoidingView>
+
+      {/* Message actions: reactions + reply */}
+      <BottomSheet open={!!actionTarget} onClose={() => setActionTarget(null)} autoHeight>
+        <View className="gap-3 pb-2">
+          <View className="flex-row justify-between px-1">
+            {REACTIONS.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => {
+                  const target = actionTarget;
+                  setActionTarget(null);
+                  if (target) void handleToggleReaction(target, emoji);
+                }}
+                className="h-11 w-11 items-center justify-center rounded-full bg-elevated-light active:opacity-70 dark:bg-elevated-dark"
+                accessibilityLabel={`React ${emoji}`}
+              >
+                <Text style={{ fontSize: 22 }}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <PrimaryButton
+            label="Reply"
+            variant="secondary"
+            leftIcon={<Ionicons name="arrow-undo-outline" size={14} color="#4B5FE0" />}
+            onPress={() => {
+              setReplyingTo(actionTarget);
+              setActionTarget(null);
+            }}
+            fullWidth
+          />
+        </View>
+      </BottomSheet>
 
       {/* Details sheet — members, share, leave */}
       <BottomSheet open={detailsOpen} onClose={() => setDetailsOpen(false)} autoHeight>
@@ -282,10 +334,7 @@ export default function GroupRoomScreen() {
                 key={m.id}
                 onPress={() => {
                   setDetailsOpen(false);
-                  router.navigate({
-                    pathname: '/user/[username]',
-                    params: { username: m.username },
-                  });
+                  router.navigate({ pathname: '/user/[username]', params: { username: m.username } });
                 }}
                 className="flex-row items-center gap-3 py-1.5"
               >

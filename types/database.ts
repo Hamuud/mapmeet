@@ -168,9 +168,14 @@ export type Database = {
           id: string;
           dm_id: string;
           sender_id: string;
-          type: 'text' | 'invite';
+          type: 'text' | 'invite' | 'audio';
           text: string | null;
           event_invite_token: string | null;
+          reply_to: string | null;
+          reactions: Record<string, string[]>;
+          media_url: string | null;
+          duration_ms: number | null;
+          waveform: number[] | null;
           read_by: string[];
           created_at: string;
         };
@@ -214,8 +219,13 @@ export type Database = {
           id: string;
           group_id: string;
           sender_id: string | null;
-          type: 'text' | 'system';
+          type: 'text' | 'audio' | 'system';
           text: string | null;
+          reply_to: string | null;
+          reactions: Record<string, string[]>;
+          media_url: string | null;
+          duration_ms: number | null;
+          waveform: number[] | null;
           read_by: string[];
           deleted_for: string[];
           created_at: string;
@@ -287,7 +297,21 @@ export type Database = {
       request_friendship: { Args: { p_target: string }; Returns: string };
       remove_friendship: { Args: { p_other: string }; Returns: undefined };
       get_or_create_dm: { Args: { p_other: string }; Returns: string };
-      send_dm: { Args: { p_recipient: string; p_text: string }; Returns: string };
+      send_dm: {
+        Args: { p_recipient: string; p_text: string; p_reply_to?: string | null };
+        Returns: string;
+      };
+      send_dm_voice: {
+        Args: {
+          p_recipient: string;
+          p_media_url: string;
+          p_duration_ms: number;
+          p_waveform: number[] | null;
+          p_reply_to?: string | null;
+        };
+        Returns: string;
+      };
+      toggle_dm_reaction: { Args: { p_message_id: string; p_emoji: string }; Returns: undefined };
       mark_dm_read: { Args: { p_dm: string }; Returns: undefined };
       create_event_invite: { Args: { p_event_id: string }; Returns: string };
       get_event_invite: {
@@ -315,7 +339,24 @@ export type Database = {
         Args: { p_group: string; p_member_ids: string[] };
         Returns: undefined;
       };
-      send_group_message: { Args: { p_group: string; p_text: string }; Returns: string };
+      send_group_message: {
+        Args: { p_group: string; p_text: string; p_reply_to?: string | null };
+        Returns: string;
+      };
+      send_group_voice: {
+        Args: {
+          p_group: string;
+          p_media_url: string;
+          p_duration_ms: number;
+          p_waveform: number[] | null;
+          p_reply_to?: string | null;
+        };
+        Returns: string;
+      };
+      toggle_group_reaction: {
+        Args: { p_message_id: string; p_emoji: string };
+        Returns: undefined;
+      };
       mark_group_read: { Args: { p_group: string }; Returns: undefined };
       leave_group: { Args: { p_group: string }; Returns: undefined };
       create_group_invite: { Args: { p_group: string }; Returns: string };

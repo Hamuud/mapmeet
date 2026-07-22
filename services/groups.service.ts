@@ -1,15 +1,20 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { supabase } from './supabase';
-import type { Message, MessageWithSender } from '@/types';
+import type { MessageWithSender } from '@/types';
 
 /** A group message row, before we adapt it to the shared bubble shape. */
 type GroupMessageRow = {
   id: string;
   group_id: string;
   sender_id: string | null;
-  type: 'text' | 'system';
+  type: 'text' | 'audio' | 'system';
   text: string | null;
+  reply_to: string | null;
+  reactions: Record<string, string[]>;
+  media_url: string | null;
+  duration_ms: number | null;
+  waveform: number[] | null;
   read_by: string[];
   deleted_for: string[];
   created_at: string;
@@ -34,29 +39,50 @@ export type GroupRoom = {
 export type GroupMember = ProfileLite;
 
 /** Adapt a group_messages row to the MessageWithSender shape the chat
- *  bubbles already render. Group chats are text/system only, so the
- *  event-specific fields (media, reactions, reply, voice) are stubbed —
- *  MessageBubble treats empty reactions / null reply as "none". */
+ *  bubbles render. Group chats now carry the same reply / reactions /
+ *  voice fields as event messages, so these map straight across; the
+ *  couple of event-only columns (image/video/location) stay null. */
 function toMessage(row: GroupMessageRow, sender: ProfileLite | null): MessageWithSender {
   return {
     id: row.id,
-    event_id: row.group_id, // reused as the bubble's grouping id; unread of it
+    event_id: row.group_id, // reused as the bubble's grouping id
     sender_id: row.sender_id,
     type: row.type,
     text: row.text,
-    media_url: null,
+    media_url: row.media_url,
     latitude: null,
     longitude: null,
-    reply_to: null,
-    reactions: {},
-    duration_ms: null,
-    waveform: null,
+    reply_to: row.reply_to,
+    reactions: row.reactions ?? {},
+    duration_ms: row.duration_ms,
+    waveform: row.waveform,
     read_by: row.read_by,
     deleted_for: row.deleted_for,
     hidden: false,
     created_at: row.created_at,
     sender: sender,
   } as unknown as MessageWithSender;
+}
+
+/** Upload a recorded voice note to the shared chat-media bucket, keyed
+ *  under the group id. Mirrors the event chat's audio upload. */
+async function uploadGroupAudio(
+  groupId: string,
+  senderId: string,
+  fileUri: string,
+): Promise<string> {
+  const ext = fileUri.startsWith('blob:')
+    ? 'webm'
+    : (fileUri.split('.').pop()?.toLowerCase() ?? 'm4a');
+  const path = `group/${groupId}/${Date.now()}_${senderId}.${ext}`;
+  const blob = await (await fetch(fileUri)).arrayBuffer();
+  const { error } = await supabase.storage
+    .from('chat-media')
+    .upload(path, blob, {
+      contentType: ext === 'webm' ? 'audio/webm' : 'audio/mp4',
+    });
+  if (error) throw error;
+  return supabase.storage.from('chat-media').getPublicUrl(path).data.publicUrl;
 }
 
 export const groupsService = {
@@ -107,10 +133,39 @@ export const groupsService = {
       .map((row) => toMessage(row, row.sender));
   },
 
-  async send(groupId: string, text: string): Promise<void> {
+  async send(groupId: string, text: string, replyTo?: string | null): Promise<void> {
     const { error } = await supabase.rpc('send_group_message', {
       p_group: groupId,
       p_text: text,
+      p_reply_to: replyTo ?? null,
+    });
+    if (error) throw error;
+  },
+
+  /** Record → upload → post a voice note in the group. */
+  async sendVoice(
+    groupId: string,
+    senderId: string,
+    fileUri: string,
+    durationMs: number,
+    waveform: number[] | null,
+    replyTo?: string | null,
+  ): Promise<void> {
+    const url = await uploadGroupAudio(groupId, senderId, fileUri);
+    const { error } = await supabase.rpc('send_group_voice', {
+      p_group: groupId,
+      p_media_url: url,
+      p_duration_ms: Math.max(1, Math.round(durationMs)),
+      p_waveform: waveform,
+      p_reply_to: replyTo ?? null,
+    });
+    if (error) throw error;
+  },
+
+  async toggleReaction(messageId: string, emoji: string): Promise<void> {
+    const { error } = await supabase.rpc('toggle_group_reaction', {
+      p_message_id: messageId,
+      p_emoji: emoji,
     });
     if (error) throw error;
   },
@@ -225,18 +280,20 @@ export const groupsService = {
     return data as string;
   },
 
-  subscribe(groupId: string, onInsert: (msg: Message) => void): RealtimeChannel {
+  /** Fires on any change (INSERT for new messages, UPDATE for reactions
+   *  / read receipts) so the room can refetch. */
+  subscribe(groupId: string, onChange: () => void): RealtimeChannel {
     return supabase
       .channel(`mapmeet:group:${groupId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'group_messages',
           filter: `group_id=eq.${groupId}`,
         },
-        (payload) => onInsert(payload.new as Message),
+        () => onChange(),
       )
       .subscribe();
   },

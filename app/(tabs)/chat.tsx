@@ -369,9 +369,11 @@ function DmRow({
         >
           {last?.type === 'invite'
             ? `${lastIsOwn ? 'You: ' : ''}🎟 Event invite`
-            : last
-              ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
-              : `Say hi to @${room.other.username}`}
+            : last?.type === 'audio'
+              ? `${lastIsOwn ? 'You: ' : ''}🎤 Voice message`
+              : last
+                ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
+                : `Say hi to @${room.other.username}`}
         </Text>
       </View>
       {room.unreadCount > 0 ? (
@@ -429,9 +431,11 @@ function GroupRow({
         >
           {last?.type === 'system'
             ? (last.text ?? '')
-            : last
-              ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
-              : 'No messages yet — say hi 👋'}
+            : last?.type === 'audio'
+              ? `${lastIsOwn ? 'You: ' : ''}🎤 Voice message`
+              : last
+                ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
+                : 'No messages yet — say hi 👋'}
         </Text>
       </View>
       {room.unreadCount > 0 ? (
