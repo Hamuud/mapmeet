@@ -481,7 +481,7 @@ function ChatRow({
           >
             {event.title}
           </Text>
-          {isHost ? <Ionicons name="star" size={11} color="#E68A5E" /> : null}
+          {isHost ? <Ionicons name="star" size={11} color="#FE5800" /> : null}
           {last ? (
             <Text className="font-mono text-[9px] uppercase text-muted-light">
               {formatRelativeTime(last.created_at)}

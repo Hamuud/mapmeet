@@ -85,7 +85,7 @@ export default function TabsLayout() {
           tabBarBadge:
             unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: '#E68A5E',
+            backgroundColor: '#FE5800',
             color: '#fff',
             fontSize: 10,
             fontWeight: '700',

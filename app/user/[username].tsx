@@ -545,7 +545,7 @@ function RatingCard({
     <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
       <View>
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="star" size={16} color="#E68A5E" />
+          <Ionicons name="star" size={16} color="#FE5800" />
           <Text className="font-display text-2xl leading-none text-text-light dark:text-text-dark">
             {formatRating(summary.likes, summary.dislikes)}
           </Text>

@@ -83,7 +83,7 @@ const DS = {
   panel: '#FDFCF8',
   ink: '#0E0E10',
   border: '#E4E1D8',
-  accent: '#E68A5E',
+  accent: '#FE5800',
   mutedText: '#8B8880',
 };
 

@@ -94,7 +94,7 @@ export function MembersSheet({ event, open, viewerId, onClose }: Props) {
                         {m.display_name}
                       </Text>
                       {memberIsHost ? (
-                        <Ionicons name="star" size={11} color="#E68A5E" />
+                        <Ionicons name="star" size={11} color="#FE5800" />
                       ) : null}
                     </View>
                     <Text className="text-xs text-muted-light" numberOfLines={1}>

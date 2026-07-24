@@ -28,14 +28,14 @@ module.exports = {
         },
         // NEW — single warm accent, reserved for the create-event CTA.
         accent: {
-          50:  '#FBEFE8',
-          100: '#F6DDCC',
-          200: '#EEBB9A',
-          300: '#E89A70',
-          400: '#E68A5E', // primary coral (oklch 0.70 0.16 44)
-          500: '#D9744A',
-          600: '#B85A34',
-          700: '#8F4326',
+          50:  '#FFF2EB',
+          100: '#FFE3D5',
+          200: '#FFC4A5',
+          300: '#FE9B66',
+          400: '#FE5800', // primary vivid orange
+          500: '#E54F00',
+          600: '#BE4200',
+          700: '#933300',
         },
         surface: {
           light: '#F6F4EE',  // warm paper

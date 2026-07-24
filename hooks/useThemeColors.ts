@@ -16,6 +16,6 @@ export function useThemeColors() {
     text:     isDark ? '#F5F5F2' : '#0E0E10',
     muted:    isDark ? '#8A8A94' : '#8B8880',
     brand:    '#4B5FE0', // indigo primary
-    accent:   '#E68A5E', // coral — reserved for create CTA
+    accent:   '#FE5800', // vivid orange — reserved for create CTA
   };
 }
