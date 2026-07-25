@@ -9,12 +9,16 @@ import {
   View,
 } from 'react-native';
 
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useIconColor } from '@/hooks/useIconColor';
 import type { MessageWithSender } from '@/types';
 
 type Props = {
   onSend: (text: string) => Promise<void>;
   onAttach?: () => void;
+  /** When provided, the [+] opens a menu (Photo · Poll) instead of firing
+   *  onAttach directly. Wired in event + group chats. */
+  onCreatePoll?: () => void;
   /** Reply context — renders the quoted strip above the input. */
   replyingTo?: MessageWithSender | null;
   onCancelReply?: () => void;
@@ -43,6 +47,8 @@ function replySnippet(m: MessageWithSender): string {
       return '📍 Location';
     case 'audio':
       return '🎤 Voice message';
+    case 'poll':
+      return `📊 ${m.poll?.question ?? 'Poll'}`;
     case 'system':
       return m.text ?? '';
   }
@@ -54,6 +60,7 @@ function replySnippet(m: MessageWithSender): string {
 export function MessageInput({
   onSend,
   onAttach,
+  onCreatePoll,
   replyingTo,
   onCancelReply,
   recording,
@@ -65,6 +72,7 @@ export function MessageInput({
   const iconColor = useIconColor();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const hasText = draft.trim().length > 0;
 
@@ -133,7 +141,7 @@ export function MessageInput({
       ) : (
         <View className="flex-row items-end gap-2 px-3 py-2">
           <Pressable
-            onPress={onAttach}
+            onPress={onCreatePoll ? () => setMenuOpen(true) : onAttach}
             accessibilityLabel="Add attachment"
             className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
           >
@@ -191,6 +199,52 @@ export function MessageInput({
           )}
         </View>
       )}
+
+      {/* [+] menu — photo/video or a poll. */}
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} autoHeight>
+        <View className="gap-1 pb-1">
+          <AttachMenuItem
+            icon="image-outline"
+            label="Photo or video"
+            onPress={() => {
+              setMenuOpen(false);
+              onAttach?.();
+            }}
+          />
+          <AttachMenuItem
+            icon="stats-chart"
+            label="Create a poll"
+            onPress={() => {
+              setMenuOpen(false);
+              onCreatePoll?.();
+            }}
+          />
+        </View>
+      </BottomSheet>
     </View>
+  );
+}
+
+function AttachMenuItem({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-2xl px-2 py-3 active:opacity-70"
+    >
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/10">
+        <Ionicons name={icon} size={19} color="#4B5FE0" />
+      </View>
+      <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+        {label}
+      </Text>
+    </Pressable>
   );
 }

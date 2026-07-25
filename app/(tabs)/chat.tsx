@@ -315,6 +315,8 @@ function previewText(preview: ChatPreview | undefined): string {
       return '📍 Location';
     case 'audio':
       return '🎤 Voice message';
+    case 'poll':
+      return `📊 ${m.text ?? 'Poll'}`;
     case 'system':
       return m.text ?? '';
   }

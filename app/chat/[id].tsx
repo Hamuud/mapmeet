@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/Toast';
 import { DirectionsSheet } from '@/features/events/DirectionsSheet';
 import { EventPreviewBody } from '@/features/events/EventPreviewBody';
 import { MembersSheet } from '@/features/chat/MembersSheet';
+import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
@@ -28,11 +29,12 @@ import { useIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
 import { useVenue } from '@/hooks/useVenue';
 import { messagesService } from '@/services/messages.service';
+import { pollsService } from '@/services/polls.service';
 import { useEventsStore } from '@/store/events.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import { goBack } from '@/utils/nav';
-import type { EventWithCreator, MessageWithSender } from '@/types';
+import type { EventWithCreator, MessageWithSender, PollDetails } from '@/types';
 
 /** Quick-reaction palette — must match the whitelist in the
  *  toggle_reaction RPC. */
@@ -56,6 +58,8 @@ export default function ChatRoomScreen() {
 
   const [eventOpen, setEventOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
   const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
   const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
@@ -74,6 +78,53 @@ export default function ChatRoomScreen() {
     for (const m of messages) map.set(m.id, m);
     return map;
   }, [messages]);
+
+  // Signature that changes whenever a poll appears or its tallies move
+  // (realtime delivers vote UPDATEs). Re-fetch the per-poll details — my
+  // choice + voter avatars — off that so they stay in sync live.
+  const pollSig = useMemo(
+    () =>
+      messages
+        .filter((m) => m.type === 'poll')
+        .map((m) => `${m.id}:${(m.poll?.options ?? []).map((o) => o.votes).join('-')}`)
+        .join('|'),
+    [messages],
+  );
+  useEffect(() => {
+    const ids = messages.filter((m) => m.type === 'poll').map((m) => m.id);
+    if (ids.length === 0) {
+      setPollDetails(new Map());
+      return;
+    }
+    let cancelled = false;
+    pollsService
+      .details(ids)
+      .then((d) => {
+        if (!cancelled) setPollDetails(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollSig]);
+
+  const handleCreatePoll = async (
+    question: string,
+    options: string[],
+    anonymous: boolean,
+  ) => {
+    if (!eventId) return;
+    await pollsService.createEventPoll(eventId, question, options, anonymous);
+  };
+
+  const handleVotePoll = async (message: MessageWithSender, optionId: string) => {
+    try {
+      await pollsService.vote(message.id, optionId);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+    }
+  };
 
   const handleSend = async (text: string) => {
     if (!eventId || !viewerId) return;
@@ -255,6 +306,7 @@ export default function ChatRoomScreen() {
                   repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
                   viewerId={viewerId}
                   favoriteReaction={favoriteReaction}
+                  pollDetails={pollDetails.get(item.id) ?? null}
                   onLongPress={(m) => setActionTarget(m)}
                   onContextMenu={(m) => setActionTarget(m)}
                   onReply={(m) => setReplyingTo(m)}
@@ -262,6 +314,7 @@ export default function ChatRoomScreen() {
                     router.navigate({ pathname: '/user/[username]', params: { username: sender.username } })
                   }
                   onToggleReaction={handleToggleReaction}
+                  onVotePoll={handleVotePoll}
                 />
               </View>
             );
@@ -288,6 +341,7 @@ export default function ChatRoomScreen() {
             onAttach={() =>
               toast.show('Photos and video land next update.', 'info')
             }
+            onCreatePoll={() => setPollOpen(true)}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
             recording={recorder.state === 'recording'}
@@ -330,6 +384,12 @@ export default function ChatRoomScreen() {
         open={membersOpen}
         viewerId={viewerId}
         onClose={() => setMembersOpen(false)}
+      />
+
+      <PollComposerSheet
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        onCreate={handleCreatePoll}
       />
 
       {/* Message actions: quick reactions + reply + copy + deletes.

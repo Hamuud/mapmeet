@@ -1,5 +1,18 @@
 import type { Database } from './database';
 
+export type { PollOption, PollPayload } from './database';
+
+/** Client-side poll view state fetched via get_poll_details: the viewer's
+ *  own choice (to highlight it) plus, for non-anonymous polls, the voter
+ *  profiles per option id. */
+export type PollDetails = {
+  myOption: string | null;
+  voters: Record<
+    string,
+    Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>[]
+  > | null;
+};
+
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Event = Database['public']['Tables']['events']['Row'];
 export type Participant = Database['public']['Tables']['participants']['Row'];

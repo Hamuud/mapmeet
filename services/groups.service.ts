@@ -8,13 +8,14 @@ type GroupMessageRow = {
   id: string;
   group_id: string;
   sender_id: string | null;
-  type: 'text' | 'audio' | 'system';
+  type: 'text' | 'audio' | 'system' | 'poll';
   text: string | null;
   reply_to: string | null;
   reactions: Record<string, string[]>;
   media_url: string | null;
   duration_ms: number | null;
   waveform: number[] | null;
+  poll: import('@/types').PollPayload | null;
   read_by: string[];
   deleted_for: string[];
   created_at: string;
@@ -56,6 +57,7 @@ function toMessage(row: GroupMessageRow, sender: ProfileLite | null): MessageWit
     reactions: row.reactions ?? {},
     duration_ms: row.duration_ms,
     waveform: row.waveform,
+    poll: row.poll ?? null,
     read_by: row.read_by,
     deleted_for: row.deleted_for,
     hidden: false,

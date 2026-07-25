@@ -2,6 +2,16 @@
 // `supabase gen types typescript --project-id <id> > types/database.ts`
 // once the CLI is wired up; the shape below matches the initial migration.
 
+/** Poll definition + live tallies carried on a `poll`-type message row.
+ *  `votes` on each option is the aggregate count (identities live in the
+ *  private poll_votes table — see the polls migration). */
+export type PollOption = { id: string; text: string; votes: number };
+export type PollPayload = {
+  question: string;
+  anonymous: boolean;
+  options: PollOption[];
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -108,7 +118,7 @@ export type Database = {
           id: string;
           event_id: string;
           sender_id: string | null; // null = system
-          type: 'text' | 'image' | 'video' | 'location' | 'audio' | 'system';
+          type: 'text' | 'image' | 'video' | 'location' | 'audio' | 'system' | 'poll';
           text: string | null;
           media_url: string | null;
           latitude: number | null;
@@ -117,6 +127,7 @@ export type Database = {
           reactions: Record<string, string[]>;
           duration_ms: number | null;
           waveform: number[] | null;
+          poll: PollPayload | null;
           read_by: string[];
           deleted_for: string[];
           hidden: boolean;
@@ -219,13 +230,14 @@ export type Database = {
           id: string;
           group_id: string;
           sender_id: string | null;
-          type: 'text' | 'audio' | 'system';
+          type: 'text' | 'audio' | 'system' | 'poll';
           text: string | null;
           reply_to: string | null;
           reactions: Record<string, string[]>;
           media_url: string | null;
           duration_ms: number | null;
           waveform: number[] | null;
+          poll: PollPayload | null;
           read_by: string[];
           deleted_for: string[];
           created_at: string;
@@ -364,6 +376,38 @@ export type Database = {
       mark_group_read: { Args: { p_group: string }; Returns: undefined };
       leave_group: { Args: { p_group: string }; Returns: undefined };
       create_group_invite: { Args: { p_group: string }; Returns: string };
+      create_event_poll: {
+        Args: {
+          p_event_id: string;
+          p_question: string;
+          p_options: string[];
+          p_anonymous?: boolean;
+          p_reply_to?: string | null;
+        };
+        Returns: string;
+      };
+      create_group_poll: {
+        Args: {
+          p_group: string;
+          p_question: string;
+          p_options: string[];
+          p_anonymous?: boolean;
+          p_reply_to?: string | null;
+        };
+        Returns: string;
+      };
+      vote_poll: { Args: { p_message_id: string; p_option_id: string }; Returns: undefined };
+      get_poll_details: {
+        Args: { p_message_ids: string[] };
+        Returns: {
+          message_id: string;
+          my_option: string | null;
+          voters: Record<
+            string,
+            { id: string; username: string; display_name: string; avatar_url: string | null }[]
+          > | null;
+        }[];
+      };
       get_group_invite: {
         Args: { p_token: string };
         Returns: {

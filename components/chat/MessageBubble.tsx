@@ -13,7 +13,7 @@ import {
 
 import { AudioBubble } from '@/components/chat/AudioBubble';
 import { Avatar } from '@/components/ui/Avatar';
-import type { MessageWithSender } from '@/types';
+import type { MessageWithSender, PollDetails } from '@/types';
 
 type Props = {
   message: MessageWithSender;
@@ -24,11 +24,15 @@ type Props = {
   viewerId: string | null;
   /** The viewer's favourite emoji — powers the desktop hover chip. */
   favoriteReaction?: string;
+  /** Poll view state (my choice + voter avatars), for poll messages. */
+  pollDetails?: PollDetails | null;
   onLongPress?: (message: MessageWithSender) => void;
   /** Full sender profile (not just the id) so the caller can route by
    *  username — /user/<username>, not /user/<uuid>. */
   onPressAvatar?: (sender: { id: string; username: string }) => void;
   onToggleReaction?: (message: MessageWithSender, emoji: string) => void;
+  /** Cast/change/retract a vote on a poll option. */
+  onVotePoll?: (message: MessageWithSender, optionId: string) => void;
   /** Swipe (native) → reply, same as Telegram. */
   onReply?: (message: MessageWithSender) => void;
   /** Web right-click → same action menu as long-press. */
@@ -109,6 +113,8 @@ function snippet(m: MessageWithSender): string {
       return '📍 Location';
     case 'audio':
       return '🎤 Voice message';
+    case 'poll':
+      return `📊 ${m.poll?.question ?? 'Poll'}`;
     case 'system':
       return m.text ?? '';
   }
@@ -129,9 +135,11 @@ export function MessageBubble({
   repliedTo,
   viewerId,
   favoriteReaction,
+  pollDetails,
   onLongPress,
   onPressAvatar,
   onToggleReaction,
+  onVotePoll,
   onReply,
   onContextMenu,
 }: Props) {
@@ -240,8 +248,13 @@ export function MessageBubble({
       </Pressable>
     ) : null;
 
+  const isPoll = message.type === 'poll';
   const bubble = (
-    <View className={`max-w-[78%] ${isOwn ? 'items-end' : 'items-start'}`}>
+    <View
+      className={`${isPoll ? 'w-[300px] max-w-[92%]' : 'max-w-[78%]'} ${
+        isOwn ? 'items-end' : 'items-start'
+      }`}
+    >
       <Pressable
         onLongPress={() => onLongPress?.(message)}
         delayLongPress={350}
@@ -323,6 +336,13 @@ export function MessageBubble({
           >
             📍 {message.latitude?.toFixed(5)}, {message.longitude?.toFixed(5)}
           </Text>
+        ) : message.type === 'poll' && message.poll ? (
+          <PollCard
+            poll={message.poll}
+            details={pollDetails ?? null}
+            isOwn={isOwn}
+            onVote={(optionId) => onVotePoll?.(message, optionId)}
+          />
         ) : (
           <Text className="text-[15px] italic text-muted-light">
             Unsupported message
@@ -446,4 +466,117 @@ export function MessageBubble({
   }
 
   return row;
+}
+
+/** In-bubble poll: question, tappable options with a fill bar + tally,
+ *  the viewer's choice highlighted, and — for non-anonymous polls — a
+ *  little stack of voter avatars per option. Tapping your current choice
+ *  retracts it. */
+function PollCard({
+  poll,
+  details,
+  isOwn,
+  onVote,
+}: {
+  poll: NonNullable<MessageWithSender['poll']>;
+  details: PollDetails | null;
+  isOwn: boolean;
+  onVote: (optionId: string) => void;
+}) {
+  const total = poll.options.reduce((sum, o) => sum + (o.votes ?? 0), 0);
+  const myOption = details?.myOption ?? null;
+
+  return (
+    <View className="w-full gap-2">
+      <Text
+        className={
+          isOwn
+            ? 'text-[15px] font-semibold leading-snug text-surface-light dark:text-surface-dark'
+            : 'text-[15px] font-semibold leading-snug text-text-light dark:text-text-dark'
+        }
+      >
+        {poll.question}
+      </Text>
+
+      <View className="gap-1.5">
+        {poll.options.map((opt) => {
+          const votes = opt.votes ?? 0;
+          const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
+          const mine = myOption === opt.id;
+          const voters = details?.voters?.[opt.id] ?? [];
+          return (
+            <Pressable
+              key={opt.id}
+              onPress={() => onVote(opt.id)}
+              accessibilityLabel={`Vote ${opt.text}`}
+              className={[
+                'overflow-hidden rounded-xl border bg-surface-light px-3 py-2 dark:bg-surface-dark',
+                mine ? 'border-brand-500' : 'border-border-light dark:border-border-dark',
+              ].join(' ')}
+            >
+              {/* Fill bar */}
+              <View
+                pointerEvents="none"
+                className={mine ? 'absolute inset-y-0 left-0 bg-brand-500/20' : 'absolute inset-y-0 left-0 bg-brand-500/10'}
+                style={{ width: `${pct}%` }}
+              />
+              <View className="flex-row items-center gap-2">
+                <View
+                  className={[
+                    'h-4 w-4 items-center justify-center rounded-full border',
+                    mine ? 'border-brand-500 bg-brand-500' : 'border-muted-light',
+                  ].join(' ')}
+                >
+                  {mine ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
+                </View>
+                <Text
+                  className="flex-1 text-[14px] text-text-light dark:text-text-dark"
+                  numberOfLines={2}
+                >
+                  {opt.text}
+                </Text>
+                <Text className="text-[12px] font-semibold text-muted-light">{pct}%</Text>
+              </View>
+              <View className="mt-0.5 flex-row items-center justify-between pl-6">
+                {voters.length > 0 ? (
+                  <View className="flex-row">
+                    {voters.slice(0, 3).map((v, idx) => (
+                      <View key={v.id} style={{ marginLeft: idx === 0 ? 0 : -6 }}>
+                        <Avatar name={v.display_name} uri={v.avatar_url} size="xs" />
+                      </View>
+                    ))}
+                    {voters.length > 3 ? (
+                      <Text className="ml-1 self-center text-[10px] text-muted-light">
+                        +{voters.length - 3}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View />
+                )}
+                <Text className="text-[11px] text-muted-light">
+                  {votes} {votes === 1 ? 'vote' : 'votes'}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View className="flex-row items-center gap-1.5">
+        {poll.anonymous ? (
+          <>
+            <Ionicons name="eye-off-outline" size={12} color="#8B8880" />
+            <Text className="text-[11px] text-muted-light">
+              Anonymous · {total} {total === 1 ? 'vote' : 'votes'}
+            </Text>
+          </>
+        ) : (
+          <Text className="text-[11px] text-muted-light">
+            {total} {total === 1 ? 'vote' : 'votes'} · tap to vote
+          </Text>
+        )}
+      </View>
+    </View>
+  );
 }

@@ -22,14 +22,16 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { AddGroupMembersSheet } from '@/features/chat/AddGroupMembersSheet';
+import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { groupsService, type GroupMember } from '@/services/groups.service';
 import { invitesService } from '@/services/invites.service';
+import { pollsService } from '@/services/polls.service';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
-import type { MessageWithSender } from '@/types';
+import type { MessageWithSender, PollDetails } from '@/types';
 
 /** Quick-reaction palette — matches the toggle_group_reaction whitelist. */
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
@@ -59,6 +61,8 @@ export default function GroupRoomScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
   const [pendingRemove, setPendingRemove] = useState<GroupMember | null>(null);
 
   const isCreator = !!group && group.creator_id === viewerId;
@@ -109,6 +113,56 @@ export default function GroupRoomScreen() {
     for (const m of messages) map.set(m.id, m);
     return map;
   }, [messages]);
+
+  // Re-fetch per-poll details (my choice + voter avatars) whenever a poll
+  // appears or its tallies move (realtime delivers the vote UPDATEs).
+  const pollSig = useMemo(
+    () =>
+      messages
+        .filter((m) => m.type === 'poll')
+        .map((m) => `${m.id}:${(m.poll?.options ?? []).map((o) => o.votes).join('-')}`)
+        .join('|'),
+    [messages],
+  );
+  useEffect(() => {
+    const ids = messages.filter((m) => m.type === 'poll').map((m) => m.id);
+    if (ids.length === 0) {
+      setPollDetails(new Map());
+      return;
+    }
+    let cancelled = false;
+    pollsService
+      .details(ids)
+      .then((d) => {
+        if (!cancelled) setPollDetails(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollSig]);
+
+  const handleCreatePoll = useCallback(
+    async (question: string, options: string[], anonymous: boolean) => {
+      if (!groupId) return;
+      await pollsService.createGroupPoll(groupId, question, options, anonymous);
+      await refetch();
+    },
+    [groupId, refetch],
+  );
+
+  const handleVotePoll = useCallback(
+    async (message: MessageWithSender, optionId: string) => {
+      try {
+        await pollsService.vote(message.id, optionId);
+        await refetch();
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+      }
+    },
+    [refetch, toast],
+  );
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -274,6 +328,7 @@ export default function GroupRoomScreen() {
                   repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
                   viewerId={viewerId}
                   favoriteReaction={favoriteReaction}
+                  pollDetails={pollDetails.get(item.id) ?? null}
                   onLongPress={(m) => setActionTarget(m)}
                   onContextMenu={(m) => setActionTarget(m)}
                   onReply={(m) => setReplyingTo(m)}
@@ -281,6 +336,7 @@ export default function GroupRoomScreen() {
                     router.navigate({ pathname: '/user/[username]', params: { username: sender.username } })
                   }
                   onToggleReaction={handleToggleReaction}
+                  onVotePoll={handleVotePoll}
                 />
               </View>
             );
@@ -300,6 +356,7 @@ export default function GroupRoomScreen() {
           <MessageInput
             onSend={handleSend}
             onAttach={() => toast.show('Photos and video land next update.', 'info')}
+            onCreatePoll={() => setPollOpen(true)}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
             recording={recorder.state === 'recording'}
@@ -445,6 +502,12 @@ export default function GroupRoomScreen() {
         url={shareUrl}
         text={`${group.emoji} Join "${group.name}" on MapMeet`}
         title={group.name}
+      />
+
+      <PollComposerSheet
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        onCreate={handleCreatePoll}
       />
 
       <ConfirmationDialog
