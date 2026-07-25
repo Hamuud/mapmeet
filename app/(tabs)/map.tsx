@@ -102,13 +102,12 @@ export default function MapScreen() {
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
 
   const visibleEvents = useMemo(
-    () =>
-      filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm })
-        // Imported events whose exact venue never resolved only carry
-        // their city's centroid. Pinning them would point people at a
-        // town square that has nothing to do with the gig — they live in
-        // Events → Nearby instead, with the venue text the source gave.
-        .filter((e) => e.geo_precision !== 'city'),
+    // Events whose exact venue never resolved only carry their city's
+    // centroid (geo_precision === 'city'). We still pin them — at the
+    // city center — so there's a marker to tap and join; the peek shows
+    // the venue text and swaps Directions for "See venue above" so no one
+    // is routed to a town square. Co-located city pins cluster together.
+    () => filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm }),
     [events, viewerId, filter, query, coords, nearbyRadiusKm],
   );
 

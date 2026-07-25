@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -46,6 +46,7 @@ function MyEventsBody() {
   const { coords, status: locStatus, request: requestLocation } = useLocation();
   const events = useEventsStore((s) => s.events);
   const removeEvent = useEventsStore((s) => s.removeEvent);
+  const patchEvent = useEventsStore((s) => s.patchEvent);
   const syncViewport = useEventsStore((s) => s.syncViewport);
   const [tab, setTab] = useState<Tab>('created');
   const [radius, setRadius] = useState<Radius>(5);
@@ -136,6 +137,48 @@ function MyEventsBody() {
         ),
       );
   }, [valid, profile, now]);
+
+  /** Join / leave straight from the list — no map round-trip needed.
+   *  Optimistic (patchEvent flips is_joined + count immediately); rolls
+   *  back and surfaces a friendly message if the DB rejects it (e.g. the
+   *  event filled up between render and tap). Mirrors the peek sheet. */
+  const handleJoinToggle = useCallback(
+    async (event: EventWithCreator) => {
+      if (!profile) return;
+      const wasJoined = !!event.is_joined;
+      const isFull =
+        event.max_participants != null &&
+        event.participant_count >= event.max_participants;
+      if (!wasJoined && isFull) {
+        toast.show('Event is full.', 'info');
+        return;
+      }
+      patchEvent(event.id, {
+        is_joined: !wasJoined,
+        participant_count: Math.max(
+          0,
+          event.participant_count + (wasJoined ? -1 : 1),
+        ),
+      });
+      try {
+        if (wasJoined) await eventsService.leave(event.id, profile.id);
+        else await eventsService.join(event.id, profile.id);
+      } catch (e) {
+        patchEvent(event.id, {
+          is_joined: wasJoined,
+          participant_count: event.participant_count,
+        });
+        const raw = e instanceof Error ? e.message : '';
+        toast.show(
+          /is full/i.test(raw)
+            ? 'Event just filled up — try another one.'
+            : raw || 'Could not update',
+          'error',
+        );
+      }
+    },
+    [profile, patchEvent, toast],
+  );
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -279,7 +322,12 @@ function MyEventsBody() {
                 distanceLabel={formatDistance(item.km)}
                 onPress={() => openMapWithEvent(item.event.id)}
               />
-              <View className="flex-row items-center pl-3">
+              <View className="flex-row items-center gap-2 pl-3">
+                <JoinButton
+                  event={item.event}
+                  viewerId={profile?.id ?? null}
+                  onToggle={() => void handleJoinToggle(item.event)}
+                />
                 <ActionChip
                   icon="location"
                   label="View on map"
@@ -435,6 +483,64 @@ function SegmentButton({
           </Text>
         ) : null}
       </View>
+    </Pressable>
+  );
+}
+
+/** Nearby-list join affordance. Reflects the four states the peek does —
+ *  hosting, joined, full, joinable — so the list can join without a map
+ *  detour. Joinable is a filled brand pill; the rest are quiet status
+ *  chips (joined stays tappable to leave). */
+function JoinButton({
+  event,
+  viewerId,
+  onToggle,
+}: {
+  event: EventWithCreator;
+  viewerId: string | null;
+  onToggle: () => void;
+}) {
+  const isCreator = !!viewerId && event.creator_id === viewerId;
+  const isFull =
+    event.max_participants != null &&
+    event.participant_count >= event.max_participants;
+
+  if (isCreator) {
+    return (
+      <View className="flex-row items-center gap-1 rounded-full bg-brand-500/10 px-3 py-1.5">
+        <Ionicons name="star" size={12} color="#4B5FE0" />
+        <Text className="text-[11px] font-semibold text-brand-500">Hosting</Text>
+      </View>
+    );
+  }
+  if (event.is_joined) {
+    return (
+      <Pressable
+        onPress={onToggle}
+        hitSlop={4}
+        className="flex-row items-center gap-1 rounded-full border border-border-light bg-panel-light px-3 py-1.5 active:opacity-70 dark:border-border-dark dark:bg-panel-dark"
+      >
+        <Ionicons name="checkmark-circle" size={13} color="#4B5FE0" />
+        <Text className="text-[11px] font-semibold text-brand-500">Joined</Text>
+      </Pressable>
+    );
+  }
+  if (isFull) {
+    return (
+      <View className="flex-row items-center gap-1 rounded-full border border-border-light bg-panel-light px-3 py-1.5 dark:border-border-dark dark:bg-panel-dark">
+        <Ionicons name="lock-closed" size={12} color="#8B8880" />
+        <Text className="text-[11px] font-semibold text-muted-light">Full</Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      onPress={onToggle}
+      hitSlop={4}
+      className="flex-row items-center gap-1 rounded-full bg-brand-500 px-3.5 py-1.5 active:opacity-90"
+    >
+      <Ionicons name="add" size={14} color="#fff" />
+      <Text className="text-[11px] font-bold text-white">Join event</Text>
     </Pressable>
   );
 }
