@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  Share,
   Text,
   View,
 } from 'react-native';
@@ -20,7 +19,9 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
+import { AddGroupMembersSheet } from '@/features/chat/AddGroupMembersSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -46,13 +47,21 @@ export default function GroupRoomScreen() {
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
   const recorder = useVoiceRecorder();
 
-  const [group, setGroup] = useState<{ id: string; name: string; emoji: string } | null>(null);
+  const [group, setGroup] = useState<
+    { id: string; name: string; emoji: string; creator_id: string } | null
+  >(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
   const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<GroupMember | null>(null);
+
+  const isCreator = !!group && group.creator_id === viewerId;
 
   const refetch = useCallback(async () => {
     if (!groupId) return;
@@ -146,28 +155,43 @@ export default function GroupRoomScreen() {
     [refetch, toast],
   );
 
+  const refetchMembers = useCallback(async () => {
+    if (!groupId) return;
+    try {
+      setMembers(await groupsService.listMembers(groupId));
+    } catch {
+      /* keep the current list on a transient error */
+    }
+  }, [groupId]);
+
+  // Mint a fresh 24h link, then open the share sheet (Telegram / WhatsApp
+  // / Viber / Copy). Opening the sheet first with a null url shows the
+  // "Creating link…" state so the tap feels instant.
   const handleShare = useCallback(async () => {
-    if (!groupId || !group) return;
+    if (!groupId) return;
+    setShareUrl(null);
+    setShareOpen(true);
     try {
       const token = await groupsService.createInvite(groupId);
-      const url = invitesService.groupShareUrl(token);
-      const message = `${group.emoji} Join "${group.name}" on MapMeet\n${url}`;
-      if (Platform.OS === 'web') {
-        if (typeof navigator !== 'undefined' && navigator.share) {
-          await navigator.share({ title: group.name, url, text: message });
-        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-          await navigator.clipboard.writeText(url);
-          toast.show('Invite link copied. Good for 24 hours.', 'success');
-        } else {
-          toast.show(url, 'info');
-        }
-      } else {
-        await Share.share({ message, url, title: group.name });
-      }
+      setShareUrl(invitesService.groupShareUrl(token));
     } catch (e) {
+      setShareOpen(false);
       toast.show(e instanceof Error ? e.message : 'Could not create link', 'error');
     }
-  }, [groupId, group, toast]);
+  }, [groupId, toast]);
+
+  const handleRemoveMember = useCallback(async () => {
+    if (!groupId || !pendingRemove) return;
+    const target = pendingRemove;
+    setPendingRemove(null);
+    try {
+      await groupsService.removeMember(groupId, target.id);
+      setMembers((prev) => prev.filter((m) => m.id !== target.id));
+      toast.show(`${target.display_name} removed.`, 'success');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+    }
+  }, [groupId, pendingRemove, toast]);
 
   const handleLeave = useCallback(async () => {
     if (!groupId) return;
@@ -329,28 +353,59 @@ export default function GroupRoomScreen() {
             {members.length} {members.length === 1 ? 'member' : 'members'}
           </Text>
           <View className="gap-2">
-            {members.map((m) => (
-              <Pressable
-                key={m.id}
-                onPress={() => {
-                  setDetailsOpen(false);
-                  router.navigate({ pathname: '/user/[username]', params: { username: m.username } });
-                }}
-                className="flex-row items-center gap-3 py-1.5"
-              >
-                <Avatar name={m.display_name} uri={m.avatar_url} size="sm" />
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-text-light dark:text-text-dark" numberOfLines={1}>
-                    {m.display_name}
-                    {m.id === viewerId ? ' (you)' : ''}
-                  </Text>
-                  <Text className="text-xs text-muted-light" numberOfLines={1}>
-                    @{m.username}
-                  </Text>
+            {members.map((m) => {
+              const memberIsCreator = m.id === group.creator_id;
+              return (
+                <View key={m.id} className="flex-row items-center gap-3 py-1.5">
+                  <Pressable
+                    onPress={() => {
+                      setDetailsOpen(false);
+                      router.navigate({ pathname: '/user/[username]', params: { username: m.username } });
+                    }}
+                    className="flex-1 flex-row items-center gap-3 active:opacity-70"
+                  >
+                    <Avatar name={m.display_name} uri={m.avatar_url} size="sm" />
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-1.5">
+                        <Text
+                          className="text-sm font-semibold text-text-light dark:text-text-dark"
+                          numberOfLines={1}
+                        >
+                          {m.display_name}
+                          {m.id === viewerId ? ' (you)' : ''}
+                        </Text>
+                        {memberIsCreator ? (
+                          <Ionicons name="star" size={11} color="#FE5800" />
+                        ) : null}
+                      </View>
+                      <Text className="text-xs text-muted-light" numberOfLines={1}>
+                        @{m.username}
+                      </Text>
+                    </View>
+                  </Pressable>
+                  {isCreator && !memberIsCreator ? (
+                    <Pressable
+                      onPress={() => setPendingRemove(m)}
+                      className="rounded-full border border-red-300 px-3 py-1.5 active:opacity-70"
+                      accessibilityLabel={`Remove ${m.display_name}`}
+                    >
+                      <Text className="text-xs font-semibold text-red-600">Remove</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
-              </Pressable>
-            ))}
+              );
+            })}
           </View>
+          <PrimaryButton
+            label="Invite friends"
+            variant="secondary"
+            leftIcon={<Ionicons name="person-add-outline" size={14} color="#4B5FE0" />}
+            onPress={() => {
+              setDetailsOpen(false);
+              setAddOpen(true);
+            }}
+            fullWidth
+          />
           <PrimaryButton
             label="Share invite link"
             variant="secondary"
@@ -373,6 +428,25 @@ export default function GroupRoomScreen() {
         </View>
       </BottomSheet>
 
+      {/* Add friends to the group (member-only, friends-only) */}
+      <AddGroupMembersSheet
+        open={addOpen}
+        viewerId={viewerId}
+        groupId={group.id}
+        existingIds={members.map((m) => m.id)}
+        onClose={() => setAddOpen(false)}
+        onAdded={() => void refetchMembers()}
+      />
+
+      {/* Share the 24h invite link via Telegram / WhatsApp / Viber / Copy */}
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        url={shareUrl}
+        text={`${group.emoji} Join "${group.name}" on MapMeet`}
+        title={group.name}
+      />
+
       <ConfirmationDialog
         open={confirmLeave}
         title={`Leave ${group.name}?`}
@@ -381,6 +455,16 @@ export default function GroupRoomScreen() {
         destructive
         onConfirm={handleLeave}
         onCancel={() => setConfirmLeave(false)}
+      />
+
+      <ConfirmationDialog
+        open={!!pendingRemove}
+        title={`Remove ${pendingRemove?.display_name ?? ''}?`}
+        message="They'll be removed from this group. They can rejoin with an invite link."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={handleRemoveMember}
+        onCancel={() => setPendingRemove(null)}
       />
     </SafeAreaView>
   );

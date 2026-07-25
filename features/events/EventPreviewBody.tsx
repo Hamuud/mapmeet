@@ -3,10 +3,8 @@ import { useEffect, useState } from 'react';
 import {
   Image,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
-  Share,
   Text,
   useWindowDimensions,
   View,
@@ -14,6 +12,7 @@ import {
 
 import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useVenue } from '@/hooks/useVenue';
@@ -70,6 +69,8 @@ export function EventPreviewBody({
   const [busy, setBusy] = useState(false);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
   // Imported from a ticketing site (karabas.com etc.) rather than pinned
@@ -79,6 +80,10 @@ export function EventPreviewBody({
   // City-precision imports have no real marker — routing to a city
   // centroid would send people to the wrong place, so no Directions.
   const hasExactLocation = event.geo_precision !== 'city';
+  // Public events are shareable by anyone signed in; private ones only by
+  // the host or someone who's joined (create_event_invite enforces this).
+  const canShare =
+    !!session && (event.visibility !== 'private' || isCreator || event.is_joined);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,6 +172,21 @@ export function EventPreviewBody({
       toast.show(msg, 'error');
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Mint a 24h invite link, then open the share sheet. Opening first with
+  // a null url shows the sheet's "Creating link…" state so the tap is
+  // instant even while the RPC is in flight.
+  const handleShare = async () => {
+    setShareUrl(null);
+    setShareOpen(true);
+    try {
+      const token = await invitesService.create(event.id);
+      setShareUrl(invitesService.shareUrl(token));
+    } catch (e) {
+      setShareOpen(false);
+      toast.show(e instanceof Error ? e.message : 'Could not create invite', 'error');
     }
   };
 
@@ -323,42 +343,18 @@ export function EventPreviewBody({
         />
       ) : null}
 
-      {/* Invite — host + participants can mint a 24h shareable link.
-          Native: system share sheet; web: clipboard + toast. Available
-          only for user-created events (imported ones already carry
-          their own Get-tickets link). */}
-      {!isImported && (isCreator || event.is_joined) ? (
+      {/* Share — mint a 24h link and open the Telegram / WhatsApp / Viber
+          / Copy sheet. Public events: anyone signed in. Private events:
+          host or someone who's joined (the RPC enforces the same rule). */}
+      {canShare ? (
         <PrimaryButton
-          label="Invite friends"
+          label="Share"
           variant="secondary"
           size="sm"
           leftIcon={
             <Ionicons name="share-social-outline" size={13} color="#4B5FE0" />
           }
-          onPress={async () => {
-            try {
-              const token = await invitesService.create(event.id);
-              const url = invitesService.shareUrl(token);
-              const message = `${event.emoji} You're invited: ${event.title}\n${url}`;
-              if (Platform.OS === 'web') {
-                if (typeof navigator !== 'undefined' && navigator.share) {
-                  await navigator.share({ title: event.title, url, text: message });
-                } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                  await navigator.clipboard.writeText(url);
-                  toast.show('Invite link copied. Good for 24 hours.', 'success');
-                } else {
-                  toast.show(url, 'info');
-                }
-              } else {
-                await Share.share({ message, url, title: event.title });
-              }
-            } catch (e) {
-              toast.show(
-                e instanceof Error ? e.message : 'Could not create invite',
-                'error',
-              );
-            }
-          }}
+          onPress={handleShare}
           fullWidth
         />
       ) : null}
@@ -419,6 +415,15 @@ export function EventPreviewBody({
           </View>
         </View>
       ) : null}
+
+      {/* Share the 24h invite link via Telegram / WhatsApp / Viber / Copy */}
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        url={shareUrl}
+        text={`${event.emoji} You're invited: ${event.title}`}
+        title={event.title}
+      />
     </View>
   );
 }

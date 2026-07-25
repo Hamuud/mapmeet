@@ -97,10 +97,12 @@ export const groupsService = {
     return data as string;
   },
 
-  async getById(groupId: string): Promise<{ id: string; name: string; emoji: string } | null> {
+  async getById(
+    groupId: string,
+  ): Promise<{ id: string; name: string; emoji: string; creator_id: string } | null> {
     const { data, error } = await supabase
       .from('group_chats')
-      .select('id, name, emoji')
+      .select('id, name, emoji, creator_id')
       .eq('id', groupId)
       .maybeSingle();
     if (error) throw error;
@@ -179,6 +181,16 @@ export const groupsService = {
     const { error } = await supabase.rpc('add_group_members', {
       p_group: groupId,
       p_member_ids: memberIds,
+    });
+    if (error) throw error;
+  },
+
+  /** Creator-only: eject a member. Server enforces the creator check and
+   *  posts the "<name> was removed" system message. */
+  async removeMember(groupId: string, userId: string): Promise<void> {
+    const { error } = await supabase.rpc('remove_group_member', {
+      p_group: groupId,
+      p_user: userId,
     });
     if (error) throw error;
   },

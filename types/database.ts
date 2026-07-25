@@ -339,6 +339,10 @@ export type Database = {
         Args: { p_group: string; p_member_ids: string[] };
         Returns: undefined;
       };
+      remove_group_member: {
+        Args: { p_group: string; p_user: string };
+        Returns: undefined;
+      };
       send_group_message: {
         Args: { p_group: string; p_text: string; p_reply_to?: string | null };
         Returns: string;
