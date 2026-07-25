@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -26,6 +26,10 @@ export default function LoginScreen() {
   const iconColor = useIconColor();
   const setSession = useAuthStore((s) => s.setSession);
   const [showPassword, setShowPassword] = useState(false);
+  // Set when the user lands here from the confirm-email link
+  // (emailRedirectTo → /login?confirmed=1). Drives the success banner.
+  const { confirmed } = useLocalSearchParams<{ confirmed?: string }>();
+  const justConfirmed = confirmed === '1';
   const {
     control,
     handleSubmit,
@@ -94,6 +98,17 @@ export default function LoginScreen() {
               Sign in to meet friends on the map today.
             </Text>
           </View>
+
+          {/* Email-confirmed banner — shown after the confirm-email link
+              lands the user back here. */}
+          {justConfirmed ? (
+            <View className="flex-row items-center gap-2.5 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+              <Text className="flex-1 text-sm font-medium text-green-700 dark:text-green-400">
+                Your email is confirmed. Sign in to start using MapMeet.
+              </Text>
+            </View>
+          ) : null}
 
           {/* Form */}
           <View className="gap-4">

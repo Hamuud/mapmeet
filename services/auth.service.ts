@@ -4,15 +4,30 @@ import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
-/** Where Supabase should redirect the user after they click the reset
- *  email link. On native we deep-link via the app scheme; on web we
- *  send them to /reset on the current origin. */
-function passwordResetRedirect(): string {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined') return `${window.location.origin}/reset`;
-    return '/reset';
+/** Build a redirect URL back into the app for the auth email links
+ *  (confirm signup, password reset).
+ *
+ *  On web this must preserve the `/mapmeet` base path the GitHub Pages
+ *  deploy is served under — sending people to the bare origin lands them
+ *  on `hamuud.github.io/…`, which isn't a Pages site (the 404). In local
+ *  dev the app is served at the root, so the base is empty. On native we
+ *  deep-link via the `mapmeet://` scheme instead.
+ *
+ *  NOTE: Supabase only honors these if the URL matches the project's
+ *  redirect allow list (Auth → URL Configuration). Add
+ *  `https://hamuud.github.io/mapmeet/**` there, or Supabase falls back to
+ *  the Site URL. */
+function appRedirect(pathname: string, query?: Record<string, string>): string {
+  if (Platform.OS !== 'web') {
+    return Linking.createURL(pathname, query ? { queryParams: query } : undefined);
   }
-  return Linking.createURL('/reset');
+  const qs = query ? `?${new URLSearchParams(query).toString()}` : '';
+  if (typeof window !== 'undefined' && window.location) {
+    const { origin, pathname: loc } = window.location;
+    const base = loc.startsWith('/mapmeet') ? '/mapmeet' : '';
+    return `${origin}${base}${pathname}${qs}`;
+  }
+  return `https://hamuud.github.io/mapmeet${pathname}${qs}`;
 }
 
 export type SignUpInput = {
@@ -43,6 +58,10 @@ export const authService = {
         // Values here flow into raw_user_meta_data and are picked up by the
         // handle_new_user() trigger to seed the profiles row.
         data: { username, display_name: displayName },
+        // After the user clicks the confirm-email link, Supabase sends them
+        // here — the login screen, which shows a "confirmed, you can sign
+        // in" banner when it sees `?confirmed=1`.
+        emailRedirectTo: appRedirect('/login', { confirmed: '1' }),
       },
     });
     if (error) throw error;
@@ -66,7 +85,7 @@ export const authService = {
 
   async requestPasswordReset(email: string): Promise<void> {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: passwordResetRedirect(),
+      redirectTo: appRedirect('/reset'),
     });
     if (error) throw error;
   },
