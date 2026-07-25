@@ -389,9 +389,10 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    const container = containerRef.current;
     const styleUrl = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL;
     const map = new maplibregl.Map({
-      container: containerRef.current,
+      container,
       style: styleUrl || STYLE_FOR[mapStyle] || STREETS_STYLE,
       center: [initialCenter.longitude, initialCenter.latitude],
       zoom: 13,
@@ -480,8 +481,26 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     });
 
     mapRef.current = map;
+
+    // MapLibre sizes its WebGL canvas to the container at construction and
+    // only auto-corrects on *window* resize (trackResize). When the map
+    // mounts during a client-side navigation — e.g. right after login,
+    // which does router.replace('/(tabs)/map') rather than a full reload —
+    // the container may still be laying out, so the canvas can come up at
+    // the wrong size and paint black until something resizes it (which a
+    // page refresh happens to do for free). A ResizeObserver nudges the
+    // map the instant the container reaches its real size, so it paints
+    // straight away without needing a refresh.
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(container);
+    // Belt-and-suspenders: also correct on the next frame in case the
+    // observer's first callback races the initial paint.
+    const raf = requestAnimationFrame(() => map.resize());
+
     return () => {
       cancelPress();
+      ro.disconnect();
+      cancelAnimationFrame(raf);
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
