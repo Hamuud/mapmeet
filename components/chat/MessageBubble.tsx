@@ -256,7 +256,7 @@ export function MessageBubble({
   const isPoll = message.type === 'poll';
   const bubble = (
     <View
-      className={`${isPoll ? 'w-[300px] max-w-[92%]' : 'max-w-[78%]'} ${
+      className={`${isPoll ? 'w-[380px] max-w-[94%]' : 'max-w-[78%]'} ${
         isOwn ? 'items-end' : 'items-start'
       }`}
     >
