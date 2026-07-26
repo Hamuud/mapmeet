@@ -17,6 +17,7 @@ export type DmMessage = {
   waveform: number[] | null;
   poll: import('@/types').PollPayload | null;
   read_by: string[];
+  read_at: string | null;
   created_at: string;
 };
 
@@ -46,6 +47,7 @@ function toMessage(row: DmMessage, sender: ProfileLite | null): MessageWithSende
     waveform: row.waveform,
     poll: row.poll ?? null,
     read_by: row.read_by,
+    read_at: row.read_at ?? null,
     deleted_for: [],
     hidden: false,
     created_at: row.created_at,

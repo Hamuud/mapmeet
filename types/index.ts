@@ -32,9 +32,12 @@ export type Message = Database['public']['Tables']['messages']['Row'];
 export type MessageInsert = Database['public']['Tables']['messages']['Insert'];
 
 /** A message enriched with its sender profile — the shape the chat UI
- *  renders. `sender` is null for system messages. */
+ *  renders. `sender` is null for system messages. `read_at` is only set
+ *  for DM messages (when the recipient first read it) — undefined
+ *  elsewhere, where the bubble falls back to ✓/✓✓ ticks. */
 export type MessageWithSender = Message & {
   sender: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null;
+  read_at?: string | null;
 };
 
 export type LatLng = { latitude: number; longitude: number };

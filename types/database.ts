@@ -25,6 +25,9 @@ export type Database = {
           phone: string | null;
           interests: string[];
           push_token: string | null;
+          /** Bumped by the client heartbeat while foregrounded — powers
+           *  the DM "Online / last seen …" status. Null = never recorded. */
+          last_seen_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -191,6 +194,8 @@ export type Database = {
           waveform: number[] | null;
           poll: PollPayload | null;
           read_by: string[];
+          /** When the recipient first read this message (1:1 → unambiguous). */
+          read_at: string | null;
           created_at: string;
         };
         Insert: Record<string, never>;
@@ -309,6 +314,7 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: { id: string; text: string; created_at: string }[];
       };
+      touch_last_seen: { Args: Record<string, never>; Returns: undefined };
       request_friendship: { Args: { p_target: string }; Returns: string };
       remove_friendship: { Args: { p_other: string }; Returns: undefined };
       get_or_create_dm: { Args: { p_other: string }; Returns: string };

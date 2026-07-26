@@ -9,6 +9,24 @@ export function looksLikeUuid(s: string): boolean {
 }
 
 export const profilesService = {
+  /** Heartbeat: mark the signed-in user active now (powers DM presence). */
+  async touchLastSeen(): Promise<void> {
+    const { error } = await supabase.rpc('touch_last_seen');
+    if (error) throw error;
+  },
+
+  /** Just the last-seen timestamp for one user — cheap poll for the DM
+   *  header without refetching the whole profile. */
+  async getLastSeen(id: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('last_seen_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.last_seen_at ?? null;
+  },
+
   async getById(id: string): Promise<Profile | null> {
     const { data, error } = await supabase
       .from('profiles')

@@ -366,7 +366,17 @@ export function MessageBubble({
           >
             {timeLabel(message.created_at)}
           </Text>
-          {isOwn ? <Ticks read={read} /> : null}
+          {/* Own messages: show the exact READ time when we have it (DMs);
+              otherwise fall back to ✓ (sent) / ✓✓ (read) ticks. */}
+          {isOwn ? (
+            read && message.read_at ? (
+              <Text className="font-mono text-[9px] uppercase text-brand-300">
+                · read {timeLabel(message.read_at)}
+              </Text>
+            ) : (
+              <Ticks read={read} />
+            )
+          ) : null}
         </View>
       </Pressable>
 

@@ -29,6 +29,7 @@ import { friendshipsService, type FriendshipState } from '@/services/friendships
 import { pollsService } from '@/services/polls.service';
 import { looksLikeUuid, profilesService } from '@/services/profiles.service';
 import { usePreferencesStore } from '@/store/preferences.store';
+import { formatLastSeen, isOnline } from '@/utils/lastSeen';
 import { goBack } from '@/utils/nav';
 import type { MessageWithSender, PollDetails, Profile } from '@/types';
 
@@ -58,6 +59,9 @@ export default function DmRoomScreen() {
   const [pollOpen, setPollOpen] = useState(false);
   const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
   const [resultsTarget, setResultsTarget] = useState<MessageWithSender | null>(null);
+  // Ticks so the "Online / last seen …" label re-derives as time passes,
+  // and re-polls the other person's last_seen so it stays fresh.
+  const [now, setNow] = useState(() => new Date());
 
   const refetch = useCallback(async (id: string) => {
     setMessages(await dmsService.listMessages(id));
@@ -99,6 +103,25 @@ export default function DmRoomScreen() {
     const ch = dmsService.subscribe(dmId, () => void refetch(dmId));
     return () => dmsService.unsubscribe(ch);
   }, [dmId, refetch]);
+
+  // Presence: every 20s advance the clock (so "Online" ages into "last
+  // seen …") and re-poll the other person's last_seen timestamp.
+  useEffect(() => {
+    const otherId = other?.id;
+    if (!otherId) return;
+    const id = setInterval(() => {
+      setNow(new Date());
+      void profilesService
+        .getLastSeen(otherId)
+        .then((ls) =>
+          setOther((prev) =>
+            prev && prev.id === otherId ? { ...prev, last_seen_at: ls } : prev,
+          ),
+        )
+        .catch(() => {});
+    }, 20_000);
+    return () => clearInterval(id);
+  }, [other?.id]);
 
   const visible = useMemo(() => [...messages].reverse(), [messages]);
   const byId = useMemo(() => {
@@ -252,8 +275,16 @@ export default function DmRoomScreen() {
             <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
               {other.display_name}
             </Text>
-            <Text className="text-xs text-muted-light" numberOfLines={1}>
-              @{other.username}
+            <Text
+              className={[
+                'text-xs',
+                isOnline(other.last_seen_at, now)
+                  ? 'font-semibold text-green-500'
+                  : 'text-muted-light',
+              ].join(' ')}
+              numberOfLines={1}
+            >
+              {formatLastSeen(other.last_seen_at, now)}
             </Text>
           </View>
         </Pressable>

@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
 import { useChatSync } from '@/hooks/useChatSync';
 import { useNotifications } from '@/hooks/useNotifications';
+import { usePresence } from '@/hooks/usePresence';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
 
@@ -28,6 +29,7 @@ export default function TabsLayout() {
   useEventsBootstrap();
   useChatSync();
   useNotifications();
+  usePresence();
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   if (!session) return <Redirect href="/(auth)/login" />;
