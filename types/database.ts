@@ -65,6 +65,8 @@ export type Database = {
           visibility: 'public' | 'private';
           tags: string[];
           archive_warned: boolean;
+          /** One-shot flag: the automatic "Who's coming?" poll was posted. */
+          coming_poll_created: boolean;
           /** 'user' = pinned in the app; anything else = imported by the
            *  ingest Edge Function from that source ('karabas', …). */
           source: string;
@@ -179,7 +181,7 @@ export type Database = {
           id: string;
           dm_id: string;
           sender_id: string;
-          type: 'text' | 'invite' | 'audio';
+          type: 'text' | 'invite' | 'audio' | 'poll';
           text: string | null;
           event_invite_token: string | null;
           reply_to: string | null;
@@ -187,6 +189,7 @@ export type Database = {
           media_url: string | null;
           duration_ms: number | null;
           waveform: number[] | null;
+          poll: PollPayload | null;
           read_by: string[];
           created_at: string;
         };
@@ -396,6 +399,17 @@ export type Database = {
         };
         Returns: string;
       };
+      create_dm_poll: {
+        Args: {
+          p_dm: string;
+          p_question: string;
+          p_options: string[];
+          p_anonymous?: boolean;
+          p_reply_to?: string | null;
+        };
+        Returns: string;
+      };
+      ensure_coming_poll: { Args: { p_event_id: string }; Returns: undefined };
       vote_poll: { Args: { p_message_id: string; p_option_id: string }; Returns: undefined };
       get_poll_details: {
         Args: { p_message_ids: string[] };

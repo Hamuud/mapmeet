@@ -62,6 +62,10 @@ export function useChat(eventId: string | null, viewerId: string | null) {
                   deleted_for: row.deleted_for,
                   hidden: row.hidden,
                   reactions: row.reactions,
+                  // Poll tallies change via UPDATE (vote_poll rewrites the
+                  // poll jsonb) — carry it through or event-chat polls
+                  // would never refresh live like group/DM do.
+                  poll: row.poll,
                 }
               : m,
           ),

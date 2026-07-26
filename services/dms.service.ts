@@ -7,7 +7,7 @@ export type DmMessage = {
   id: string;
   dm_id: string;
   sender_id: string;
-  type: 'text' | 'invite' | 'audio';
+  type: 'text' | 'invite' | 'audio' | 'poll';
   text: string | null;
   event_invite_token: string | null;
   reply_to: string | null;
@@ -15,6 +15,7 @@ export type DmMessage = {
   media_url: string | null;
   duration_ms: number | null;
   waveform: number[] | null;
+  poll: import('@/types').PollPayload | null;
   read_by: string[];
   created_at: string;
 };
@@ -43,6 +44,7 @@ function toMessage(row: DmMessage, sender: ProfileLite | null): MessageWithSende
     reactions: row.reactions ?? {},
     duration_ms: row.duration_ms,
     waveform: row.waveform,
+    poll: row.poll ?? null,
     read_by: row.read_by,
     deleted_for: [],
     hidden: false,

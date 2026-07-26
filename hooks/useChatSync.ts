@@ -6,7 +6,7 @@ import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
 import { useEventsStore } from '@/store/events.store';
-import { isArchiveWarningDue } from '@/utils/eventTime';
+import { isArchiveWarningDue, isComingPollDue } from '@/utils/eventTime';
 
 /** Keeps the chat store's previews + unread total fresh, and fires the
  *  one-time archive warning when an event nears its cutoff.
@@ -40,6 +40,7 @@ export function useChatSync() {
   // Warnings already dispatched this session — the DB flag is the real
   // guard against duplicates, this just avoids spamming the RPC.
   const warnedRef = useRef<Set<string>>(new Set());
+  const comingPollRef = useRef<Set<string>>(new Set());
 
   const runArchiveWarnings = useMemo(
     () => () => {
@@ -58,6 +59,20 @@ export function useChatSync() {
             // RPC missing / already warned — drop the local guard so a
             // later attempt can retry if it was a transient failure.
             warnedRef.current.delete(e.id);
+          });
+        }
+
+        // Automatic "Who's coming?" poll in the hour before start. Same
+        // one-shot pattern; the DB flag (coming_poll_created) is the real
+        // dedup guard across clients.
+        if (
+          e.coming_poll_created === false &&
+          !comingPollRef.current.has(e.id) &&
+          isComingPollDue(e, now)
+        ) {
+          comingPollRef.current.add(e.id);
+          void messagesService.ensureComingPoll(e.id).catch(() => {
+            comingPollRef.current.delete(e.id);
           });
         }
       }

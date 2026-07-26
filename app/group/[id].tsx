@@ -23,6 +23,7 @@ import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { AddGroupMembersSheet } from '@/features/chat/AddGroupMembersSheet';
 import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
+import { PollResultsSheet } from '@/features/chat/PollResultsSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -63,6 +64,7 @@ export default function GroupRoomScreen() {
   const [shareOpen, setShareOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
   const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
+  const [resultsTarget, setResultsTarget] = useState<MessageWithSender | null>(null);
   const [pendingRemove, setPendingRemove] = useState<GroupMember | null>(null);
 
   const isCreator = !!group && group.creator_id === viewerId;
@@ -337,6 +339,7 @@ export default function GroupRoomScreen() {
                   }
                   onToggleReaction={handleToggleReaction}
                   onVotePoll={handleVotePoll}
+                  onViewResults={(m) => setResultsTarget(m)}
                 />
               </View>
             );
@@ -508,6 +511,13 @@ export default function GroupRoomScreen() {
         open={pollOpen}
         onClose={() => setPollOpen(false)}
         onCreate={handleCreatePoll}
+      />
+
+      <PollResultsSheet
+        open={!!resultsTarget}
+        onClose={() => setResultsTarget(null)}
+        poll={resultsTarget?.poll ?? null}
+        details={resultsTarget ? (pollDetails.get(resultsTarget.id) ?? null) : null}
       />
 
       <ConfirmationDialog

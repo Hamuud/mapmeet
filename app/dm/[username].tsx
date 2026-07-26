@@ -19,15 +19,18 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
+import { PollResultsSheet } from '@/features/chat/PollResultsSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { dmsService } from '@/services/dms.service';
 import { friendshipsService, type FriendshipState } from '@/services/friendships.service';
+import { pollsService } from '@/services/polls.service';
 import { looksLikeUuid, profilesService } from '@/services/profiles.service';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
-import type { MessageWithSender, Profile } from '@/types';
+import type { MessageWithSender, PollDetails, Profile } from '@/types';
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
 
@@ -52,6 +55,9 @@ export default function DmRoomScreen() {
   const [friendship, setFriendship] = useState<FriendshipState>('none');
   const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
   const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
+  const [resultsTarget, setResultsTarget] = useState<MessageWithSender | null>(null);
 
   const refetch = useCallback(async (id: string) => {
     setMessages(await dmsService.listMessages(id));
@@ -103,6 +109,57 @@ export default function DmRoomScreen() {
 
   const myCount = messages.filter((m) => m.sender_id === viewerId).length;
   const nonFriendBlocked = friendship !== 'friends' && myCount >= 1;
+
+  // Re-fetch per-poll details (my choice + voter avatars) whenever a poll
+  // appears or its tallies move — same live behaviour as event/group.
+  const pollSig = useMemo(
+    () =>
+      messages
+        .filter((m) => m.type === 'poll')
+        .map((m) => `${m.id}:${(m.poll?.options ?? []).map((o) => o.votes).join('-')}`)
+        .join('|'),
+    [messages],
+  );
+  useEffect(() => {
+    const ids = messages.filter((m) => m.type === 'poll').map((m) => m.id);
+    if (ids.length === 0) {
+      setPollDetails(new Map());
+      return;
+    }
+    let cancelled = false;
+    pollsService
+      .details(ids)
+      .then((d) => {
+        if (!cancelled) setPollDetails(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollSig]);
+
+  const handleCreatePoll = useCallback(
+    async (question: string, options: string[], anonymous: boolean) => {
+      if (!dmId) return;
+      await pollsService.createDmPoll(dmId, question, options, anonymous);
+      await refetch(dmId);
+    },
+    [dmId, refetch],
+  );
+
+  const handleVotePoll = useCallback(
+    async (message: MessageWithSender, optionId: string) => {
+      if (!dmId) return;
+      try {
+        await pollsService.vote(message.id, optionId);
+        await refetch(dmId);
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+      }
+    },
+    [dmId, refetch, toast],
+  );
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -239,10 +296,13 @@ export default function DmRoomScreen() {
                   repliedTo={item.reply_to ? (byId.get(item.reply_to) ?? null) : null}
                   viewerId={viewerId}
                   favoriteReaction={favoriteReaction}
+                  pollDetails={pollDetails.get(item.id) ?? null}
                   onLongPress={(m) => setActionTarget(m)}
                   onContextMenu={(m) => setActionTarget(m)}
                   onReply={(m) => setReplyingTo(m)}
                   onToggleReaction={handleToggleReaction}
+                  onVotePoll={handleVotePoll}
+                  onViewResults={(m) => setResultsTarget(m)}
                 />
               </View>
             );
@@ -279,6 +339,7 @@ export default function DmRoomScreen() {
             <MessageInput
               onSend={handleSend}
               onAttach={() => toast.show('Photos and video land next update.', 'info')}
+              onCreatePoll={() => setPollOpen(true)}
               replyingTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
               recording={recorder.state === 'recording'}
@@ -290,6 +351,19 @@ export default function DmRoomScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      <PollComposerSheet
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        onCreate={handleCreatePoll}
+      />
+
+      <PollResultsSheet
+        open={!!resultsTarget}
+        onClose={() => setResultsTarget(null)}
+        poll={resultsTarget?.poll ?? null}
+        details={resultsTarget ? (pollDetails.get(resultsTarget.id) ?? null) : null}
+      />
 
       {/* Message actions: reactions + reply */}
       <BottomSheet open={!!actionTarget} onClose={() => setActionTarget(null)} autoHeight>

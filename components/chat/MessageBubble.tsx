@@ -33,6 +33,8 @@ type Props = {
   onToggleReaction?: (message: MessageWithSender, emoji: string) => void;
   /** Cast/change/retract a vote on a poll option. */
   onVotePoll?: (message: MessageWithSender, optionId: string) => void;
+  /** Open the who-voted-for-what results modal (poll messages). */
+  onViewResults?: (message: MessageWithSender) => void;
   /** Swipe (native) → reply, same as Telegram. */
   onReply?: (message: MessageWithSender) => void;
   /** Web right-click → same action menu as long-press. */
@@ -140,6 +142,7 @@ export function MessageBubble({
   onPressAvatar,
   onToggleReaction,
   onVotePoll,
+  onViewResults,
   onReply,
   onContextMenu,
 }: Props) {
@@ -229,7 +232,9 @@ export function MessageBubble({
     );
   }
 
-  const senderName = message.sender?.display_name ?? 'Unknown';
+  // System-authored polls (the automatic "Who's coming?") have no sender.
+  const senderName =
+    message.sender?.display_name ?? (message.type === 'poll' ? 'MapMeet' : 'Unknown');
   const read = message.read_by.length > 0;
   const reactionEntries = Object.entries(message.reactions ?? {}).filter(
     ([, users]) => users.length > 0,
@@ -342,6 +347,7 @@ export function MessageBubble({
             details={pollDetails ?? null}
             isOwn={isOwn}
             onVote={(optionId) => onVotePoll?.(message, optionId)}
+            onViewResults={onViewResults ? () => onViewResults(message) : undefined}
           />
         ) : (
           <Text className="text-[15px] italic text-muted-light">
@@ -477,14 +483,17 @@ function PollCard({
   details,
   isOwn,
   onVote,
+  onViewResults,
 }: {
   poll: NonNullable<MessageWithSender['poll']>;
   details: PollDetails | null;
   isOwn: boolean;
   onVote: (optionId: string) => void;
+  onViewResults?: () => void;
 }) {
   const total = poll.options.reduce((sum, o) => sum + (o.votes ?? 0), 0);
   const myOption = details?.myOption ?? null;
+  const hasVoted = myOption !== null;
 
   return (
     <View className="w-full gap-2">
@@ -577,6 +586,17 @@ function PollCard({
           </Text>
         )}
       </View>
+
+      {/* Non-anonymous polls: once you've voted, see who picked what. */}
+      {!poll.anonymous && hasVoted && onViewResults ? (
+        <Pressable
+          onPress={onViewResults}
+          className="mt-0.5 flex-row items-center justify-center gap-1.5 rounded-xl border border-border-light bg-surface-light py-2 active:opacity-70 dark:border-border-dark dark:bg-surface-dark"
+        >
+          <Ionicons name="bar-chart-outline" size={14} color="#4B5FE0" />
+          <Text className="text-[13px] font-semibold text-brand-500">View results</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

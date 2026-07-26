@@ -22,6 +22,7 @@ import { DirectionsSheet } from '@/features/events/DirectionsSheet';
 import { EventPreviewBody } from '@/features/events/EventPreviewBody';
 import { MembersSheet } from '@/features/chat/MembersSheet';
 import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
+import { PollResultsSheet } from '@/features/chat/PollResultsSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
@@ -53,13 +54,14 @@ export default function ChatRoomScreen() {
 
   const event = useEventsStore((s) => s.events.find((e) => e.id === eventId)) ?? null;
   const venue = useVenue(event);
-  const { messages, status } = useChat(eventId ?? null, viewerId);
+  const { messages, status, refetch } = useChat(eventId ?? null, viewerId);
   const recorder = useVoiceRecorder();
 
   const [eventOpen, setEventOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
   const [pollDetails, setPollDetails] = useState<Map<string, PollDetails>>(new Map());
+  const [resultsTarget, setResultsTarget] = useState<MessageWithSender | null>(null);
   const [actionTarget, setActionTarget] = useState<MessageWithSender | null>(null);
   const [replyingTo, setReplyingTo] = useState<MessageWithSender | null>(null);
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
@@ -121,6 +123,9 @@ export default function ChatRoomScreen() {
   const handleVotePoll = async (message: MessageWithSender, optionId: string) => {
     try {
       await pollsService.vote(message.id, optionId);
+      // Immediate refresh for parity with group/DM (realtime also
+      // delivers the update, this just makes the tap feel instant).
+      await refetch();
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
     }
@@ -315,6 +320,7 @@ export default function ChatRoomScreen() {
                   }
                   onToggleReaction={handleToggleReaction}
                   onVotePoll={handleVotePoll}
+                  onViewResults={(m) => setResultsTarget(m)}
                 />
               </View>
             );
@@ -390,6 +396,13 @@ export default function ChatRoomScreen() {
         open={pollOpen}
         onClose={() => setPollOpen(false)}
         onCreate={handleCreatePoll}
+      />
+
+      <PollResultsSheet
+        open={!!resultsTarget}
+        onClose={() => setResultsTarget(null)}
+        poll={resultsTarget?.poll ?? null}
+        details={resultsTarget ? (pollDetails.get(resultsTarget.id) ?? null) : null}
       />
 
       {/* Message actions: quick reactions + reply + copy + deletes.

@@ -56,6 +56,24 @@ export function isArchiveWarningDue(
   return t >= warnAt && t < archiveAt;
 }
 
+/** Minutes before start at which the automatic "Who's coming?" poll fires. */
+export const COMING_POLL_MINUTES = 60;
+
+/** True while the event is inside `[start - 60min, start)` — the hour
+ *  before it begins — so the one-time "Who's coming?" poll can be posted.
+ *  Mirrors isArchiveWarningDue: a member-open client fires the RPC, which
+ *  dedups via a one-shot flag. */
+export function isComingPollDue(
+  event: { event_date: string; event_time: string },
+  now: Date = new Date(),
+): boolean {
+  const start = eventStart(event);
+  if (!start) return false;
+  const t = now.getTime();
+  const openAt = start.getTime() - COMING_POLL_MINUTES * 60_000;
+  return t >= openAt && t < start.getTime();
+}
+
 /** Convenience: strip past events out of any list. */
 export function excludePast<T extends { event_date: string; event_time: string }>(
   events: T[],

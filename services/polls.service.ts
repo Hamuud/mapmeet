@@ -41,6 +41,24 @@ export const pollsService = {
     return data as string;
   },
 
+  async createDmPoll(
+    dmId: string,
+    question: string,
+    options: string[],
+    anonymous: boolean,
+    replyTo?: string | null,
+  ): Promise<string> {
+    const { data, error } = await supabase.rpc('create_dm_poll', {
+      p_dm: dmId,
+      p_question: question,
+      p_options: options,
+      p_anonymous: anonymous,
+      p_reply_to: replyTo ?? null,
+    });
+    if (error) throw error;
+    return data as string;
+  },
+
   /** Cast, change, or retract (tap your current choice) a vote. */
   async vote(messageId: string, optionId: string): Promise<void> {
     const { error } = await supabase.rpc('vote_poll', {

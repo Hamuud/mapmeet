@@ -215,6 +215,16 @@ export const messagesService = {
     if (error) throw error;
   },
 
+  /** Post the one-time automatic "Who's coming?" poll (fires in the hour
+   *  before start). Dedups via `events.coming_poll_created`, so repeated
+   *  or concurrent calls post at most once. */
+  async ensureComingPoll(eventId: string): Promise<void> {
+    const { error } = await supabase.rpc('ensure_coming_poll', {
+      p_event_id: eventId,
+    });
+    if (error) throw error;
+  },
+
   /** Host-only: kick a member out of the event + chat. The DB trigger
    *  posts the "<name> was removed from the event" system message. */
   async removeParticipant(eventId: string, userId: string): Promise<void> {
