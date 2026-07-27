@@ -33,7 +33,7 @@ import { goBack } from '@/utils/nav';
 import { formatRating } from '@/utils/rating';
 import type { EventWithCreator, Profile } from '@/types';
 
-type Tab = 'upcoming' | 'attending' | 'past' | 'reviews';
+type Tab = 'upcoming' | 'past' | 'reviews';
 
 /** Public read-only profile for a host. Reached from the "View
  *  <name>'s profile" button in the event peek and from chat avatars.
@@ -164,9 +164,6 @@ export default function UserProfileScreen() {
   const [voteBusy, setVoteBusy] = useState(false);
   const [reviews, setReviews] = useState<UserReview[]>([]);
   const [reviewDraft, setReviewDraft] = useState('');
-  // Events this person is attending — gated server-side by their
-  // "who can see my attending events" privacy setting.
-  const [attending, setAttending] = useState<EventWithCreator[]>([]);
   const [reviewSending, setReviewSending] = useState(false);
 
   useEffect(() => {
@@ -273,32 +270,8 @@ export default function UserProfileScreen() {
     };
   }, [events, fallbackEvents, targetId]);
 
-  // Load the target's attending events (empty if their privacy setting
-  // hides them from this viewer — the RPC decides).
-  useEffect(() => {
-    if (!targetId) return;
-    let cancelled = false;
-    eventsService
-      .listAttendingFor(targetId, viewerId)
-      .then((rows) => {
-        if (!cancelled) setAttending(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setAttending([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [targetId, viewerId]);
-
   const list: (EventWithCreator | UserReview)[] =
-    tab === 'reviews'
-      ? reviews
-      : tab === 'attending'
-        ? attending
-        : tab === 'upcoming'
-          ? upcoming
-          : past;
+    tab === 'reviews' ? reviews : tab === 'upcoming' ? upcoming : past;
 
   const openOnMap = (event: EventWithCreator) => {
     focusEvent(event.id);
@@ -456,16 +429,11 @@ export default function UserProfileScreen() {
             ) : null}
 
             {/* Segmented: events + reviews */}
-            <View className="flex-row flex-wrap items-center gap-x-5 gap-y-1 border-b border-border-light dark:border-border-dark">
+            <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
               <SegmentTab
                 label={`Upcoming · ${upcoming.length}`}
                 active={tab === 'upcoming'}
                 onPress={() => setTab('upcoming')}
-              />
-              <SegmentTab
-                label={`Attending · ${attending.length}`}
-                active={tab === 'attending'}
-                onPress={() => setTab('attending')}
               />
               <SegmentTab
                 label={`Past · ${past.length}`}
@@ -527,16 +495,6 @@ export default function UserProfileScreen() {
                 isSelf
                   ? 'Feedback others leave about you will show up here.'
                   : `Be the first to leave ${profile.display_name} an anonymous review.`
-              }
-            />
-          ) : tab === 'attending' ? (
-            <EmptyState
-              emoji="🙋"
-              title="Nothing to show"
-              description={
-                isSelf
-                  ? "Events you join show here. Control who else sees them in Settings › Privacy."
-                  : `${profile.display_name} isn't showing any events they're attending.`
               }
             />
           ) : (
