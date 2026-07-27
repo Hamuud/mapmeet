@@ -8,16 +8,17 @@ import { EventCard } from '@/components/events/EventCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { ReviewCard } from '@/components/user/ReviewCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
-import { ratingsService } from '@/services/ratings.service';
+import { ratingsService, type UserReview } from '@/services/ratings.service';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
 import { formatRating } from '@/utils/rating';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
 import type { EventWithCreator } from '@/types';
 
-type Tab = 'hosting' | 'attending' | 'past';
+type Tab = 'hosting' | 'attending' | 'past' | 'reviews';
 
 /** "You" tab — the redesigned profile screen. Big avatar + display
  *  name + @handle line, optional bio + interest chips, Events / Joined
@@ -33,6 +34,8 @@ export default function YouScreen() {
   // Taxi-style rating — starts at 5.00, moved by likes/dislikes from
   // other users (they vote on your public profile page).
   const [rating, setRating] = useState<string | null>(null);
+  // Anonymous reviews left about you — visible to you, still authorless.
+  const [reviews, setReviews] = useState<UserReview[]>([]);
   useEffect(() => {
     if (!profile) return;
     let cancelled = false;
@@ -44,6 +47,12 @@ export default function YouScreen() {
       .catch(() => {
         /* rating hidden until the migration lands — non-fatal */
       });
+    ratingsService
+      .listReviews(profile.id)
+      .then((rows) => {
+        if (!cancelled) setReviews(rows);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -80,7 +89,14 @@ export default function YouScreen() {
     };
   }, [events, profile]);
 
-  const list = tab === 'hosting' ? hosting : tab === 'attending' ? attending : past;
+  const list: (EventWithCreator | UserReview)[] =
+    tab === 'reviews'
+      ? reviews
+      : tab === 'hosting'
+        ? hosting
+        : tab === 'attending'
+          ? attending
+          : past;
 
   const openOnMap = (event: EventWithCreator) => {
     focusEvent(event.id);
@@ -224,31 +240,51 @@ export default function YouScreen() {
                 active={tab === 'past'}
                 onPress={() => setTab('past')}
               />
+              <SegmentTab
+                label={`Reviews · ${reviews.length}`}
+                active={tab === 'reviews'}
+                onPress={() => setTab('reviews')}
+              />
             </View>
           </View>
         }
         contentContainerStyle={{ padding: 20, gap: 12, paddingTop: 4, flexGrow: 1 }}
-        renderItem={({ item }) => (
-          <EventCard event={item} onPress={() => openOnMap(item)} />
-        )}
+        renderItem={({ item }) =>
+          tab === 'reviews' ? (
+            <ReviewCard review={item as UserReview} />
+          ) : (
+            <EventCard
+              event={item as EventWithCreator}
+              onPress={() => openOnMap(item as EventWithCreator)}
+            />
+          )
+        }
         ListEmptyComponent={
-          <EmptyState
-            emoji={tab === 'hosting' ? '📍' : tab === 'attending' ? '🙋' : '🗓️'}
-            title={
-              tab === 'hosting'
-                ? "You aren't hosting anything yet"
-                : tab === 'attending'
-                  ? 'No upcoming events joined'
-                  : 'No past events'
-            }
-            description={
-              tab === 'past'
-                ? "Once your events wrap, they'll show up here."
-                : 'Open the map and pin your first event.'
-            }
-            actionLabel="Open map"
-            onAction={() => router.push('/(tabs)/map')}
-          />
+          tab === 'reviews' ? (
+            <EmptyState
+              emoji="📝"
+              title="No reviews yet"
+              description="Anonymous feedback others leave about you will show up here."
+            />
+          ) : (
+            <EmptyState
+              emoji={tab === 'hosting' ? '📍' : tab === 'attending' ? '🙋' : '🗓️'}
+              title={
+                tab === 'hosting'
+                  ? "You aren't hosting anything yet"
+                  : tab === 'attending'
+                    ? 'No upcoming events joined'
+                    : 'No past events'
+              }
+              description={
+                tab === 'past'
+                  ? "Once your events wrap, they'll show up here."
+                  : 'Open the map and pin your first event.'
+              }
+              actionLabel="Open map"
+              onAction={() => router.push('/(tabs)/map')}
+            />
+          )
         }
       />
     </SafeAreaView>

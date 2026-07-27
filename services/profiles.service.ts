@@ -9,6 +9,17 @@ export function looksLikeUuid(s: string): boolean {
 }
 
 export const profilesService = {
+  /** Set who can see the events you're attending: nobody / friends /
+   *  everyone. Updates your own profile row. */
+  async setAttendingVisibility(
+    value: 'nobody' | 'friends' | 'everyone',
+  ): Promise<void> {
+    const { error } = await supabase.rpc('set_attending_visibility', {
+      p_value: value,
+    });
+    if (error) throw error;
+  },
+
   /** Heartbeat: mark the signed-in user active now (powers DM presence). */
   async touchLastSeen(): Promise<void> {
     const { error } = await supabase.rpc('touch_last_seen');

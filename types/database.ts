@@ -28,6 +28,8 @@ export type Database = {
           /** Bumped by the client heartbeat while foregrounded — powers
            *  the DM "Online / last seen …" status. Null = never recorded. */
           last_seen_at: string | null;
+          /** Who can see the events this user has joined (not hosted). */
+          attending_visibility: 'nobody' | 'friends' | 'everyone';
           created_at: string;
           updated_at: string;
         };
@@ -49,6 +51,7 @@ export type Database = {
           phone?: string | null;
           interests?: string[];
           push_token?: string | null;
+          attending_visibility?: 'nobody' | 'friends' | 'everyone';
         };
         Relationships: [];
       };
@@ -315,6 +318,8 @@ export type Database = {
         Returns: { id: string; text: string; created_at: string }[];
       };
       touch_last_seen: { Args: Record<string, never>; Returns: undefined };
+      set_attending_visibility: { Args: { p_value: string }; Returns: undefined };
+      list_attending_event_ids: { Args: { p_target: string }; Returns: string[] };
       request_friendship: { Args: { p_target: string }; Returns: string };
       remove_friendship: { Args: { p_other: string }; Returns: undefined };
       get_or_create_dm: { Args: { p_other: string }; Returns: string };

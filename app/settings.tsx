@@ -13,11 +13,19 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
+import { profilesService } from '@/services/profiles.service';
+import { useAuthStore } from '@/store/auth.store';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
 
 const APPEARANCE_OPTIONS: readonly Appearance[] = ['light', 'dark', 'auto'] as const;
 const RADII_KM = [1, 3, 5, 10, 25, 50] as const;
+type AttendingVisibility = 'nobody' | 'friends' | 'everyone';
+const ATTENDING_VIS: { value: AttendingVisibility; label: string }[] = [
+  { value: 'nobody', label: 'Nobody' },
+  { value: 'friends', label: 'Friends' },
+  { value: 'everyone', label: 'Everyone' },
+];
 
 /** MapMeet Settings screen. Reachable from the "You" tab. Groups:
  *  Account (profile + privacy + location), Preferences (notifications,
@@ -38,6 +46,21 @@ export default function SettingsScreen() {
   const setSearchRadiusKm = usePreferencesStore((s) => s.setSearchRadiusKm);
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
   const setFavoriteReaction = usePreferencesStore((s) => s.setFavoriteReaction);
+
+  const setProfile = useAuthStore((s) => s.setProfile);
+  const attendingVisibility: AttendingVisibility =
+    profile?.attending_visibility ?? 'everyone';
+  const setAttendingVisibility = async (value: AttendingVisibility) => {
+    if (!profile || value === attendingVisibility) return;
+    const previous = profile;
+    setProfile({ ...profile, attending_visibility: value }); // optimistic
+    try {
+      await profilesService.setAttendingVisibility(value);
+    } catch (e) {
+      setProfile(previous);
+      toast.show(e instanceof Error ? e.message : 'Could not update', 'error');
+    }
+  };
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -141,6 +164,49 @@ export default function SettingsScreen() {
               toast.show('Per-event privacy already lives in each pin.', 'info')
             }
           />
+
+          {/* Who can see the events I'm attending? */}
+          <View className="gap-2 border-b border-border-light px-4 py-3 dark:border-border-dark">
+            <View className="flex-row items-center gap-3">
+              <View className="h-9 w-9 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
+                <Ionicons name="eye-outline" size={16} color={iconColor} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+                  Events I'm attending
+                </Text>
+                <Text className="text-xs text-muted-light dark:text-muted-dark">
+                  Who can see the events you've joined
+                </Text>
+              </View>
+            </View>
+            <View className="flex-row rounded-xl border border-border-light bg-elevated-light p-0.5 dark:border-border-dark dark:bg-elevated-dark">
+              {ATTENDING_VIS.map((opt) => {
+                const active = attendingVisibility === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => void setAttendingVisibility(opt.value)}
+                    className={[
+                      'flex-1 items-center rounded-lg py-1.5',
+                      active ? 'bg-panel-light dark:bg-panel-dark' : '',
+                    ].join(' ')}
+                  >
+                    <Text
+                      className={[
+                        'text-[12px] font-semibold',
+                        active
+                          ? 'text-text-light dark:text-text-dark'
+                          : 'text-muted-light',
+                      ].join(' ')}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           <SettingsRow
             icon="location-outline"
             label="Location"

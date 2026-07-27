@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
+import { ReviewCard } from '@/components/user/ReviewCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -27,13 +28,12 @@ import {
 import { supabase } from '@/services/supabase';
 import { useEventsStore } from '@/store/events.store';
 import { isEventPast } from '@/utils/eventTime';
-import { formatRelativeTime } from '@/utils/format';
 import { INTERESTS_BY_KEY } from '@/utils/interests';
 import { goBack } from '@/utils/nav';
 import { formatRating } from '@/utils/rating';
 import type { EventWithCreator, Profile } from '@/types';
 
-type Tab = 'upcoming' | 'past' | 'reviews';
+type Tab = 'upcoming' | 'attending' | 'past' | 'reviews';
 
 /** Public read-only profile for a host. Reached from the "View
  *  <name>'s profile" button in the event peek and from chat avatars.
@@ -164,6 +164,9 @@ export default function UserProfileScreen() {
   const [voteBusy, setVoteBusy] = useState(false);
   const [reviews, setReviews] = useState<UserReview[]>([]);
   const [reviewDraft, setReviewDraft] = useState('');
+  // Events this person is attending — gated server-side by their
+  // "who can see my attending events" privacy setting.
+  const [attending, setAttending] = useState<EventWithCreator[]>([]);
   const [reviewSending, setReviewSending] = useState(false);
 
   useEffect(() => {
@@ -270,8 +273,32 @@ export default function UserProfileScreen() {
     };
   }, [events, fallbackEvents, targetId]);
 
+  // Load the target's attending events (empty if their privacy setting
+  // hides them from this viewer — the RPC decides).
+  useEffect(() => {
+    if (!targetId) return;
+    let cancelled = false;
+    eventsService
+      .listAttendingFor(targetId, viewerId)
+      .then((rows) => {
+        if (!cancelled) setAttending(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAttending([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [targetId, viewerId]);
+
   const list: (EventWithCreator | UserReview)[] =
-    tab === 'reviews' ? reviews : tab === 'upcoming' ? upcoming : past;
+    tab === 'reviews'
+      ? reviews
+      : tab === 'attending'
+        ? attending
+        : tab === 'upcoming'
+          ? upcoming
+          : past;
 
   const openOnMap = (event: EventWithCreator) => {
     focusEvent(event.id);
@@ -429,11 +456,16 @@ export default function UserProfileScreen() {
             ) : null}
 
             {/* Segmented: events + reviews */}
-            <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
+            <View className="flex-row flex-wrap items-center gap-x-5 gap-y-1 border-b border-border-light dark:border-border-dark">
               <SegmentTab
                 label={`Upcoming · ${upcoming.length}`}
                 active={tab === 'upcoming'}
                 onPress={() => setTab('upcoming')}
+              />
+              <SegmentTab
+                label={`Attending · ${attending.length}`}
+                active={tab === 'attending'}
+                onPress={() => setTab('attending')}
               />
               <SegmentTab
                 label={`Past · ${past.length}`}
@@ -495,6 +527,16 @@ export default function UserProfileScreen() {
                 isSelf
                   ? 'Feedback others leave about you will show up here.'
                   : `Be the first to leave ${profile.display_name} an anonymous review.`
+              }
+            />
+          ) : tab === 'attending' ? (
+            <EmptyState
+              emoji="🙋"
+              title="Nothing to show"
+              description={
+                isSelf
+                  ? "Events you join show here. Control who else sees them in Settings › Privacy."
+                  : `${profile.display_name} isn't showing any events they're attending.`
               }
             />
           ) : (
@@ -617,27 +659,6 @@ function VoteButton({
 }
 
 /** One anonymous review row for the Reviews tab. */
-function ReviewCard({ review }: { review: UserReview }) {
-  return (
-    <View className="gap-1.5 rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="person-circle-outline" size={14} color="#8B8880" />
-          <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            Anonymous
-          </Text>
-        </View>
-        <Text className="font-mono text-[9px] uppercase text-muted-light">
-          {formatRelativeTime(review.created_at)}
-        </Text>
-      </View>
-      <Text className="text-[14px] leading-snug text-text-light dark:text-text-dark">
-        {review.text}
-      </Text>
-    </View>
-  );
-}
-
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const iconColor = useIconColor();
   return (

@@ -137,6 +137,30 @@ export const eventsService = {
     return data ? toEventWithCreator(data as unknown as RawEventRow, viewerId) : null;
   },
 
+  /** Events `targetId` is attending (joined, not hosted) — but only the
+   *  ones their `attending_visibility` setting lets the caller see. The
+   *  gate is enforced server-side: the RPC returns the allowed ids, then
+   *  we hydrate them (events RLS still filters any private ones). */
+  async listAttendingFor(
+    targetId: string,
+    viewerId: string | null,
+  ): Promise<EventWithCreator[]> {
+    const { data: ids, error } = await supabase.rpc('list_attending_event_ids', {
+      p_target: targetId,
+    });
+    if (error) throw error;
+    const list = (ids as string[] | null) ?? [];
+    if (list.length === 0) return [];
+    const { data, error: e2 } = await supabase
+      .from('events')
+      .select(SELECT_EVENT)
+      .in('id', list);
+    if (e2) throw e2;
+    return ((data ?? []) as unknown as RawEventRow[]).map((row) =>
+      toEventWithCreator(row, viewerId),
+    );
+  },
+
   async create(input: EventInsert): Promise<Event> {
     const { data, error } = await supabase
       .from('events')
