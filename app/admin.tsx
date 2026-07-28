@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,11 +11,13 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
 import {
+  ASSIGNABLE_ROLES,
   MUTE_OPTIONS,
   reasonLabel,
   reportsService,
   type AdminReport,
   type ReportStatus,
+  type StaffMember,
 } from '@/services/reports.service';
 import { formatRelativeTime } from '@/utils/format';
 import { goBack } from '@/utils/nav';
@@ -28,6 +29,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'dismissed', label: 'Dismissed' },
   { key: 'all', label: 'All' },
 ];
+type Tab = 'reports' | 'roles';
 
 /** Complaints & reports — the moderation queue. Admin-only: the screen
  *  gates on my_moderation_state().isAdmin, and every RPC it calls
@@ -37,6 +39,8 @@ export default function AdminScreen() {
   const toast = useToast();
   const iconColor = useIconColor();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [tab, setTab] = useState<Tab>('reports');
   const [filter, setFilter] = useState<Filter>('open');
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +50,10 @@ export default function AdminScreen() {
   useEffect(() => {
     reportsService
       .myState()
-      .then((s) => setIsAdmin(s.isAdmin))
+      .then((s) => {
+        setIsAdmin(s.isAdmin);
+        setIsOwner(s.isOwner);
+      })
       .catch(() => setIsAdmin(false));
   }, []);
 
@@ -120,7 +127,37 @@ export default function AdminScreen() {
         </Pressable>
       </View>
 
+      {/* Reports / Roles — the Roles tab is owner-only. */}
+      {isOwner ? (
+        <View className="flex-row gap-6 border-b border-border-light px-4 dark:border-border-dark">
+          {(['reports', 'roles'] as Tab[]).map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} className="pb-2.5 pt-2">
+              <View
+                className={[
+                  'border-b-2',
+                  tab === t ? 'border-text-light dark:border-text-dark' : 'border-transparent',
+                ].join(' ')}
+              >
+                <Text
+                  className={[
+                    'pb-1.5 text-sm font-semibold capitalize',
+                    tab === t
+                      ? 'text-text-light dark:text-text-dark'
+                      : 'text-muted-light',
+                  ].join(' ')}
+                >
+                  {t}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      {tab === 'roles' && isOwner ? <RolesPanel /> : null}
+
       {/* Status filter */}
+      {tab === 'reports' ? (
       <View className="border-b border-border-light px-3 py-2 dark:border-border-dark">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
@@ -153,7 +190,9 @@ export default function AdminScreen() {
           </View>
         </ScrollView>
       </View>
+      ) : null}
 
+      {tab === 'reports' ? (
       <FlatList
         data={reports}
         keyExtractor={(r) => r.id}
@@ -234,6 +273,7 @@ export default function AdminScreen() {
           </Pressable>
         )}
       />
+      ) : null}
 
       {/* Action sheet */}
       <BottomSheet open={!!target} onClose={() => setTarget(null)} heightPct={0.9} autoHeight>
@@ -425,6 +465,143 @@ export default function AdminScreen() {
         onCancel={() => setConfirmBan(null)}
       />
     </SafeAreaView>
+  );
+}
+
+/** Owner-only: grant Support/Admin by username, and see who holds what.
+ *  Staff can open the reports queue; only the owner can reach this panel,
+ *  and assign_role re-checks that server-side. */
+function RolesPanel() {
+  const toast = useToast();
+  const [username, setUsername] = useState('');
+  const [role, setRole] = useState<'support' | 'admin' | 'user'>('support');
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const loadStaff = useCallback(async () => {
+    try {
+      setStaff(await reportsService.listStaff());
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStaff();
+  }, [loadStaff]);
+
+  const handleAssign = async () => {
+    const handle = username.trim().replace(/^@/, '');
+    if (!handle || busy) return;
+    setBusy(true);
+    try {
+      await reportsService.assignRole(handle, role);
+      toast.show(
+        role === 'user' ? `Removed @${handle}'s access.` : `@${handle} is now ${role}.`,
+        'success',
+      );
+      setUsername('');
+      await loadStaff();
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not assign role', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <View className="gap-2">
+        <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+          Assign a role
+        </Text>
+        <View className="h-12 justify-center rounded-2xl border border-border-light bg-elevated-light px-4 dark:border-border-dark dark:bg-elevated-dark">
+          <TextInput
+            value={username}
+            onChangeText={setUsername}
+            placeholder="username (without @)"
+            placeholderTextColor="#8B8880"
+            autoCapitalize="none"
+            autoCorrect={false}
+            className="text-[15px] text-text-light outline-none dark:text-text-dark"
+          />
+        </View>
+
+        <View className="gap-2">
+          {ASSIGNABLE_ROLES.map((r) => {
+            const on = role === r.key;
+            return (
+              <Pressable
+                key={r.key}
+                onPress={() => setRole(r.key)}
+                className={[
+                  'flex-row items-center gap-3 rounded-2xl border px-4 py-3',
+                  on
+                    ? 'border-brand-500 bg-brand-500/5'
+                    : 'border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
+                ].join(' ')}
+              >
+                <View
+                  className={[
+                    'h-5 w-5 items-center justify-center rounded-full border-2',
+                    on ? 'border-brand-500' : 'border-muted-light',
+                  ].join(' ')}
+                >
+                  {on ? <View className="h-2.5 w-2.5 rounded-full bg-brand-500" /> : null}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+                    {r.label}
+                  </Text>
+                  <Text className="text-xs text-muted-light">{r.hint}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <PrimaryButton
+          label="Apply role"
+          loading={busy}
+          disabled={!username.trim()}
+          onPress={handleAssign}
+          fullWidth
+        />
+      </View>
+
+      <View className="gap-2">
+        <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+          Current staff · {staff.length}
+        </Text>
+        {staff.map((m) => (
+          <View
+            key={m.id}
+            className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 dark:border-border-dark dark:bg-panel-dark"
+          >
+            <Avatar name={m.display_name} uri={m.avatar_url} size="sm" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
+                {m.display_name}
+              </Text>
+              <Text className="text-xs text-muted-light">@{m.username}</Text>
+            </View>
+            <View
+              className={`rounded-full px-2.5 py-1 ${
+                m.role === 'owner' ? 'bg-brand-500/15' : 'bg-elevated-light dark:bg-elevated-dark'
+              }`}
+            >
+              <Text
+                className={`font-mono text-[10px] uppercase ${
+                  m.role === 'owner' ? 'text-brand-500' : 'text-muted-light'
+                }`}
+              >
+                {m.role}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 

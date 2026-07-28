@@ -4,15 +4,18 @@ import { Redirect, Tabs } from 'expo-router';
 // theme preference; RN's builtin only reads the OS setting and would
 // ignore the user's Light/Dark/Auto toggle in Settings.
 import { useColorScheme } from 'nativewind';
+import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { RestrictionDialog } from '@/features/moderation/RestrictionDialog';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
 import { useChatSync } from '@/hooks/useChatSync';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePresence } from '@/hooks/usePresence';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
+import { useModerationStore } from '@/store/moderation.store';
 
 /** Bottom tab bar — matches the redesigned mobile screen: light panel
  *  background, hairline top border, ink active state, muted inactive
@@ -31,10 +34,18 @@ export default function TabsLayout() {
   useNotifications();
   usePresence();
 
+  // Load the viewer's mute/ban standing once per authed session so the
+  // restriction dialog can explain a block without a round trip.
+  const refreshModeration = useModerationStore((s) => s.refresh);
+  useEffect(() => {
+    if (session) void refreshModeration();
+  }, [session, refreshModeration]);
+
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   if (!session) return <Redirect href="/(auth)/login" />;
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -115,5 +126,9 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+
+    {/* Explains a mute/ban whenever a restricted action is attempted. */}
+    <RestrictionDialog />
+    </>
   );
 }

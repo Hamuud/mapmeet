@@ -19,6 +19,7 @@ import { useVenue } from '@/hooks/useVenue';
 import { eventsService } from '@/services/events.service';
 import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
+import { useModerationStore } from '@/store/moderation.store';
 import { distanceKm, formatDistance } from '@/utils/distance';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator, LatLng } from '@/types';
@@ -66,6 +67,7 @@ export function EventPreviewBody({
   const { session } = useAuth();
   const venue = useVenue(event);
   const patchEvent = useEventsStore((s) => s.patchEvent);
+  const moderationGuard = useModerationStore((s) => s.guard);
   const [busy, setBusy] = useState(false);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
@@ -124,6 +126,8 @@ export function EventPreviewBody({
   const handleJoinToggle = async () => {
     if (!session) return;
     const wasJoined = event.is_joined;
+    // Joining is a restricted action while muted/banned; leaving isn't.
+    if (!wasJoined && !moderationGuard()) return;
     // Extra guard so a stale UI can't fire off a doomed request.
     if (!wasJoined && isFull) {
       toast.show('Event is full.', 'info');

@@ -52,12 +52,34 @@ export type AdminReport = {
   target_report_count: number | null;
 };
 
+export type StaffRole = 'user' | 'support' | 'admin' | 'owner';
+
 export type MyModerationState = {
   mutedUntil: string | null;
   banned: boolean;
   warnings: number;
+  /** Any staff tier — grants the Complaints & reports screen. */
   isAdmin: boolean;
+  role: StaffRole;
+  /** Only the owner can assign roles. */
+  isOwner: boolean;
 };
+
+export type StaffMember = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  role: StaffRole;
+};
+
+/** Assignable tiers — 'owner' is deliberately absent: it can't be handed
+ *  out or taken away through the app. */
+export const ASSIGNABLE_ROLES: { key: 'support' | 'admin' | 'user'; label: string; hint: string }[] = [
+  { key: 'support', label: 'Support', hint: 'Reviews reports; cannot assign roles' },
+  { key: 'admin', label: 'Admin', hint: 'Full moderation; cannot assign roles' },
+  { key: 'user', label: 'Remove access', hint: 'Back to a regular account' },
+];
 
 export const reportsService = {
   /** File a complaint. `reasons` is one or more REPORT_REASONS keys. */
@@ -87,13 +109,22 @@ export const reportsService = {
     const { data, error } = await supabase.rpc('my_moderation_state');
     if (error) throw error;
     const row = (data as
-      | { muted_until: string | null; banned: boolean; warnings: number; is_admin: boolean }[]
+      | {
+          muted_until: string | null;
+          banned: boolean;
+          warnings: number;
+          is_admin: boolean;
+          role: StaffRole;
+          is_owner: boolean;
+        }[]
       | null)?.[0];
     return {
       mutedUntil: row?.muted_until ?? null,
       banned: !!row?.banned,
       warnings: row?.warnings ?? 0,
       isAdmin: !!row?.is_admin,
+      role: row?.role ?? 'user',
+      isOwner: !!row?.is_owner,
     };
   },
 
@@ -136,6 +167,22 @@ export const reportsService = {
       p_note: input.note ?? null,
     });
     if (error) throw error;
+  },
+
+  /** Owner only: grant or revoke staff access by username. */
+  async assignRole(username: string, role: 'support' | 'admin' | 'user'): Promise<void> {
+    const { error } = await supabase.rpc('assign_role', {
+      p_username: username,
+      p_role: role,
+    });
+    if (error) throw error;
+  },
+
+  /** Everyone currently holding a staff role. */
+  async listStaff(): Promise<StaffMember[]> {
+    const { data, error } = await supabase.rpc('list_staff');
+    if (error) throw error;
+    return (data as StaffMember[] | null) ?? [];
   },
 
   /** Remove a review judged false or abusive. */

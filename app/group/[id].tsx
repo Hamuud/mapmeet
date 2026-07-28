@@ -30,6 +30,7 @@ import { useIconColor } from '@/hooks/useIconColor';
 import { groupsService, type GroupMember } from '@/services/groups.service';
 import { invitesService } from '@/services/invites.service';
 import { pollsService } from '@/services/polls.service';
+import { useModerationStore } from '@/store/moderation.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
 import type { MessageWithSender, PollDetails } from '@/types';
@@ -48,6 +49,7 @@ export default function GroupRoomScreen() {
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const moderationGuard = useModerationStore((s) => s.guard);
   const recorder = useVoiceRecorder();
 
   const [group, setGroup] = useState<
@@ -169,21 +171,23 @@ export default function GroupRoomScreen() {
   const handleSend = useCallback(
     async (text: string) => {
       if (!groupId) return;
+      if (!moderationGuard()) return;
       const replyTo = replyingTo?.id ?? null;
       setReplyingTo(null);
       await groupsService.send(groupId, text, replyTo);
       await refetch();
     },
-    [groupId, replyingTo, refetch],
+    [groupId, replyingTo, refetch, moderationGuard],
   );
 
   const handleStartVoice = useCallback(async () => {
+    if (!moderationGuard()) return;
     try {
       await recorder.start();
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
     }
-  }, [recorder, toast]);
+  }, [recorder, toast, moderationGuard]);
 
   const handleFinishVoice = useCallback(async () => {
     if (!groupId || !viewerId) return;

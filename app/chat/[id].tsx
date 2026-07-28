@@ -32,6 +32,7 @@ import { useVenue } from '@/hooks/useVenue';
 import { messagesService } from '@/services/messages.service';
 import { pollsService } from '@/services/polls.service';
 import { useEventsStore } from '@/store/events.store';
+import { useModerationStore } from '@/store/moderation.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import { goBack } from '@/utils/nav';
@@ -51,6 +52,7 @@ export default function ChatRoomScreen() {
   const viewerId = session?.user.id ?? null;
   const { coords } = useLocation();
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const moderationGuard = useModerationStore((s) => s.guard);
 
   const event = useEventsStore((s) => s.events.find((e) => e.id === eventId)) ?? null;
   const venue = useVenue(event);
@@ -133,12 +135,15 @@ export default function ChatRoomScreen() {
 
   const handleSend = async (text: string) => {
     if (!eventId || !viewerId) return;
+    // Muted/banned → explain why instead of letting the insert fail.
+    if (!moderationGuard()) return;
     const replyTo = replyingTo?.id ?? null;
     setReplyingTo(null);
     await messagesService.sendText(eventId, viewerId, text, replyTo);
   };
 
   const handleStartVoice = async () => {
+    if (!moderationGuard()) return;
     try {
       await recorder.start();
     } catch (e) {

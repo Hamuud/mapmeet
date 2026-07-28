@@ -30,8 +30,11 @@ export type Database = {
           last_seen_at: string | null;
           /** Who can see the events this user has joined (not hosted). */
           attending_visibility: 'nobody' | 'friends' | 'everyone';
-          /** Grants the Complaints & reports (moderation) screen. */
+          /** Grants the Complaints & reports (moderation) screen —
+           *  mirrors `role <> 'user'`. */
           is_admin: boolean;
+          /** Staff tier. Only 'owner' may assign roles. */
+          role: 'user' | 'support' | 'admin' | 'owner';
           /** Set while serving a mute; null once it lapses or is lifted. */
           muted_until: string | null;
           banned_at: string | null;
@@ -381,6 +384,20 @@ export type Database = {
           banned: boolean;
           warnings: number;
           is_admin: boolean;
+          role: 'user' | 'support' | 'admin' | 'owner';
+          is_owner: boolean;
+        }[];
+      };
+      is_owner: { Args: { p_user?: string }; Returns: boolean };
+      assign_role: { Args: { p_username: string; p_role: string }; Returns: undefined };
+      list_staff: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          role: 'user' | 'support' | 'admin' | 'owner';
         }[];
       };
       submit_feedback: {

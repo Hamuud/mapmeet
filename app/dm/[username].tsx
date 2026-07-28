@@ -29,6 +29,7 @@ import { dmsService } from '@/services/dms.service';
 import { friendshipsService, type FriendshipState } from '@/services/friendships.service';
 import { pollsService } from '@/services/polls.service';
 import { looksLikeUuid, profilesService } from '@/services/profiles.service';
+import { useModerationStore } from '@/store/moderation.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import { formatLastSeen, isOnline } from '@/utils/lastSeen';
 import { goBack } from '@/utils/nav';
@@ -49,6 +50,7 @@ export default function DmRoomScreen() {
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
+  const moderationGuard = useModerationStore((s) => s.guard);
   const recorder = useVoiceRecorder();
 
   const [other, setOther] = useState<Profile | null>(null);
@@ -217,21 +219,23 @@ export default function DmRoomScreen() {
   const handleSend = useCallback(
     async (text: string) => {
       if (!other || !dmId) return;
+      if (!moderationGuard()) return;
       const replyTo = replyingTo?.id ?? null;
       setReplyingTo(null);
       await dmsService.sendText(other.id, text, replyTo);
       await refetch(dmId);
     },
-    [other, dmId, replyingTo, refetch],
+    [other, dmId, replyingTo, refetch, moderationGuard],
   );
 
   const handleStartVoice = useCallback(async () => {
+    if (!moderationGuard()) return;
     try {
       await recorder.start();
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
     }
-  }, [recorder, toast]);
+  }, [recorder, toast, moderationGuard]);
 
   const handleFinishVoice = useCallback(async () => {
     if (!other || !dmId || !viewerId) return;
