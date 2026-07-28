@@ -20,6 +20,7 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
 import { PollResultsSheet } from '@/features/chat/PollResultsSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
@@ -337,9 +338,15 @@ export default function DmRoomScreen() {
             size="sm"
           />
           <View className="flex-1">
-            <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
-              {other.display_name}
-            </Text>
+            <View className="flex-row items-center gap-1">
+              <Text
+                className="shrink text-[15px] font-bold text-text-light dark:text-text-dark"
+                numberOfLines={1}
+              >
+                {other.display_name}
+              </Text>
+              <VerifiedBadge role={other.role} size={13} />
+            </View>
             <Text
               className={[
                 'text-xs',

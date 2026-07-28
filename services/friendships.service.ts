@@ -17,20 +17,10 @@ export type FriendRow = {
   created_at: string;
   responded_at: string | null;
   // Joined "other" profile, resolved on the client from the row's ids.
-  other: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
+  other: ProfileLite;
 };
 
-type ProfileLite = {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-};
+type ProfileLite = import('@/types').ProfileRef;
 
 /** Read the raw edge (if any) between viewer and target. Small enough
  *  that we always fetch fresh — never worth caching a boolean. */
@@ -76,8 +66,8 @@ export const friendshipsService = {
       .from('friendships')
       .select(
         `*,
-         requester:requester_id (id, username, display_name, avatar_url),
-         recipient:recipient_id (id, username, display_name, avatar_url)`,
+         requester:requester_id (id, username, display_name, avatar_url, role),
+         recipient:recipient_id (id, username, display_name, avatar_url, role)`,
       )
       .eq('status', 'accepted')
       .or(`requester_id.eq.${viewerId},recipient_id.eq.${viewerId}`)
@@ -103,7 +93,7 @@ export const friendshipsService = {
     const { data, error } = await supabase
       .from('friendships')
       .select(
-        `*, requester:requester_id (id, username, display_name, avatar_url)`,
+        `*, requester:requester_id (id, username, display_name, avatar_url, role)`,
       )
       .eq('status', 'pending')
       .eq('recipient_id', viewerId)

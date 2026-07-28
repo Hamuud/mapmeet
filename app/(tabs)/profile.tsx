@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ReviewCard } from '@/components/user/ReviewCard';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { ratingsService, type UserReview } from '@/services/ratings.service';
@@ -143,12 +144,15 @@ export default function YouScreen() {
             <View className="flex-row items-center gap-4">
               <Avatar name={profile.display_name} uri={profile.avatar_url} size="xl" />
               <View className="flex-1">
-                <Text
-                  className="font-display text-3xl leading-tight text-text-light dark:text-text-dark"
-                  numberOfLines={1}
-                >
-                  {profile.display_name}
-                </Text>
+                <View className="flex-row items-center gap-1.5">
+                  <Text
+                    className="shrink font-display text-3xl leading-tight text-text-light dark:text-text-dark"
+                    numberOfLines={1}
+                  >
+                    {profile.display_name}
+                  </Text>
+                  <VerifiedBadge role={profile.role} size={18} />
+                </View>
                 <Text
                   className="text-sm text-muted-light dark:text-muted-dark"
                   numberOfLines={1}

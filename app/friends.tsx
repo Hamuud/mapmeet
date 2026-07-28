@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { friendshipsService, type FriendRow } from '@/services/friendships.service';
@@ -238,12 +239,15 @@ function FriendRowView({
       <Pressable onPress={onOpenProfile} className="flex-1 flex-row items-center gap-3">
         <Avatar name={row.other.display_name} uri={row.other.avatar_url} size="sm" />
         <View className="flex-1">
-          <Text
-            className="text-[15px] font-semibold text-text-light dark:text-text-dark"
-            numberOfLines={1}
-          >
-            {row.other.display_name}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text
+              className="shrink text-[15px] font-semibold text-text-light dark:text-text-dark"
+              numberOfLines={1}
+            >
+              {row.other.display_name}
+            </Text>
+            <VerifiedBadge role={row.other.role} size={12} />
+          </View>
           <Text className="text-xs text-muted-light" numberOfLines={1}>
             @{row.other.username}
           </Text>

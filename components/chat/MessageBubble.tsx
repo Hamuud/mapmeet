@@ -13,6 +13,7 @@ import {
 
 import { AudioBubble } from '@/components/chat/AudioBubble';
 import { Avatar } from '@/components/ui/Avatar';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import type { MessageWithSender, PollDetails } from '@/types';
 
 type Props = {
@@ -271,9 +272,12 @@ export function MessageBubble({
         ].join(' ')}
       >
         {!isOwn ? (
-          <Text className="mb-0.5 text-[11px] font-semibold text-brand-500">
-            {senderName}
-          </Text>
+          <View className="mb-0.5 flex-row items-center gap-1">
+            <Text className="shrink text-[11px] font-semibold text-brand-500">
+              {senderName}
+            </Text>
+            <VerifiedBadge role={message.sender?.role} size={11} />
+          </View>
         ) : null}
 
         {message.reply_to ? (

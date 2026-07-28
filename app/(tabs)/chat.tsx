@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { dmsService, type DmRoom } from '@/services/dms.service';
@@ -349,11 +350,13 @@ function DmRow({
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
           <Text
-            className="flex-1 text-[15px] font-semibold text-text-light dark:text-text-dark"
+            className="shrink text-[15px] font-semibold text-text-light dark:text-text-dark"
             numberOfLines={1}
           >
             {room.other.display_name}
           </Text>
+          <VerifiedBadge role={room.other.role} size={12} />
+          <View className="flex-1" />
           {last ? (
             <Text className="font-mono text-[9px] uppercase text-muted-light">
               {formatRelativeTime(last.created_at)}

@@ -3,19 +3,14 @@ import type { Event, EventInsert, EventUpdate, EventWithCreator } from '@/types'
 
 /** Shape returned by the joined select below — matches the PostgREST embed. */
 type RawEventRow = Event & {
-  creator: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  } | null;
+  creator: import('@/types').ProfileRef | null;
   participants: { count: number }[];
   joined_by_me: { user_id: string }[];
 };
 
 const SELECT_EVENT = `
   *,
-  creator:creator_id (id, username, display_name, avatar_url),
+  creator:creator_id (id, username, display_name, avatar_url, role),
   participants:participants!participants_event_id_fkey(count),
   joined_by_me:participants!participants_event_id_fkey(user_id)
 `;
@@ -209,10 +204,10 @@ export const eventsService = {
   async listAttendees(
     eventId: string,
     limit = 8,
-  ): Promise<Array<{ id: string; username: string; display_name: string; avatar_url: string | null }>> {
+  ): Promise<Array<import('@/types').ProfileRef>> {
     const { data, error } = await supabase
       .from('participants')
-      .select('profile:profiles!participants_user_id_fkey(id, username, display_name, avatar_url)')
+      .select('profile:profiles!participants_user_id_fkey(id, username, display_name, avatar_url, role)')
       .eq('event_id', eventId)
       .order('joined_at', { ascending: true })
       .limit(limit);

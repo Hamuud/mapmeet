@@ -22,12 +22,7 @@ type GroupMessageRow = {
   created_at: string;
 };
 
-type ProfileLite = {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-};
+type ProfileLite = import('@/types').ProfileRef;
 
 export type GroupRoom = {
   id: string;
@@ -116,7 +111,7 @@ export const groupsService = {
   async listMembers(groupId: string): Promise<GroupMember[]> {
     const { data, error } = await supabase
       .from('group_members')
-      .select('profile:profiles!group_members_user_id_fkey (id, username, display_name, avatar_url)')
+      .select('profile:profiles!group_members_user_id_fkey (id, username, display_name, avatar_url, role)')
       .eq('group_id', groupId);
     if (error) throw error;
     return (data ?? [])
@@ -128,7 +123,7 @@ export const groupsService = {
     const { data, error } = await supabase
       .from('group_messages')
       .select(
-        `*, sender:sender_id (id, username, display_name, avatar_url)`,
+        `*, sender:sender_id (id, username, display_name, avatar_url, role)`,
       )
       .eq('group_id', groupId)
       .order('created_at', { ascending: false })

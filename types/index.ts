@@ -22,8 +22,17 @@ export type EventUpdate = Database['public']['Tables']['events']['Update'];
 
 /** An event enriched with its creator profile + derived participant count.
  *  This is the shape the UI actually renders. */
+/** The slice of a profile embedded alongside events, messages, members
+ *  and friends. `role` rides along so the UI can show the verified badge
+ *  wherever a name appears; it's optional because older embeds (and
+ *  locally-constructed stubs) may not carry it. */
+export type ProfileRef = Pick<
+  Profile,
+  'id' | 'username' | 'display_name' | 'avatar_url'
+> & { role?: Profile['role'] };
+
 export type EventWithCreator = Event & {
-  creator: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  creator: ProfileRef;
   participant_count: number;
   is_joined: boolean;
 };
@@ -36,7 +45,7 @@ export type MessageInsert = Database['public']['Tables']['messages']['Insert'];
  *  for DM messages (when the recipient first read it) — undefined
  *  elsewhere, where the bubble falls back to ✓/✓✓ ticks. */
 export type MessageWithSender = Message & {
-  sender: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null;
+  sender: ProfileRef | null;
   read_at?: string | null;
 };
 

@@ -9,7 +9,7 @@ import type { Message, MessageWithSender } from '@/types';
  *  both paths produce the same MessageWithSender shape. */
 const SELECT_MESSAGE = `
   *,
-  sender:sender_id (id, username, display_name, avatar_url)
+  sender:sender_id (id, username, display_name, avatar_url, role)
 `;
 
 /** A chat-list preview: the newest message per chat plus how many the

@@ -22,12 +22,7 @@ export type DmMessage = {
   created_at: string;
 };
 
-type ProfileLite = {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-};
+type ProfileLite = import('@/types').ProfileRef;
 
 /** Adapt a dm_messages row to the shared MessageWithSender shape so DMs
  *  reuse the same MessageBubble as events + groups (replies, reactions,
@@ -76,12 +71,7 @@ async function uploadDmAudio(dmId: string, senderId: string, fileUri: string): P
  *  in when the previews query lands. */
 export type DmRoom = {
   id: string;
-  other: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
+  other: ProfileLite;
   lastMessage: DmMessage | null;
   unreadCount: number;
 };
@@ -101,7 +91,7 @@ export const dmsService = {
   async listMessages(dmId: string, limit = 100): Promise<MessageWithSender[]> {
     const { data, error } = await supabase
       .from('dm_messages')
-      .select('*, sender:sender_id (id, username, display_name, avatar_url)')
+      .select('*, sender:sender_id (id, username, display_name, avatar_url, role)')
       .eq('dm_id', dmId)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -187,8 +177,8 @@ export const dmsService = {
       .from('dms')
       .select(
         `id,
-         user_a_profile:user_a (id, username, display_name, avatar_url),
-         user_b_profile:user_b (id, username, display_name, avatar_url)`,
+         user_a_profile:user_a (id, username, display_name, avatar_url, role),
+         user_b_profile:user_b (id, username, display_name, avatar_url, role)`,
       )
       .or(`user_a.eq.${viewerId},user_b.eq.${viewerId}`)
       .order('created_at', { ascending: false });
