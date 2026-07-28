@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+import { withSignedMedia } from './media.service';
 import { supabase } from './supabase';
 import type { MessageWithSender } from '@/types';
 
@@ -65,7 +66,8 @@ async function uploadDmAudio(dmId: string, senderId: string, fileUri: string): P
     .from('chat-media')
     .upload(path, blob, { contentType: ext === 'webm' ? 'audio/webm' : 'audio/mp4' });
   if (error) throw error;
-  return supabase.storage.from('chat-media').getPublicUrl(path).data.publicUrl;
+  // Private bucket → hand back the path; reads mint a signed URL.
+  return path;
 }
 
 /** DM room + resolved "other" profile — what the Chat tab's Direct
@@ -104,9 +106,11 @@ export const dmsService = {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return ((data ?? []) as Array<DmMessage & { sender: ProfileLite | null }>)
-      .reverse()
-      .map((row) => toMessage(row, row.sender));
+    return withSignedMedia(
+      ((data ?? []) as Array<DmMessage & { sender: ProfileLite | null }>)
+        .reverse()
+        .map((row) => toMessage(row, row.sender)),
+    );
   },
 
   /** Send a text DM. Server enforces the 1-message-per-side rule if

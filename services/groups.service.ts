@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+import { withSignedMedia } from './media.service';
 import { supabase } from './supabase';
 import type { MessageWithSender } from '@/types';
 
@@ -84,7 +85,8 @@ async function uploadGroupAudio(
       contentType: ext === 'webm' ? 'audio/webm' : 'audio/mp4',
     });
   if (error) throw error;
-  return supabase.storage.from('chat-media').getPublicUrl(path).data.publicUrl;
+  // Private bucket → hand back the path; reads mint a signed URL.
+  return path;
 }
 
 export const groupsService = {
@@ -132,9 +134,11 @@ export const groupsService = {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return ((data ?? []) as Array<GroupMessageRow & { sender: ProfileLite | null }>)
-      .reverse()
-      .map((row) => toMessage(row, row.sender));
+    return withSignedMedia(
+      ((data ?? []) as Array<GroupMessageRow & { sender: ProfileLite | null }>)
+        .reverse()
+        .map((row) => toMessage(row, row.sender)),
+    );
   },
 
   async send(groupId: string, text: string, replyTo?: string | null): Promise<void> {

@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+import { withSignedMedia } from './media.service';
 import { supabase } from './supabase';
 import type { Message, MessageWithSender } from '@/types';
 
@@ -30,7 +31,11 @@ export const messagesService = {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return ((data as unknown as MessageWithSender[]) ?? []).reverse();
+    // chat-media is private: swap stored paths for short-lived signed
+    // URLs so the bubbles can render them directly.
+    return withSignedMedia(
+      ((data as unknown as MessageWithSender[]) ?? []).reverse(),
+    );
   },
 
   /** Single message with sender embed — used by the realtime handler,
@@ -42,7 +47,11 @@ export const messagesService = {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    return (data as unknown as MessageWithSender) ?? null;
+    const row = (data as unknown as MessageWithSender) ?? null;
+    if (!row) return null;
+    // Realtime inserts land here too — sign so incoming voice notes and
+    // photos play without waiting for the next full refetch.
+    return (await withSignedMedia([row]))[0] ?? row;
   },
 
   async sendText(
@@ -90,12 +99,13 @@ export const messagesService = {
         contentType: ext === 'webm' ? 'audio/webm' : 'audio/mp4',
       });
     if (uploadError) throw uploadError;
-    const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
+    // Store the object PATH, not a URL — the bucket is private, so reads
+    // go through a signed URL minted at render time.
     const base = {
       event_id: eventId,
       sender_id: senderId,
       type: 'audio' as const,
-      media_url: urlData.publicUrl,
+      media_url: path,
       duration_ms: Math.max(1, Math.round(durationMs)),
       reply_to: replyTo ?? null,
     };
@@ -167,14 +177,13 @@ export const messagesService = {
         contentType: type === 'image' ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : `video/${ext}`,
       });
     if (uploadError) throw uploadError;
-    const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
     const { data, error } = await supabase
       .from('messages')
       .insert({
         event_id: eventId,
         sender_id: senderId,
         type,
-        media_url: urlData.publicUrl,
+        media_url: path, // private bucket → store the path, sign on read
       })
       .select('*')
       .single();
