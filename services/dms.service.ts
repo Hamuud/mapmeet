@@ -6,8 +6,8 @@ import type { MessageWithSender } from '@/types';
 export type DmMessage = {
   id: string;
   dm_id: string;
-  sender_id: string;
-  type: 'text' | 'invite' | 'audio' | 'poll';
+  sender_id: string | null;
+  type: 'text' | 'invite' | 'audio' | 'poll' | 'system';
   text: string | null;
   event_invite_token: string | null;
   reply_to: string | null;
@@ -152,6 +152,27 @@ export const dmsService = {
   async markRead(dmId: string): Promise<void> {
     const { error } = await supabase.rpc('mark_dm_read', { p_dm: dmId });
     if (error) throw error;
+  },
+
+  /** Block a user: they can no longer DM you or see your attending
+   *  events, and a "you have been blocked" notice is posted in the DM.
+   *  Stays until you unblock. */
+  async block(otherId: string): Promise<void> {
+    const { error } = await supabase.rpc('block_user', { p_target: otherId });
+    if (error) throw error;
+  },
+
+  async unblock(otherId: string): Promise<void> {
+    const { error } = await supabase.rpc('unblock_user', { p_target: otherId });
+    if (error) throw error;
+  },
+
+  /** { iBlocked: you blocked them, theyBlocked: they blocked you }. */
+  async blockState(otherId: string): Promise<{ iBlocked: boolean; theyBlocked: boolean }> {
+    const { data, error } = await supabase.rpc('get_block_state', { p_other: otherId });
+    if (error) throw error;
+    const row = (data as { i_blocked: boolean; they_blocked: boolean }[] | null)?.[0];
+    return { iBlocked: !!row?.i_blocked, theyBlocked: !!row?.they_blocked };
   },
 
   /** One row per DM the viewer belongs to — for the Chat tab's Direct

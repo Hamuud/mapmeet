@@ -186,8 +186,8 @@ export type Database = {
         Row: {
           id: string;
           dm_id: string;
-          sender_id: string;
-          type: 'text' | 'invite' | 'audio' | 'poll';
+          sender_id: string | null;
+          type: 'text' | 'invite' | 'audio' | 'poll' | 'system';
           text: string | null;
           event_invite_token: string | null;
           reply_to: string | null;
@@ -320,6 +320,12 @@ export type Database = {
       touch_last_seen: { Args: Record<string, never>; Returns: undefined };
       set_attending_visibility: { Args: { p_value: string }; Returns: undefined };
       list_attending_event_ids: { Args: { p_target: string }; Returns: string[] };
+      block_user: { Args: { p_target: string }; Returns: undefined };
+      unblock_user: { Args: { p_target: string }; Returns: undefined };
+      get_block_state: {
+        Args: { p_other: string };
+        Returns: { i_blocked: boolean; they_blocked: boolean }[];
+      };
       request_friendship: { Args: { p_target: string }; Returns: string };
       remove_friendship: { Args: { p_other: string }; Returns: undefined };
       get_or_create_dm: { Args: { p_other: string }; Returns: string };

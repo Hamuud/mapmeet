@@ -16,6 +16,7 @@ import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -62,10 +63,24 @@ export default function DmRoomScreen() {
   // Ticks so the "Online / last seen …" label re-derives as time passes,
   // and re-polls the other person's last_seen so it stays fresh.
   const [now, setNow] = useState(() => new Date());
+  // iBlocked = I blocked them (→ Unblock bar); theyBlocked = they blocked
+  // me (→ can't message). Loaded on open + refreshed on every realtime
+  // change (the "you were blocked" system message triggers a refetch).
+  const [block, setBlock] = useState({ iBlocked: false, theyBlocked: false });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
 
   const refetch = useCallback(async (id: string) => {
     setMessages(await dmsService.listMessages(id));
     void dmsService.markRead(id).catch(() => {});
+  }, []);
+
+  const loadBlockState = useCallback(async (otherId: string) => {
+    try {
+      setBlock(await dmsService.blockState(otherId));
+    } catch {
+      /* non-fatal */
+    }
   }, []);
 
   useEffect(() => {
@@ -87,6 +102,7 @@ export default function DmRoomScreen() {
         if (cancelled) return;
         setDmId(id);
         setFriendship(state);
+        void loadBlockState(profile.id);
         await refetch(id);
       } catch (e) {
         if (!cancelled) toast.show(e instanceof Error ? e.message : 'Could not open DM', 'error');
@@ -95,14 +111,18 @@ export default function DmRoomScreen() {
     return () => {
       cancelled = true;
     };
-  }, [handle, viewerId, toast, refetch]);
+  }, [handle, viewerId, toast, refetch, loadBlockState]);
 
-  // Realtime — refetch on any change.
+  // Realtime — refetch messages + block state on any change (so the
+  // "you were blocked" notice and the composer lock land live).
   useEffect(() => {
-    if (!dmId) return;
-    const ch = dmsService.subscribe(dmId, () => void refetch(dmId));
+    if (!dmId || !other) return;
+    const ch = dmsService.subscribe(dmId, () => {
+      void refetch(dmId);
+      void loadBlockState(other.id);
+    });
     return () => dmsService.unsubscribe(ch);
-  }, [dmId, refetch]);
+  }, [dmId, other, refetch, loadBlockState]);
 
   // Presence: every 20s advance the clock (so "Online" ages into "last
   // seen …") and re-poll the other person's last_seen timestamp.
@@ -244,6 +264,32 @@ export default function DmRoomScreen() {
     }
   }, [other, viewerId, friendship, toast]);
 
+  const handleBlock = useCallback(async () => {
+    if (!other || !dmId) return;
+    setConfirmBlock(false);
+    try {
+      await dmsService.block(other.id);
+      setBlock((s) => ({ ...s, iBlocked: true }));
+      await refetch(dmId);
+      toast.show(`${other.display_name} blocked.`, 'success');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not block', 'error');
+    }
+  }, [other, dmId, refetch, toast]);
+
+  const handleUnblock = useCallback(async () => {
+    if (!other || !dmId) return;
+    setMenuOpen(false);
+    try {
+      await dmsService.unblock(other.id);
+      setBlock((s) => ({ ...s, iBlocked: false }));
+      await refetch(dmId);
+      toast.show('Unblocked.', 'success');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not unblock', 'error');
+    }
+  }, [other, dmId, refetch, toast]);
+
   if (!other) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -288,7 +334,7 @@ export default function DmRoomScreen() {
             </Text>
           </View>
         </Pressable>
-        {friendship !== 'friends' ? (
+        {friendship !== 'friends' && !block.iBlocked ? (
           <Pressable
             onPress={handleAddFriend}
             className="rounded-full bg-brand-500 px-3 py-1.5"
@@ -303,6 +349,14 @@ export default function DmRoomScreen() {
             </Text>
           </Pressable>
         ) : null}
+        <Pressable
+          onPress={() => setMenuOpen(true)}
+          accessibilityLabel="More options"
+          hitSlop={10}
+          className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+        >
+          <Ionicons name="ellipsis-vertical" size={17} color={iconColor} />
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -354,7 +408,26 @@ export default function DmRoomScreen() {
         />
 
         <View style={{ paddingBottom: insets.bottom }}>
-          {nonFriendBlocked ? (
+          {block.iBlocked ? (
+            // I blocked them — Telegram-style Unblock bar in place of the
+            // composer. Unblocking restores messaging.
+            <Pressable
+              onPress={handleUnblock}
+              className="flex-row items-center justify-center gap-2 border-t border-border-light bg-panel-light py-4 dark:border-border-dark dark:bg-panel-dark active:opacity-70"
+            >
+              <Ionicons name="lock-open-outline" size={16} color="#B91C1C" />
+              <Text className="text-[15px] font-bold uppercase tracking-wide text-red-600">
+                Unblock
+              </Text>
+            </Pressable>
+          ) : block.theyBlocked ? (
+            <View className="flex-row items-center justify-center gap-2 border-t border-border-light bg-panel-light py-4 dark:border-border-dark dark:bg-panel-dark">
+              <Ionicons name="ban" size={14} color="#8B8880" />
+              <Text className="text-xs text-muted-light">
+                You can't message this user.
+              </Text>
+            </View>
+          ) : nonFriendBlocked ? (
             <View className="flex-row items-center gap-2 border-t border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
               <Ionicons name="lock-closed" size={14} color="#8B8880" />
               <Text className="flex-1 text-xs text-muted-light">
@@ -382,6 +455,42 @@ export default function DmRoomScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Overflow menu: block / unblock */}
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} autoHeight>
+        <View className="gap-2 pb-2">
+          {block.iBlocked ? (
+            <PrimaryButton
+              label={`Unblock ${other.display_name}`}
+              variant="secondary"
+              leftIcon={<Ionicons name="lock-open-outline" size={14} color="#4B5FE0" />}
+              onPress={handleUnblock}
+              fullWidth
+            />
+          ) : (
+            <PrimaryButton
+              label={`Block ${other.display_name}`}
+              variant="destructive-outline"
+              leftIcon={<Ionicons name="ban" size={14} color="#B91C1C" />}
+              onPress={() => {
+                setMenuOpen(false);
+                setConfirmBlock(true);
+              }}
+              fullWidth
+            />
+          )}
+        </View>
+      </BottomSheet>
+
+      <ConfirmationDialog
+        open={confirmBlock}
+        title={`Block ${other.display_name}?`}
+        message="They won't be able to message you or see the events you're attending. You can unblock them anytime."
+        confirmLabel="Block"
+        destructive
+        onConfirm={handleBlock}
+        onCancel={() => setConfirmBlock(false)}
+      />
 
       <PollComposerSheet
         open={pollOpen}
