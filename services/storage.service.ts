@@ -32,6 +32,18 @@ function inferContentType(uri: string): string {
   return 'image/jpeg';
 }
 
+/** Content type for feedback attachments, which can be video too. */
+function inferMediaContentType(uri: string, kind: 'image' | 'video'): string {
+  const lower = uri.split('?')[0]?.toLowerCase() ?? '';
+  if (kind === 'video') {
+    if (lower.endsWith('.mov')) return 'video/quicktime';
+    if (lower.endsWith('.webm')) return 'video/webm';
+    if (lower.endsWith('.m4v')) return 'video/x-m4v';
+    return 'video/mp4';
+  }
+  return inferContentType(lower);
+}
+
 export const storageService = {
   async uploadAvatar(userId: string, localUri: string): Promise<string> {
     const bytes = await readAsBytes(localUri);
@@ -48,6 +60,29 @@ export const storageService = {
     if (error) throw error;
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
+  /** Upload one feedback attachment (photo or video). Keyed under the
+   *  sender's uid — the bucket policy only allows writes to that prefix. */
+  async uploadFeedbackMedia(
+    userId: string,
+    localUri: string,
+    kind: 'image' | 'video',
+  ): Promise<string> {
+    const bytes = await readAsBytes(localUri);
+    const contentType = inferMediaContentType(localUri, kind);
+    const ext = (contentType.split('/')[1] ?? (kind === 'video' ? 'mp4' : 'jpg'))
+      .replace('quicktime', 'mov')
+      .replace('x-m4v', 'm4v');
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from('feedback-media')
+      .upload(path, bytes, { contentType, upsert: false });
+    if (error) throw error;
+
+    const { data } = supabase.storage.from('feedback-media').getPublicUrl(path);
     return data.publicUrl;
   },
 };

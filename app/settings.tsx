@@ -10,6 +10,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { FeedbackSheet } from '@/features/settings/FeedbackSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
   const setFavoriteReaction = usePreferencesStore((s) => s.setFavoriteReaction);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [radiusOpen, setRadiusOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState(false);
@@ -235,11 +237,8 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="chatbubble-outline"
             label="Send feedback"
-            onPress={() =>
-              Linking.openURL(
-                'mailto:hello@mapmeet.app?subject=MapMeet%20feedback',
-              ).catch(() => toast.show('No mail client set up.', 'error'))
-            }
+            hint="Report a bug — attach photos or video"
+            onPress={() => setFeedbackOpen(true)}
           />
           <SettingsRow
             icon="document-text-outline"
@@ -262,6 +261,12 @@ export default function SettingsScreen() {
           MapMeet · v{version}
         </Text>
       </ScrollView>
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        userId={profile?.id ?? null}
+      />
 
       <ConfirmationDialog
         open={confirmOpen}

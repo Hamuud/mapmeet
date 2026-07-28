@@ -318,6 +318,15 @@ export type Database = {
         Returns: { id: string; text: string; created_at: string }[];
       };
       touch_last_seen: { Args: Record<string, never>; Returns: undefined };
+      submit_feedback: {
+        Args: {
+          p_message: string;
+          p_attachments?: { url: string; type: 'image' | 'video' }[];
+          p_app_version?: string | null;
+          p_platform?: string | null;
+        };
+        Returns: string;
+      };
       set_attending_visibility: { Args: { p_value: string }; Returns: undefined };
       list_attending_event_ids: { Args: { p_target: string }; Returns: string[] };
       block_user: { Args: { p_target: string }; Returns: undefined };
