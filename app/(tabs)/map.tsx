@@ -32,6 +32,20 @@ import { useFiltersStore } from '@/store/filters.store';
 import { usePreferencesStore } from '@/store/preferences.store';
 import type { EventWithCreator, LatLng } from '@/types';
 
+/** Is this event's pin inside the camera box? `minLng > maxLng` means the
+ *  view straddles the antimeridian, where the longitude test flips to an
+ *  OR of the two halves. */
+function withinBounds(
+  event: { latitude: number; longitude: number },
+  b: MapBounds,
+): boolean {
+  const latOk = event.latitude >= b.minLat && event.latitude <= b.maxLat;
+  if (!latOk) return false;
+  return b.minLng <= b.maxLng
+    ? event.longitude >= b.minLng && event.longitude <= b.maxLng
+    : event.longitude >= b.minLng || event.longitude <= b.maxLng;
+}
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const isDesktop = useIsDesktop();
@@ -111,6 +125,19 @@ export default function MapScreen() {
     [events, viewerId, filter, query, coords, nearbyRadiusKm],
   );
 
+  // Current camera box, tracked so the rail can say "this area" and mean
+  // it. Imported events are already fetched per-viewport; user-pinned
+  // ones are loaded globally, so without this the rail listed events from
+  // anywhere in the world.
+  const [viewBounds, setViewBounds] = useState<MapBounds | null>(null);
+
+  const sidebarEvents = useMemo(() => {
+    if (!viewBounds) return visibleEvents; // pre-first-frame: don't hide anything
+    return visibleEvents.filter(
+      (e) => e.source !== 'user' || withinBounds(e, viewBounds),
+    );
+  }, [visibleEvents, viewBounds]);
+
   // Imported events load for the region on screen, not the whole
   // country. Debounced so a pan fires one request when it settles, and
   // skipped in pickMode (the camera is being used to place a pin).
@@ -118,6 +145,9 @@ export default function MapScreen() {
   const viewportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRegionChange = useCallback(
     (bounds: MapBounds) => {
+      // Track the box immediately so the rail re-scopes as you pan; only
+      // the network fetch is debounced.
+      setViewBounds(bounds);
       if (viewportTimer.current) clearTimeout(viewportTimer.current);
       viewportTimer.current = setTimeout(() => {
         void syncViewport(bounds, viewerId);
@@ -239,7 +269,7 @@ export default function MapScreen() {
           onQuery={setQuery}
           filter={filter}
           onFilter={setFilter}
-          events={visibleEvents}
+          events={sidebarEvents}
           selectedEventId={selectedEventId}
           onEventPress={selectEvent}
         />
