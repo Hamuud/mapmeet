@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
+import { ReportSheet } from '@/features/moderation/ReportSheet';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -110,6 +111,7 @@ export default function UserProfileScreen() {
   // their avatar + friend actions (Telegram-style); iBlocked → also hide
   // friend actions (you must unblock first).
   const [blockSt, setBlockSt] = useState({ iBlocked: false, theyBlocked: false });
+  const [reportOpen, setReportOpen] = useState(false);
   const viewerId = session?.user.id ?? null;
 
   useEffect(() => {
@@ -409,6 +411,20 @@ export default function UserProfileScreen() {
               </View>
             ) : null}
 
+            {/* Report — available on anyone else's profile, including
+                someone who has blocked you (that's often exactly who you
+                need to report). */}
+            {!isSelf && session ? (
+              <PrimaryButton
+                label="Report"
+                variant="secondary"
+                size="sm"
+                leftIcon={<Ionicons name="flag-outline" size={13} color="#B91C1C" />}
+                onPress={() => setReportOpen(true)}
+                fullWidth
+              />
+            ) : null}
+
             {/* Rating — everyone starts at 5.00; likes/dislikes from
                 other users move it. Voting hidden on your own profile. */}
             {summary ? (
@@ -539,6 +555,14 @@ export default function UserProfileScreen() {
         destructive
         onConfirm={doUnfriend}
         onCancel={() => setConfirmUnfriend(false)}
+      />
+
+      <ReportSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="user"
+        targetUserId={targetId}
+        targetLabel={profile.display_name}
       />
     </SafeAreaView>
   );

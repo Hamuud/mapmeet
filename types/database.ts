@@ -30,6 +30,12 @@ export type Database = {
           last_seen_at: string | null;
           /** Who can see the events this user has joined (not hosted). */
           attending_visibility: 'nobody' | 'friends' | 'everyone';
+          /** Grants the Complaints & reports (moderation) screen. */
+          is_admin: boolean;
+          /** Set while serving a mute; null once it lapses or is lifted. */
+          muted_until: string | null;
+          banned_at: string | null;
+          warning_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -318,6 +324,65 @@ export type Database = {
         Returns: { id: string; text: string; created_at: string }[];
       };
       touch_last_seen: { Args: Record<string, never>; Returns: undefined };
+      is_admin: { Args: { p_user?: string }; Returns: boolean };
+      submit_report: {
+        Args: {
+          p_target_type: 'user' | 'review' | 'event' | 'hashtag' | 'message';
+          p_reasons: string[];
+          p_target_user?: string | null;
+          p_target_id?: string | null;
+          p_target_text?: string | null;
+          p_details?: string | null;
+        };
+        Returns: string;
+      };
+      admin_list_reports: {
+        Args: { p_status?: string };
+        Returns: {
+          id: string;
+          target_type: 'user' | 'review' | 'event' | 'hashtag' | 'message';
+          target_id: string | null;
+          target_text: string | null;
+          reasons: string[];
+          details: string | null;
+          status: 'open' | 'resolved' | 'dismissed';
+          created_at: string;
+          reporter_username: string;
+          reporter_display_name: string;
+          target_user_id: string | null;
+          target_username: string | null;
+          target_display_name: string | null;
+          target_avatar_url: string | null;
+          target_banned: boolean | null;
+          target_muted_until: string | null;
+          target_warnings: number | null;
+          target_report_count: number | null;
+        }[];
+      };
+      admin_resolve_report: {
+        Args: { p_report: string; p_status: string; p_note?: string | null };
+        Returns: undefined;
+      };
+      admin_moderate_user: {
+        Args: {
+          p_user: string;
+          p_action: 'warn' | 'mute' | 'unmute' | 'ban' | 'unban';
+          p_minutes?: number | null;
+          p_report?: string | null;
+          p_note?: string | null;
+        };
+        Returns: undefined;
+      };
+      admin_delete_review: { Args: { p_review: string }; Returns: undefined };
+      my_moderation_state: {
+        Args: Record<string, never>;
+        Returns: {
+          muted_until: string | null;
+          banned: boolean;
+          warnings: number;
+          is_admin: boolean;
+        }[];
+      };
       submit_feedback: {
         Args: {
           p_message: string;

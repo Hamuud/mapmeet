@@ -223,6 +223,19 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        {/* MODERATION — only rendered for admins. The screen and every
+            RPC behind it re-check is_admin() server-side. */}
+        {profile?.is_admin ? (
+          <Section title="Moderation">
+            <SettingsRow
+              icon="shield-checkmark-outline"
+              label="Complaints & reports"
+              hint="Review reports, warn, mute or ban"
+              onPress={() => router.push('/admin')}
+            />
+          </Section>
+        ) : null}
+
         {/* SUPPORT */}
         <Section title="Support">
           <SettingsRow
