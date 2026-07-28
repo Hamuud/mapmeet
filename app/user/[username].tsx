@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { dmsService } from '@/services/dms.service';
 import { eventsService } from '@/services/events.service';
 import {
   friendshipsService,
@@ -105,6 +106,10 @@ export default function UserProfileScreen() {
   const [friendship, setFriendship] = useState<FriendshipState>('none');
   const [friendBusy, setFriendBusy] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState(false);
+  // Block state between the viewer and this profile. theyBlocked → hide
+  // their avatar + friend actions (Telegram-style); iBlocked → also hide
+  // friend actions (you must unblock first).
+  const [blockSt, setBlockSt] = useState({ iBlocked: false, theyBlocked: false });
   const viewerId = session?.user.id ?? null;
 
   useEffect(() => {
@@ -119,6 +124,12 @@ export default function UserProfileScreen() {
         /* migration not applied yet — hide the buttons rather than
          * blocking the whole profile page */
       });
+    dmsService
+      .blockState(targetId)
+      .then((b) => {
+        if (!cancelled) setBlockSt(b);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -318,7 +329,11 @@ export default function UserProfileScreen() {
           <View className="gap-5 pb-4">
             {/* Identity */}
             <View className="flex-row items-center gap-4">
-              <Avatar name={profile.display_name} uri={profile.avatar_url} size="xl" />
+              <Avatar
+                name={profile.display_name}
+                uri={blockSt.theyBlocked ? null : profile.avatar_url}
+                size="xl"
+              />
               <View className="flex-1">
                 <Text
                   className="font-display text-3xl leading-tight text-text-light dark:text-text-dark"
@@ -336,9 +351,10 @@ export default function UserProfileScreen() {
             </View>
 
             {/* Friendship + DM buttons — hidden on your own profile,
-                and while not signed in. Add friend / Requested /
-                Accept / Friends map onto the four FriendshipStates. */}
-            {!isSelf && session ? (
+                while not signed in, and when this user has blocked you.
+                Add friend / Requested / Accept / Friends map onto the
+                four FriendshipStates. */}
+            {!isSelf && session && !blockSt.theyBlocked && !blockSt.iBlocked ? (
               <View className="flex-row gap-2">
                 <View className="flex-1">
                   <PrimaryButton

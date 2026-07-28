@@ -143,7 +143,17 @@ export default function DmRoomScreen() {
     return () => clearInterval(id);
   }, [other?.id]);
 
-  const visible = useMemo(() => [...messages].reverse(), [messages]);
+  const visible = useMemo(() => {
+    const rows = [...messages].reverse();
+    // If they blocked me, hide their avatar on their message bubbles too
+    // (the header + placeholder handle the rest).
+    if (!block.theyBlocked) return rows;
+    return rows.map((m) =>
+      m.sender_id && m.sender_id !== viewerId && m.sender
+        ? { ...m, sender: { ...m.sender, avatar_url: null } }
+        : m,
+    );
+  }, [messages, block.theyBlocked, viewerId]);
   const byId = useMemo(() => {
     const map = new Map<string, MessageWithSender>();
     for (const m of messages) map.set(m.id, m);
@@ -270,6 +280,7 @@ export default function DmRoomScreen() {
     try {
       await dmsService.block(other.id);
       setBlock((s) => ({ ...s, iBlocked: true }));
+      setFriendship('none'); // block removes the friendship both ways
       await refetch(dmId);
       toast.show(`${other.display_name} blocked.`, 'success');
     } catch (e) {
@@ -316,7 +327,11 @@ export default function DmRoomScreen() {
           }
           className="flex-1 flex-row items-center gap-2.5 active:opacity-80"
         >
-          <Avatar name={other.display_name} uri={other.avatar_url} size="sm" />
+          <Avatar
+            name={other.display_name}
+            uri={block.theyBlocked ? null : other.avatar_url}
+            size="sm"
+          />
           <View className="flex-1">
             <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
               {other.display_name}
@@ -324,17 +339,19 @@ export default function DmRoomScreen() {
             <Text
               className={[
                 'text-xs',
-                isOnline(other.last_seen_at, now)
+                !block.theyBlocked && isOnline(other.last_seen_at, now)
                   ? 'font-semibold text-green-500'
                   : 'text-muted-light',
               ].join(' ')}
               numberOfLines={1}
             >
-              {formatLastSeen(other.last_seen_at, now)}
+              {block.theyBlocked
+                ? 'last seen a long time ago'
+                : formatLastSeen(other.last_seen_at, now)}
             </Text>
           </View>
         </Pressable>
-        {friendship !== 'friends' && !block.iBlocked ? (
+        {friendship !== 'friends' && !block.iBlocked && !block.theyBlocked ? (
           <Pressable
             onPress={handleAddFriend}
             className="rounded-full bg-brand-500 px-3 py-1.5"
