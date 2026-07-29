@@ -26,14 +26,16 @@ type ProfileLite = import('@/types').ProfileRef;
 
 /** Adapt a dm_messages row to the shared MessageWithSender shape so DMs
  *  reuse the same MessageBubble as events + groups (replies, reactions,
- *  voice). `invite`-type rows fall back to text rendering. */
+ *  voice). `invite` rows pass through with their token so the bubble can
+ *  render an acceptable event card. */
 function toMessage(row: DmMessage, sender: ProfileLite | null): MessageWithSender {
   return {
     id: row.id,
     event_id: row.dm_id,
     sender_id: row.sender_id,
-    type: row.type === 'invite' ? 'text' : row.type,
-    text: row.type === 'invite' ? '🎟 Event invite' : row.text,
+    type: row.type,
+    text: row.text,
+    event_invite_token: row.event_invite_token,
     media_url: row.media_url,
     latitude: null,
     longitude: null,
@@ -131,6 +133,16 @@ export const dmsService = {
       p_duration_ms: Math.max(1, Math.round(durationMs)),
       p_waveform: waveform,
       p_reply_to: replyTo ?? null,
+    });
+    if (error) throw error;
+  },
+
+  /** Hand an event invite to a friend as a DM card they can accept. The
+   *  token comes from invitesService.create(eventId). */
+  async sendInvite(recipientId: string, token: string): Promise<void> {
+    const { error } = await supabase.rpc('send_dm_invite', {
+      p_recipient: recipientId,
+      p_token: token,
     });
     if (error) throw error;
   },

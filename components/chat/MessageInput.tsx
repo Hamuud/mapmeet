@@ -49,6 +49,8 @@ function replySnippet(m: MessageWithSender): string {
       return '🎤 Voice message';
     case 'poll':
       return `📊 ${m.poll?.question ?? 'Poll'}`;
+    case 'invite':
+      return '🎟 Event invite';
     case 'system':
       return m.text ?? '';
   }

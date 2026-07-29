@@ -16,6 +16,7 @@ import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useVenue } from '@/hooks/useVenue';
+import { dmsService } from '@/services/dms.service';
 import { eventsService } from '@/services/events.service';
 import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
@@ -72,6 +73,9 @@ export function EventPreviewBody({
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Kept alongside the URL: sending to a friend posts the token itself,
+  // not the link.
+  const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
@@ -184,9 +188,11 @@ export function EventPreviewBody({
   // instant even while the RPC is in flight.
   const handleShare = async () => {
     setShareUrl(null);
+    setShareToken(null);
     setShareOpen(true);
     try {
       const token = await invitesService.create(event.id);
+      setShareToken(token);
       setShareUrl(invitesService.shareUrl(token));
     } catch (e) {
       setShareOpen(false);
@@ -420,13 +426,19 @@ export function EventPreviewBody({
         </View>
       ) : null}
 
-      {/* Share the 24h invite link via Telegram / WhatsApp / Viber / Copy */}
+      {/* Share: friends in-app (invite lands as an acceptable DM card),
+          or out via Telegram / WhatsApp / Viber / Copy. */}
       <ShareSheet
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         url={shareUrl}
         text={`${event.emoji} You're invited: ${event.title}`}
         title={event.title}
+        viewerId={session?.user.id ?? null}
+        onSendToFriend={async (friendId) => {
+          if (!shareToken) throw new Error('Invite link not ready yet');
+          await dmsService.sendInvite(friendId, shareToken);
+        }}
       />
     </View>
   );

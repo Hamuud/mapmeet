@@ -44,9 +44,13 @@ export type MessageInsert = Database['public']['Tables']['messages']['Insert'];
  *  renders. `sender` is null for system messages. `read_at` is only set
  *  for DM messages (when the recipient first read it) — undefined
  *  elsewhere, where the bubble falls back to ✓/✓✓ ticks. */
-export type MessageWithSender = Message & {
+/** A message enriched for rendering. DMs add two shapes the shared
+ *  `messages` table doesn't have: an `invite` card and its token. */
+export type MessageWithSender = Omit<Message, 'type'> & {
+  type: Message['type'] | 'invite';
   sender: ProfileRef | null;
   read_at?: string | null;
+  event_invite_token?: string | null;
 };
 
 export type LatLng = { latitude: number; longitude: number };

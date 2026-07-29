@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -14,6 +15,8 @@ import {
 import { AudioBubble } from '@/components/chat/AudioBubble';
 import { Avatar } from '@/components/ui/Avatar';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { invitesService, type InvitePreview } from '@/services/invites.service';
+import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { MessageWithSender, PollDetails } from '@/types';
 
 type Props = {
@@ -118,6 +121,8 @@ function snippet(m: MessageWithSender): string {
       return '🎤 Voice message';
     case 'poll':
       return `📊 ${m.poll?.question ?? 'Poll'}`;
+    case 'invite':
+      return '🎟 Event invite';
     case 'system':
       return m.text ?? '';
   }
@@ -345,6 +350,8 @@ export function MessageBubble({
           >
             📍 {message.latitude?.toFixed(5)}, {message.longitude?.toFixed(5)}
           </Text>
+        ) : message.type === 'invite' && message.event_invite_token ? (
+          <InviteCard token={message.event_invite_token} isOwn={isOwn} />
         ) : message.type === 'poll' && message.poll ? (
           <PollCard
             poll={message.poll}
@@ -486,6 +493,126 @@ export function MessageBubble({
   }
 
   return row;
+}
+
+/** An event invite handed over in a DM. Loads the event preview from the
+ *  token, then lets the recipient accept in place — accepting joins the
+ *  event and drops them into its chat. Expired or revoked tokens degrade
+ *  to a plain "invite unavailable" line rather than a broken card. */
+function InviteCard({ token, isOwn }: { token: string; isOwn: boolean }) {
+  const [preview, setPreview] = useState<InvitePreview | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'gone'>('loading');
+  const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    invitesService
+      .preview(token)
+      .then((p) => {
+        if (cancelled) return;
+        setPreview(p);
+        setState(p ? 'ready' : 'gone');
+      })
+      .catch(() => {
+        if (!cancelled) setState('gone');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  if (state === 'loading') {
+    return (
+      <Text className="text-[13px] italic text-muted-light">Loading invite…</Text>
+    );
+  }
+  if (state === 'gone' || !preview) {
+    return (
+      <Text className="text-[13px] italic text-muted-light">
+        🎟 This invite is no longer available
+      </Text>
+    );
+  }
+
+  const expired = preview.expired;
+
+  const handleAccept = async () => {
+    if (joining || expired) return;
+    setJoining(true);
+    try {
+      const eventId = await invitesService.accept(token);
+      router.navigate({ pathname: '/chat/[id]', params: { id: eventId } });
+    } catch {
+      // Full-screen invite page explains why (full, expired, removed).
+      router.navigate({ pathname: '/invite/[token]', params: { token } });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  return (
+    <View className="w-[240px] gap-2">
+      <View className="flex-row items-center gap-2.5">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-surface-light dark:bg-surface-dark">
+          <Text style={{ fontSize: 22 }}>{preview.event_emoji}</Text>
+        </View>
+        <View className="flex-1">
+          <Text
+            className={
+              isOwn
+                ? 'text-[14px] font-bold text-surface-light dark:text-surface-dark'
+                : 'text-[14px] font-bold text-text-light dark:text-text-dark'
+            }
+            numberOfLines={2}
+          >
+            {preview.event_title}
+          </Text>
+          <Text
+            className={
+              isOwn
+                ? 'text-[11px] text-surface-light/70 dark:text-surface-dark/70'
+                : 'text-[11px] text-muted-light'
+            }
+            numberOfLines={1}
+          >
+            {formatEventDate(preview.event_date)} ·{' '}
+            {formatEventTime(preview.event_time)}
+          </Text>
+        </View>
+      </View>
+
+      {preview.event_address ? (
+        <Text
+          className={
+            isOwn
+              ? 'text-[11px] text-surface-light/70 dark:text-surface-dark/70'
+              : 'text-[11px] text-muted-light'
+          }
+          numberOfLines={1}
+        >
+          📍 {preview.event_address}
+        </Text>
+      ) : null}
+
+      <Pressable
+        onPress={handleAccept}
+        disabled={expired || joining}
+        className={[
+          'items-center rounded-xl py-2.5',
+          expired ? 'bg-elevated-light dark:bg-elevated-dark' : 'bg-brand-500 active:opacity-90',
+        ].join(' ')}
+      >
+        <Text
+          className={[
+            'text-[13px] font-bold',
+            expired ? 'text-muted-light' : 'text-white',
+          ].join(' ')}
+        >
+          {expired ? 'Invite expired' : joining ? 'Joining…' : 'Accept invite'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 /** In-bubble poll: question, tappable options with a fill bar + tally,

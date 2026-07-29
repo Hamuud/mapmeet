@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Platform, Pressable, Share, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { friendshipsService, type FriendRow } from '@/services/friendships.service';
 
 type Props = {
   open: boolean;
@@ -14,6 +17,11 @@ type Props = {
   text: string;
   /** Used as the OS-share sheet title on the "More" fallback. */
   title: string;
+  /** Enables the in-app friends row. Given a friend's id, deliver the
+   *  invite to them (events send it as an acceptable DM card). */
+  onSendToFriend?: (friendId: string) => Promise<void>;
+  /** Whose friends to list — the signed-in user. */
+  viewerId?: string | null;
 };
 
 /** Open an http(s) link in a new tab (web) or the system browser
@@ -40,9 +48,46 @@ function openExternal(target: string) {
  *  (native), plus a catch-all "More" for every other channel. The caller
  *  mints the token and hands us a ready URL, so this stays presentational
  *  and link-source-agnostic. */
-export function ShareSheet({ open, onClose, url, text, title }: Props) {
+export function ShareSheet({
+  open,
+  onClose,
+  url,
+  text,
+  title,
+  onSendToFriend,
+  viewerId,
+}: Props) {
   const toast = useToast();
   const message = url ? `${text}\n${url}` : text;
+
+  // In-app friend sharing: avatars on top, names beneath, one tap to send.
+  const [friends, setFriends] = useState<FriendRow[]>([]);
+  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setSentTo(new Set());
+    setSendingTo(null);
+    if (!onSendToFriend || !viewerId) return;
+    friendshipsService
+      .listFriends(viewerId)
+      .then(setFriends)
+      .catch(() => setFriends([]));
+  }, [open, onSendToFriend, viewerId]);
+
+  const handleSendToFriend = async (friendId: string) => {
+    if (!onSendToFriend || sendingTo || sentTo.has(friendId)) return;
+    setSendingTo(friendId);
+    try {
+      await onSendToFriend(friendId);
+      setSentTo((prev) => new Set(prev).add(friendId));
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not send invite', 'error');
+    } finally {
+      setSendingTo(null);
+    }
+  };
 
   const channels: {
     key: string;
@@ -121,6 +166,62 @@ export function ShareSheet({ open, onClose, url, text, title }: Props) {
             Anyone with this link can join. It expires in 24 hours.
           </Text>
         </View>
+
+        {/* Friends — avatars on top, names beneath. One tap sends the
+            invite straight into their DMs. */}
+        {onSendToFriend && friends.length > 0 ? (
+          <View className="gap-2">
+            <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+              Send to a friend
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-3 pr-2">
+                {friends.map((f) => {
+                  const sent = sentTo.has(f.other.id);
+                  const sending = sendingTo === f.other.id;
+                  return (
+                    <Pressable
+                      key={f.other.id}
+                      onPress={() => void handleSendToFriend(f.other.id)}
+                      disabled={sent || !!sendingTo || !url}
+                      accessibilityLabel={`Send to ${f.other.display_name}`}
+                      className="w-[68px] items-center gap-1.5 active:opacity-70"
+                      style={{ opacity: url ? 1 : 0.4 }}
+                    >
+                      <View>
+                        <Avatar
+                          name={f.other.display_name}
+                          uri={f.other.avatar_url}
+                          size="lg"
+                        />
+                        {sent ? (
+                          <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border-2 border-panel-light bg-green-500 dark:border-panel-dark">
+                            <Ionicons name="checkmark" size={13} color="#fff" />
+                          </View>
+                        ) : sending ? (
+                          <View className="absolute -bottom-0.5 -right-0.5 h-6 w-6 items-center justify-center rounded-full border-2 border-panel-light bg-brand-500 dark:border-panel-dark">
+                            <Ionicons name="ellipsis-horizontal" size={13} color="#fff" />
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text
+                        className={[
+                          'text-center text-[11px]',
+                          sent
+                            ? 'font-semibold text-green-600'
+                            : 'text-text-light dark:text-text-dark',
+                        ].join(' ')}
+                        numberOfLines={1}
+                      >
+                        {sent ? 'Sent' : f.other.display_name.split(/\s+/)[0]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* Social channels */}
         <View className="flex-row justify-around">

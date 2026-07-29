@@ -389,6 +389,7 @@ export type Database = {
         }[];
       };
       is_owner: { Args: { p_user?: string }; Returns: boolean };
+      send_dm_invite: { Args: { p_recipient: string; p_token: string }; Returns: string };
       assign_role: { Args: { p_username: string; p_role: string }; Returns: undefined };
       list_staff: {
         Args: Record<string, never>;
