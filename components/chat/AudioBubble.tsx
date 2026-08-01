@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { WAVEFORM_BARS } from '@/features/chat/useVoiceRecorder';
+import { usePreferencesStore, type VoiceRate } from '@/store/preferences.store';
 
 type Props = {
   uri: string;
@@ -53,19 +54,27 @@ function fitBars(wave: number[]): number[] {
   return out;
 }
 
+function rateLabel(rate: VoiceRate): string {
+  return `${rate}x`;
+}
+
 /** Voice-note player: play/pause + amplitude waveform (Telegram/
- *  WhatsApp-style bars that fill left-to-right with playback) + time.
- *  Loads the sound lazily on first play (expo-av via require — see
- *  useVoiceRecorder for why it can't be a static import yet). */
+ *  WhatsApp-style bars that fill left-to-right with playback) + time +
+ *  a speed pill (1x / 1.5x / 2x). Loads the sound lazily on first play
+ *  (expo-av via require — see useVoiceRecorder for why it can't be a
+ *  static import yet). */
 export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
   const [playing, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [totalMs, setTotalMs] = useState(durationMs ?? 0);
   const [error, setError] = useState(false);
+  const rate = usePreferencesStore((s) => s.voiceRate);
+  const cycleRate = usePreferencesStore((s) => s.cycleVoiceRate);
   const soundRef = useRef<{
     playAsync: () => Promise<unknown>;
     pauseAsync: () => Promise<unknown>;
     setPositionAsync: (ms: number) => Promise<unknown>;
+    setRateAsync: (rate: number, correctPitch: boolean) => Promise<unknown>;
     unloadAsync: () => Promise<unknown>;
   } | null>(null);
 
@@ -81,6 +90,12 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
     };
   }, []);
 
+  // The speed is app-wide, so a note already playing has to follow the
+  // pill the moment it's tapped — here or in any other bubble.
+  useEffect(() => {
+    void soundRef.current?.setRateAsync(rate, true).catch(() => {});
+  }, [rate]);
+
   const toggle = async () => {
     try {
       if (!soundRef.current) {
@@ -88,7 +103,9 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
         const { sound } = await Audio.Sound.createAsync(
           { uri },
-          { shouldPlay: true },
+          // correctPitch keeps a sped-up voice sounding like the person
+          // who recorded it rather than a chipmunk.
+          { shouldPlay: true, rate, shouldCorrectPitch: true },
           (status) => {
             if (!status.isLoaded) return;
             setPositionMs(status.positionMillis ?? 0);
@@ -172,9 +189,27 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
             />
           ))}
         </View>
-        <Text className={`font-mono text-[9px] uppercase ${fg} opacity-70`}>
-          {playing || positionMs > 0 ? fmt(positionMs) : fmt(totalMs)}
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <Text className={`font-mono text-[9px] uppercase ${fg} opacity-70`}>
+            {playing || positionMs > 0 ? fmt(positionMs) : fmt(totalMs)}
+          </Text>
+          <Pressable
+            onPress={cycleRate}
+            hitSlop={10}
+            accessibilityLabel={`Playback speed ${rateLabel(rate)}, tap to change`}
+            className={[
+              'rounded-full px-1.5 py-px active:opacity-60',
+              isOwn ? 'bg-surface-light/20 dark:bg-surface-dark/20' : 'bg-brand-500/15',
+            ].join(' ')}
+            // At 1x the pill is just an affordance; once sped up it's
+            // state the reader needs to see at a glance.
+            style={{ opacity: rate === 1 ? 0.7 : 1 }}
+          >
+            <Text className={`font-mono text-[9px] font-bold ${fg}`}>
+              {rateLabel(rate)}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );

@@ -6,12 +6,13 @@
 // ingest RPC, the cron, the app — needs to know which site it came from.
 
 /** The categories we import, and the marker emoji each one gets. */
-export type EventCategory = 'concert' | 'festival' | 'theatre';
+export type EventCategory = 'concert' | 'festival' | 'theatre' | 'standup';
 
 export const CATEGORY_EMOJI: Record<EventCategory, string> = {
   concert: '🎤',
   festival: '🎫',
   theatre: '🎭',
+  standup: '🎟',
 };
 
 /** Human tag written alongside the location tag, per category. Kept in
@@ -20,6 +21,7 @@ export const CATEGORY_TAG: Record<EventCategory, string> = {
   concert: 'концерт',
   festival: 'фестиваль',
   theatre: 'театр',
+  standup: 'стендап',
 };
 
 /** Inclusive date window (local wall dates, `YYYY-MM-DD`). */

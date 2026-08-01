@@ -8,10 +8,10 @@
 //   readable metadata, it carries everything we need, and it doesn't
 //   break when they restyle a card.
 //
-//   Listings paginate at /concerts/?page=N (also /festivals/, /theatres/)
-//   ordered by start date ascending, so we walk pages until we pass the
-//   end of the window and stop — a 7-day window costs 2-3 pages per
-//   category.
+//   Listings paginate at /concerts/?page=N (also /festivals/, /theatres/,
+//   /stand-up/) ordered by start date ascending, so we walk pages until
+//   we pass the end of the window and stop — a 7-day window costs 2-3
+//   pages per category.
 //
 // POLITENESS
 //   robots.txt (checked 2026-07-17) allows everything except /ajax.php*
@@ -39,6 +39,7 @@ const LISTINGS: Array<{ path: string; category: EventCategory }> = [
   { path: '/concerts/', category: 'concert' },
   { path: '/festivals/', category: 'festival' },
   { path: '/theatres/', category: 'theatre' },
+  { path: '/stand-up/', category: 'standup' },
 ];
 
 /** Stop runaway pagination if the site ever reorders results. A week
@@ -138,6 +139,7 @@ function categoryOf(node: Json, listing: EventCategory): EventCategory {
   const types = (Array.isArray(t) ? t : [t]).filter(
     (x: unknown): x is string => typeof x === 'string',
   );
+  if (types.includes('ComedyEvent')) return 'standup';
   if (types.includes('Festival')) return 'festival';
   if (types.includes('TheaterEvent')) return 'theatre';
   if (types.includes('MusicEvent')) return 'concert';
