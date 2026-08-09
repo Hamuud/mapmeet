@@ -1,0 +1,265 @@
+/* MapMeet — shared styling for the public legal pages.
+   Deliberately dependency-free: no webfonts, no scripts, no third-party
+   requests. A privacy policy that phones home to a CDN is a bad look,
+   and App Review opens these on flaky hotel wifi. */
+
+:root {
+  --paper: #f6f4ee;
+  --panel: #fdfcf8;
+  --ink: #0e0e10;
+  --ink2: #2a2a2e;
+  --muted: #6f6c64;
+  --border: #e4e1d8;
+  --brand: #3b4cc4;
+  --accent: #fe5800;
+  --flag-bg: #fff4d6;
+  --flag-border: #e8c766;
+  --flag-ink: #6b4e00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0e0e10;
+    --panel: #16161c;
+    --ink: #f5f5f2;
+    --ink2: #d6d6d0;
+    --muted: #9a978f;
+    --border: #2a2a32;
+    --brand: #8e9be6;
+    --accent: #fe9b66;
+    --flag-bg: #2e2611;
+    --flag-border: #6b5a20;
+    --flag-ink: #f0d9a0;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 6rem;
+}
+
+/* ── Masthead ─────────────────────────────────────────────────────── */
+
+.mast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mark {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border-radius: 0.9rem;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.mast-text { display: flex; flex-direction: column; }
+.mast-app { font-weight: 700; letter-spacing: -0.01em; }
+.mast-co {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Type ─────────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: clamp(2.1rem, 7vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  margin: 3rem 0 0.75rem;
+  padding-top: 0.4rem;
+  scroll-margin-top: 1rem;
+}
+
+h3 {
+  font-size: 1.03rem;
+  margin: 2rem 0 0.5rem;
+}
+
+p, li { color: var(--ink2); }
+p { margin: 0 0 1rem; }
+
+ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+li { margin-bottom: 0.4rem; }
+
+a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+strong { color: var(--ink); font-weight: 650; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+}
+
+.lede {
+  font-size: 1.12rem;
+  color: var(--ink2);
+  margin-bottom: 1.5rem;
+}
+
+.meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin: 0 0 2rem;
+}
+
+.eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin: 0 0 0.75rem;
+}
+
+/* ── Blocks ───────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.4rem;
+  margin: 0 0 1.5rem;
+}
+
+.card p:last-child, .card ul:last-child, .card li:last-child { margin-bottom: 0; }
+
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 0 0.75rem 0.75rem 0;
+  padding: 1.1rem 1.3rem;
+  margin: 1.5rem 0;
+}
+
+.callout h3 { margin-top: 0; }
+
+/* Unfinished content the operator must replace before publishing. */
+.todo {
+  background: var(--flag-bg);
+  border: 1px dashed var(--flag-border);
+  color: var(--flag-ink);
+  border-radius: 5px;
+  padding: 0.08em 0.4em;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────── */
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 0 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--panel);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 34rem;
+  font-size: 0.92rem;
+}
+
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+tr:last-child td { border-bottom: none; }
+td { color: var(--ink2); }
+
+/* ── Table of contents ────────────────────────────────────────────── */
+
+.toc { margin: 0 0 1rem; padding-left: 1.3rem; }
+.toc li { margin-bottom: 0.25rem; }
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+
+.foot {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  justify-content: space-between;
+}
+
+.foot a { color: var(--muted); }
+
+/* ── Hub page ─────────────────────────────────────────────────────── */
+
+.doclist { list-style: none; padding: 0; margin: 2rem 0 0; }
+.doclist li { margin-bottom: 1rem; }
+
+.doclink {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.15rem 1.35rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.doclink:hover { border-color: var(--brand); }
+.doclink b { display: block; font-size: 1.08rem; margin-bottom: 0.2rem; color: var(--ink); }
+.doclink span { font-size: 0.92rem; color: var(--muted); }
