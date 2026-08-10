@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import type { Profile } from '@/types';
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function ProfileCard({ profile, createdCount, joinedCount }: Props) {
+  const t = useT();
   return (
     <View
       className={[
@@ -27,9 +29,9 @@ export function ProfileCard({ profile, createdCount, joinedCount }: Props) {
       </Text>
 
       <View className="mt-5 w-full flex-row justify-around">
-        <Stat label="Created" value={createdCount} />
+        <Stat label={t('card.created')} value={createdCount} />
         <View className="w-px bg-border-light dark:bg-border-dark" />
-        <Stat label="Joined" value={joinedCount} />
+        <Stat label={t('card.joined')} value={joinedCount} />
       </View>
     </View>
   );

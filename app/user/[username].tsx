@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { EventCard } from '@/components/events/EventCard';
 import { ReportSheet } from '@/features/moderation/ReportSheet';
 import { ReviewCard } from '@/components/user/ReviewCard';
@@ -47,6 +48,7 @@ type Tab = 'upcoming' | 'past' | 'reviews';
  *  We already have every event in the store — no separate creator-
  *  events endpoint needed. Just filter locally. */
 export default function UserProfileScreen() {
+  const t = useT();
   // Route param name matches the file (`/user/[username].tsx`). We still
   // accept a UUID-shaped segment for the transition — profilesService
   // routes it to getById — and then quietly replace(...) the URL to the
@@ -91,7 +93,7 @@ export default function UserProfileScreen() {
       .catch((e) => {
         if (!cancelled) {
           toast.show(
-            e instanceof Error ? e.message : 'Could not load profile',
+            e instanceof Error ? e.message : t('user.loadFailed'),
             'error',
           );
         }
@@ -153,7 +155,7 @@ export default function UserProfileScreen() {
       await friendshipsService.request(targetId);
       setFriendship(await friendshipsService.getState(viewerId, targetId));
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update friendship', 'error');
+      toast.show(e instanceof Error ? e.message : t('user.friendshipFailed'), 'error');
     } finally {
       setFriendBusy(false);
     }
@@ -167,7 +169,7 @@ export default function UserProfileScreen() {
       await friendshipsService.remove(targetId);
       setFriendship(await friendshipsService.getState(viewerId, targetId));
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update friendship', 'error');
+      toast.show(e instanceof Error ? e.message : t('user.friendshipFailed'), 'error');
     } finally {
       setFriendBusy(false);
     }
@@ -218,7 +220,7 @@ export default function UserProfileScreen() {
         await ratingsService.rate(targetId, value);
       } catch (e) {
         setSummary(prev);
-        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+        toast.show(e instanceof Error ? e.message : t('room.couldNotVote'), 'error');
       } finally {
         setVoteBusy(false);
       }
@@ -234,9 +236,9 @@ export default function UserProfileScreen() {
       await ratingsService.addReview(targetId, text);
       setReviewDraft('');
       setReviews(await ratingsService.listReviews(targetId));
-      toast.show('Review posted anonymously.', 'success');
+      toast.show(t('user.reviewPosted'), 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not post review', 'error');
+      toast.show(e instanceof Error ? e.message : t('user.reviewFailed'), 'error');
     } finally {
       setReviewSending(false);
     }
@@ -303,12 +305,12 @@ export default function UserProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <Header onBack={() => goBack('/(tabs)/map')} title="Profile" />
+        <Header onBack={() => goBack('/(tabs)/map')} title={t('user.profile')} />
         <EmptyState
           emoji="👤"
-          title="Profile not found"
-          description="This user may have deleted their account."
-          actionLabel="Go back"
+          title={t('user.notFound')}
+          description={t('user.notFoundHint')}
+          actionLabel={t('user.goBack')}
           onAction={() => goBack('/(tabs)/map')}
         />
       </SafeAreaView>
@@ -366,12 +368,12 @@ export default function UserProfileScreen() {
                   <PrimaryButton
                     label={
                       friendship === 'friends'
-                        ? 'Friends ✓'
+                        ? t('user.friends')
                         : friendship === 'outgoing'
-                          ? 'Requested'
+                          ? t('dm.requested')
                           : friendship === 'incoming'
-                            ? 'Accept request'
-                            : 'Add friend'
+                            ? t('user.acceptRequest')
+                            : t('dm.addFriend')
                     }
                     variant={friendship === 'friends' ? 'secondary' : 'primary'}
                     leftIcon={
@@ -398,7 +400,7 @@ export default function UserProfileScreen() {
                 </View>
                 <View className="flex-1">
                   <PrimaryButton
-                    label="Message"
+                    label={t('user.message')}
                     variant="secondary"
                     leftIcon={
                       <Ionicons name="chatbubble-outline" size={14} color="#4B5FE0" />
@@ -420,7 +422,7 @@ export default function UserProfileScreen() {
                 need to report). */}
             {!isSelf && session ? (
               <PrimaryButton
-                label="Report"
+                label={t('user.report')}
                 variant="secondary"
                 size="sm"
                 leftIcon={<Ionicons name="flag-outline" size={13} color="#B91C1C" />}
@@ -457,7 +459,7 @@ export default function UserProfileScreen() {
                   >
                     <Text style={{ fontSize: 12 }}>{i.emoji}</Text>
                     <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
-                      {i.label}
+                      {t(i.labelKey)}
                     </Text>
                   </View>
                 ))}
@@ -467,17 +469,17 @@ export default function UserProfileScreen() {
             {/* Segmented: events + reviews */}
             <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
               <SegmentTab
-                label={`Upcoming · ${upcoming.length}`}
+                label={t('user.tabUpcoming', { n: upcoming.length })}
                 active={tab === 'upcoming'}
                 onPress={() => setTab('upcoming')}
               />
               <SegmentTab
-                label={`Past · ${past.length}`}
+                label={t('user.tabPast', { n: past.length })}
                 active={tab === 'past'}
                 onPress={() => setTab('past')}
               />
               <SegmentTab
-                label={`Reviews · ${reviews.length}`}
+                label={t('user.tabReviews', { n: reviews.length })}
                 active={tab === 'reviews'}
                 onPress={() => setTab('reviews')}
               />
@@ -489,7 +491,7 @@ export default function UserProfileScreen() {
                 <TextInput
                   value={reviewDraft}
                   onChangeText={setReviewDraft}
-                  placeholder="Share your experience — it's posted anonymously"
+                  placeholder={t('user.reviewPlaceholder')}
                   placeholderTextColor="#8B8880"
                   multiline
                   maxLength={500}
@@ -497,7 +499,7 @@ export default function UserProfileScreen() {
                   style={{ textAlignVertical: 'top' }}
                 />
                 <PrimaryButton
-                  label="Post anonymously"
+                  label={t('user.postAnonymously')}
                   size="sm"
                   variant="secondary"
                   leftIcon={
@@ -526,11 +528,11 @@ export default function UserProfileScreen() {
           tab === 'reviews' ? (
             <EmptyState
               emoji="📝"
-              title="No reviews yet"
+              title={t('profile.noReviews')}
               description={
                 isSelf
-                  ? 'Feedback others leave about you will show up here.'
-                  : `Be the first to leave ${profile.display_name} an anonymous review.`
+                  ? t('user.noReviewsSelf')
+                  : t('user.noReviewsOther', { name: profile.display_name })
               }
             />
           ) : (
@@ -538,13 +540,13 @@ export default function UserProfileScreen() {
               emoji={tab === 'upcoming' ? '📍' : '🗓️'}
               title={
                 tab === 'upcoming'
-                  ? 'Nothing on the calendar right now'
-                  : 'No past events'
+                  ? t('user.nothingUpcoming')
+                  : t('user.noPastEvents')
               }
               description={
                 tab === 'upcoming'
-                  ? `${profile.display_name} hasn't scheduled anything upcoming.`
-                  : 'Older events they hosted will show up here.'
+                  ? t('user.nothingScheduled', { name: profile.display_name })
+                  : t('user.olderEvents')
               }
             />
           )
@@ -553,9 +555,9 @@ export default function UserProfileScreen() {
 
       <ConfirmationDialog
         open={confirmUnfriend}
-        title={`Remove ${profile.display_name} from friends?`}
-        message="You'll both stop being friends and lose unlimited messaging. You can add them again later."
-        confirmLabel="Remove"
+        title={t('user.unfriendTitle', { name: profile.display_name })}
+        message={t('user.unfriendMessage')}
+        confirmLabel={t('common.remove')}
         destructive
         onConfirm={doUnfriend}
         onCancel={() => setConfirmUnfriend(false)}
@@ -585,6 +587,7 @@ function RatingCard({
   busy: boolean;
   onVote: (value: RatingVote) => void;
 }) {
+  const t = useT();
   return (
     <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
       <View>
@@ -606,7 +609,7 @@ function RatingCard({
             active={summary.myVote === 1}
             activeClass="bg-brand-500"
             disabled={busy}
-            label={summary.myVote === 1 ? 'Remove like' : 'Like this user'}
+            label={summary.myVote === 1 ? t('user.removeLike') : t('user.likeUser')}
             onPress={() => onVote(summary.myVote === 1 ? 0 : 1)}
           />
           <VoteButton
@@ -614,7 +617,7 @@ function RatingCard({
             active={summary.myVote === -1}
             activeClass="bg-red-500"
             disabled={busy}
-            label={summary.myVote === -1 ? 'Remove dislike' : 'Dislike this user'}
+            label={summary.myVote === -1 ? t('user.removeDislike') : t('user.dislikeUser')}
             onPress={() => onVote(summary.myVote === -1 ? 0 : -1)}
           />
         </View>
@@ -662,12 +665,13 @@ function VoteButton({
 
 /** One anonymous review row for the Reviews tab. */
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
+  const t = useT();
   const iconColor = useIconColor();
   return (
     <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
       <Pressable
         onPress={onBack}
-        accessibilityLabel="Back"
+        accessibilityLabel={t('common.back')}
         hitSlop={10}
         className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
       >

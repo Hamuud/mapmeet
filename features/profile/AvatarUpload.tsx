@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { useToast } from '@/components/ui/Toast';
 import { useImagePicker } from '@/hooks/useImagePicker';
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function AvatarUpload({ profile }: Props) {
+  const t = useT();
   const toast = useToast();
   const setProfile = useAuthStore((s) => s.setProfile);
   const { pickFromLibrary } = useImagePicker();
@@ -30,9 +32,9 @@ export function AvatarUpload({ profile }: Props) {
         avatar_url: publicUrl,
       });
       setProfile(updated);
-      toast.show('Avatar updated.', 'success');
+      toast.show(t('avatar.updated'), 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Upload failed', 'error');
+      toast.show(e instanceof Error ? e.message : t('avatar.uploadFailed'), 'error');
     } finally {
       setUploading(false);
     }
@@ -53,7 +55,7 @@ export function AvatarUpload({ profile }: Props) {
         </View>
       </Pressable>
       <Text className="mt-3 text-xs text-muted-light dark:text-muted-dark">
-        {uploading ? 'Uploading…' : 'Tap to change photo'}
+        {uploading ? t('avatar.uploading') : t('avatar.tapToChange')}
       </Text>
     </View>
   );

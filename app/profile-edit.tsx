@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -29,6 +30,7 @@ import { goBack } from '@/utils/nav';
  *  via `profilesService.update`, then patches the local auth store so
  *  every other screen sees the update without a refetch. */
 export default function ProfileEditScreen() {
+  const t = useT();
   const toast = useToast();
   const { profile, session } = useAuth();
   const setProfile = useAuthStore((s) => s.setProfile);
@@ -98,13 +100,13 @@ export default function ProfileEditScreen() {
   const handleSendOtp = async () => {
     const trimmed = phone.trim();
     if (!phoneLooksValid) {
-      toast.show('Enter the number in E.164 form, e.g. +15551234567.', 'error');
+      toast.show(t('profileEdit.e164'), 'error');
       return;
     }
     // Change mode pre-fills the current number — don't burn an SMS
     // re-verifying a number that's already confirmed on the account.
     if (authPhoneConfirmed && trimmed === authPhone) {
-      toast.show('This is already your verified number.', 'info');
+      toast.show(t('profileEdit.alreadyYours'), 'info');
       return;
     }
     setSendingOtp(true);
@@ -116,7 +118,7 @@ export default function ProfileEditScreen() {
       toast.show(`Code sent to ${trimmed}.`, 'success');
     } catch (e) {
       toast.show(
-        e instanceof Error ? e.message : 'Could not send verification code',
+        e instanceof Error ? e.message : t('profileEdit.otpFailed'),
         'error',
       );
     } finally {
@@ -127,7 +129,7 @@ export default function ProfileEditScreen() {
   const handleVerifyOtp = async () => {
     const trimmedCode = otpCode.trim();
     if (trimmedCode.length < 4) {
-      toast.show('Enter the code from the SMS.', 'error');
+      toast.show(t('profileEdit.enterCode'), 'error');
       return;
     }
     setVerifyingOtp(true);
@@ -144,10 +146,10 @@ export default function ProfileEditScreen() {
       setChangingNumber(false);
       setOtpOpen(false);
       setOtpCode('');
-      toast.show('Phone verified.', 'success');
+      toast.show(t('profileEdit.phoneVerifiedToast'), 'success');
     } catch (e) {
       toast.show(
-        e instanceof Error ? e.message : 'Verification failed',
+        e instanceof Error ? e.message : t('profileEdit.verificationFailed'),
         'error',
       );
     } finally {
@@ -158,7 +160,7 @@ export default function ProfileEditScreen() {
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (trimmedName.length === 0) {
-      toast.show('Display name is required.', 'error');
+      toast.show(t('profileEdit.nameRequired'), 'error');
       return;
     }
     setSaving(true);
@@ -170,10 +172,10 @@ export default function ProfileEditScreen() {
         interests,
       });
       setProfile(updated);
-      toast.show('Profile updated.', 'success');
+      toast.show(t('profileEdit.saved'), 'success');
       goBack('/(tabs)/profile');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save', 'error');
+      toast.show(e instanceof Error ? e.message : t('profileEdit.saveFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -189,14 +191,14 @@ export default function ProfileEditScreen() {
         <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
           <Pressable
             onPress={() => goBack('/(tabs)/profile')}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('common.back')}
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
             <Ionicons name="chevron-back" size={18} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Edit profile
+            {t('profileEdit.title')}
           </Text>
           <View className="h-9 w-9" />
         </View>
@@ -212,29 +214,29 @@ export default function ProfileEditScreen() {
           </View>
 
           <Input
-            label="Display name"
+            label={t('profileEdit.displayName')}
             value={displayName}
             onChangeText={setDisplayName}
-            placeholder="Your name"
+            placeholder={t('profileEdit.namePlaceholder')}
           />
 
           <View>
             <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-              Handle
+              {t('profileEdit.handle')}
             </Text>
             <View className="flex-row items-center rounded-xl border border-border-light bg-elevated-light px-4 py-2.5 dark:border-border-dark dark:bg-elevated-dark">
               <Text className="text-[15px] text-muted-light">@{profile.username}</Text>
             </View>
             <Text className="mt-1.5 text-xs text-muted-light dark:text-muted-dark">
-              Handles are permanent for now. Contact support to change yours.
+              {t('profileEdit.handleHint')}
             </Text>
           </View>
 
           <Input
-            label="Bio"
+            label={t('profileEdit.bio')}
             value={bio}
             onChangeText={setBio}
-            placeholder="A short line about you."
+            placeholder={t('profileEdit.bioPlaceholder')}
             multiline
             maxLength={240}
             helperText={`${bio.length}/240`}
@@ -252,7 +254,7 @@ export default function ProfileEditScreen() {
                 one is confirmed, so cancelling loses nothing. */}
           <View>
             <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-              Phone
+              {t('profileEdit.phone')}
             </Text>
             {isVerified && !changingNumber ? (
               <>
@@ -262,11 +264,11 @@ export default function ProfileEditScreen() {
                   </Text>
                   <View
                     className="flex-row items-center gap-1"
-                    accessibilityLabel="Phone number verified"
+                    accessibilityLabel={t('profileEdit.phoneVerified')}
                   >
                     <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
                     <Text className="text-xs font-semibold text-green-700">
-                      Verified
+                      {t('profileEdit.verified')}
                     </Text>
                   </View>
                 </View>
@@ -275,10 +277,10 @@ export default function ProfileEditScreen() {
                   className="mt-1.5 self-start"
                   hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel="Change phone number"
+                  accessibilityLabel={t('profileEdit.changePhone')}
                 >
                   <Text className="text-xs font-semibold text-brand-500 underline">
-                    Change phone number
+                    {t('profileEdit.changePhone')}
                   </Text>
                 </Pressable>
               </>
@@ -289,7 +291,7 @@ export default function ProfileEditScreen() {
                     <Input
                       value={phone}
                       onChangeText={setPhone}
-                      placeholder="+15551234567"
+                      placeholder={t('profileEdit.phonePlaceholder')}
                       keyboardType="phone-pad"
                       autoCapitalize="none"
                     />
@@ -312,13 +314,12 @@ export default function ProfileEditScreen() {
                           : 'text-surface-light dark:text-surface-dark',
                       ].join(' ')}
                     >
-                      {sendingOtp ? 'Sending…' : 'Verify'}
+                      {sendingOtp ? t('profileEdit.sending') : t('profileEdit.verify')}
                     </Text>
                   </Pressable>
                 </View>
                 <Text className="mt-1.5 text-xs text-muted-light dark:text-muted-dark">
-                  Include country code (e.g. +1 for US, +380 for UA). We
-                  text a 6-digit code to confirm the number.
+                  {t('profileEdit.countryCodeHint')}
                 </Text>
                 {changingNumber ? (
                   // Bail-out for change mode: nothing was lost — the
@@ -334,7 +335,7 @@ export default function ProfileEditScreen() {
                     accessibilityRole="button"
                   >
                     <Text className="text-xs font-semibold text-muted-light underline dark:text-muted-dark">
-                      Keep current number
+                      {t('profileEdit.keepCurrent')}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -346,7 +347,7 @@ export default function ProfileEditScreen() {
           <View>
             <View className="mb-2 flex-row items-baseline justify-between">
               <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-                Interests
+                {t('profileEdit.interests')}
               </Text>
               <Text className="text-[11px] text-muted-light">
                 {interests.length}/{MAX_INTERESTS}
@@ -375,7 +376,7 @@ export default function ProfileEditScreen() {
                           : 'text-text-light dark:text-text-dark',
                       ].join(' ')}
                     >
-                      {i.label}
+                      {t(i.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -388,7 +389,7 @@ export default function ProfileEditScreen() {
           </View>
 
           <PrimaryButton
-            label="Save changes"
+            label={t('profileEdit.save')}
             onPress={handleSave}
             loading={saving}
             fullWidth
@@ -401,7 +402,7 @@ export default function ProfileEditScreen() {
       <BottomSheet open={otpOpen} onClose={() => setOtpOpen(false)} autoHeight>
         <View className="gap-3 pb-2">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Verify phone
+            {t('profileEdit.verifyPhone')}
           </Text>
           <Text className="text-sm text-muted-light dark:text-muted-dark">
             We sent a 6-digit code to {otpPhone}. Enter it below to link
@@ -410,7 +411,7 @@ export default function ProfileEditScreen() {
           <Input
             value={otpCode}
             onChangeText={(t) => setOtpCode(t.replace(/[^0-9]/g, ''))}
-            placeholder="123456"
+            placeholder={t('profileEdit.codePlaceholder')}
             keyboardType="number-pad"
             maxLength={6}
             autoFocus
@@ -418,7 +419,7 @@ export default function ProfileEditScreen() {
           <View className="flex-row gap-2">
             <View className="flex-1">
               <PrimaryButton
-                label="Resend"
+                label={t('profileEdit.resend')}
                 variant="secondary"
                 onPress={handleSendOtp}
                 loading={sendingOtp}
@@ -427,7 +428,7 @@ export default function ProfileEditScreen() {
             </View>
             <View className="flex-1">
               <PrimaryButton
-                label="Verify"
+                label={t('profileEdit.verify')}
                 onPress={handleVerifyOtp}
                 loading={verifyingOtp}
                 fullWidth

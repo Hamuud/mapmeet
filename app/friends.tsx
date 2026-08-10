@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -18,6 +19,7 @@ type Tab = 'friends' | 'requests';
 
 /** Full friends list + inbound requests. Rows route to the DM room. */
 export default function FriendsScreen() {
+  const t = useT();
   const toast = useToast();
   const iconColor = useIconColor();
   const { session } = useAuth();
@@ -43,7 +45,7 @@ export default function FriendsScreen() {
       setFriends(f);
       setPending(p);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not load friends', 'error');
+      toast.show(e instanceof Error ? e.message : t('friends.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ export default function FriendsScreen() {
         await load();
         toast.show(`You and ${row.other.display_name} are friends now.`, 'success');
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not accept', 'error');
+        toast.show(e instanceof Error ? e.message : t('friends.acceptFailed'), 'error');
       }
     },
     [load, toast],
@@ -72,7 +74,7 @@ export default function FriendsScreen() {
         await friendshipsService.remove(row.other.id);
         await load();
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+        toast.show(e instanceof Error ? e.message : t('friends.removeFailed'), 'error');
       }
     },
     [load, toast],
@@ -85,14 +87,14 @@ export default function FriendsScreen() {
       <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/profile')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
           <Ionicons name="chevron-back" size={18} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          Friends
+          {t('friends.title')}
         </Text>
         <View className="h-9 w-9" />
       </View>
@@ -100,13 +102,13 @@ export default function FriendsScreen() {
       <View className="px-5 pb-3 pt-2">
         <View className="mt-2 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <Segment
-            label="Friends"
+            label={t('friends.tabFriends')}
             count={friends.length}
             selected={tab === 'friends'}
             onPress={() => setTab('friends')}
           />
           <Segment
-            label="Requests"
+            label={t('friends.tabRequests')}
             count={pending.length}
             selected={tab === 'requests'}
             onPress={() => setTab('requests')}
@@ -143,20 +145,20 @@ export default function FriendsScreen() {
         )}
         ListEmptyComponent={
           loading ? (
-            <EmptyState emoji="⏳" title="Loading…" />
+            <EmptyState emoji="⏳" title={t('common.loading')} />
           ) : tab === 'friends' ? (
             <EmptyState
               emoji="🫂"
-              title="No friends yet"
-              description="Tap Add friend on a profile — once they accept, they'll show up here."
-              actionLabel="Open map"
+              title={t('friends.empty')}
+              description={t('friends.emptyHint')}
+              actionLabel={t('events.openMap')}
               onAction={() => router.push('/(tabs)/map')}
             />
           ) : (
             <EmptyState
               emoji="📥"
-              title="No pending requests"
-              description="Friend requests from other users appear here."
+              title={t('friends.noRequests')}
+              description={t('friends.noRequestsHint')}
             />
           )
         }
@@ -164,9 +166,9 @@ export default function FriendsScreen() {
 
       <ConfirmationDialog
         open={!!pendingUnfriend}
-        title={`Remove ${pendingUnfriend?.other.display_name ?? ''} from friends?`}
-        message="You'll both stop being friends and lose unlimited messaging. You can add them again later."
-        confirmLabel="Remove"
+        title={t('user.unfriendTitle', { name: pendingUnfriend?.other.display_name ?? '' })}
+        message={t('user.unfriendMessage')}
+        confirmLabel={t('common.remove')}
         destructive
         onConfirm={() => {
           const target = pendingUnfriend;
