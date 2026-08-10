@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { PollDetails, PollPayload } from '@/types';
@@ -16,6 +17,7 @@ type Props = {
  *  non-anonymous polls — the list of people who voted for it. Tapping a
  *  voter opens their profile. */
 export function PollResultsSheet({ open, onClose, poll, details }: Props) {
+  const t = useT();
   const total = (poll?.options ?? []).reduce((s, o) => s + (o.votes ?? 0), 0);
 
   return (
@@ -23,7 +25,7 @@ export function PollResultsSheet({ open, onClose, poll, details }: Props) {
       <View className="gap-3 pb-2">
         <View className="gap-0.5">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark" numberOfLines={2}>
-            {poll?.question ?? 'Results'}
+            {poll?.question ?? t('poll.results')}
           </Text>
           <Text className="text-xs text-muted-light">
             {total} {total === 1 ? 'vote' : 'votes'}
@@ -33,7 +35,7 @@ export function PollResultsSheet({ open, onClose, poll, details }: Props) {
         {poll?.anonymous ? (
           <View className="rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
             <Text className="text-sm text-muted-light">
-              This poll is anonymous — only the totals are shown.
+              {t('poll.anonymousNote')}
             </Text>
           </View>
         ) : (

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -23,6 +24,7 @@ const EMOJI_CHOICES = ['💬', '🎉', '🍕', '⚽', '🎸', '🏔️', '🎮',
 /** Create-group sheet: name + emoji + pick friends. Only friends are
  *  selectable (the server enforces the same rule). */
 export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
+  const t = useT();
   const toast = useToast();
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(EMOJI_CHOICES[0]!);
@@ -54,11 +56,11 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
   const handleCreate = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.show('Give the group a name.', 'error');
+      toast.show(t('newGroup.needName'), 'error');
       return;
     }
     if (selected.size === 0) {
-      toast.show('Pick at least one friend.', 'error');
+      toast.show(t('newGroup.needFriend'), 'error');
       return;
     }
     setCreating(true);
@@ -68,7 +70,7 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
       onClose();
       router.navigate({ pathname: '/group/[id]', params: { id: groupId } });
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not create group', 'error');
+      toast.show(e instanceof Error ? e.message : t('newGroup.failed'), 'error');
     } finally {
       setCreating(false);
     }
@@ -78,7 +80,7 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
     <BottomSheet open={open} onClose={onClose} heightPct={0.85} autoHeight>
       <View className="gap-4 pb-2">
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          New group
+          {t('newGroup.title')}
         </Text>
 
         {/* Emoji + name row */}
@@ -90,7 +92,7 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Group name"
+              placeholder={t('newGroup.namePlaceholder')}
               placeholderTextColor="#8B8880"
               maxLength={60}
               className="text-[15px] text-text-light outline-none dark:text-text-dark"
@@ -119,7 +121,7 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
         {/* Friend picker */}
         <View className="flex-row items-baseline justify-between">
           <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            Add friends
+            {t('newGroup.addFriends')}
           </Text>
           <Text className="text-[11px] text-muted-light">{selected.size} selected</Text>
         </View>
@@ -127,10 +129,10 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
         {friends.length === 0 ? (
           <View className="items-center gap-1 rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
             <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-              No friends yet
+              {t('newGroup.noFriends')}
             </Text>
             <Text className="text-center text-xs text-muted-light">
-              Add friends from their profile first — groups are made of your friends.
+              {t('newGroup.noFriendsHint')}
             </Text>
           </View>
         ) : (
@@ -174,7 +176,7 @@ export function NewGroupSheet({ open, viewerId, onClose, onCreated }: Props) {
         )}
 
         <PrimaryButton
-          label="Create group"
+          label={t('newGroup.create')}
           loading={creating}
           disabled={!name.trim() || selected.size === 0}
           onPress={handleCreate}

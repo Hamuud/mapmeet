@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
@@ -44,6 +45,7 @@ const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
 
 /** Chat room for one event. The chat id IS the event id. */
 export default function ChatRoomScreen() {
+  const t = useT();
   const { id: eventId } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
   const iconColor = useIconColor();
@@ -129,7 +131,7 @@ export default function ChatRoomScreen() {
       // delivers the update, this just makes the tap feel instant).
       await refetch();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotVote'), 'error');
     }
   };
 
@@ -147,7 +149,7 @@ export default function ChatRoomScreen() {
     try {
       await recorder.start();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRecord'), 'error');
     }
   };
 
@@ -167,7 +169,7 @@ export default function ChatRoomScreen() {
         rec.waveform,
       );
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotSendVoice'), 'error');
     }
   };
 
@@ -175,7 +177,7 @@ export default function ChatRoomScreen() {
     try {
       await messagesService.toggleReaction(message.id, emoji);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not react', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotReact'), 'error');
     }
   };
 
@@ -188,8 +190,8 @@ export default function ChatRoomScreen() {
     // anyway.
     if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
       void navigator.clipboard?.writeText(target.text).then(
-        () => toast.show('Copied.', 'success'),
-        () => toast.show('Could not copy', 'error'),
+        () => toast.show(t('room.copied'), 'success'),
+        () => toast.show(t('room.couldNotCopy'), 'error'),
       );
     }
   };
@@ -201,7 +203,7 @@ export default function ChatRoomScreen() {
     try {
       await messagesService.deleteForMe(target.id);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not delete', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotDelete'), 'error');
     }
   };
 
@@ -212,7 +214,7 @@ export default function ChatRoomScreen() {
     try {
       await messagesService.hide(target.id);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRemove'), 'error');
     }
   };
 
@@ -221,9 +223,9 @@ export default function ChatRoomScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="💬"
-          title="Chat not found"
-          description="This event may have ended or been deleted."
-          actionLabel="Back to chats"
+          title={t('room.notFound')}
+          description={t('room.notFoundHint')}
+          actionLabel={t('room.backToChats')}
           onAction={() => goBack('/(tabs)/chat')}
         />
       </SafeAreaView>
@@ -238,7 +240,7 @@ export default function ChatRoomScreen() {
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -247,7 +249,7 @@ export default function ChatRoomScreen() {
 
         <Pressable
           onPress={() => setEventOpen(true)}
-          accessibilityLabel="Event details"
+          accessibilityLabel={t('room.eventDetails')}
           className="flex-1 flex-row items-center gap-2.5 active:opacity-80"
         >
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
@@ -285,7 +287,7 @@ export default function ChatRoomScreen() {
 
         <Pressable
           onPress={() => setMembersOpen(true)}
-          accessibilityLabel="Members"
+          accessibilityLabel={t('room.members')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -335,8 +337,8 @@ export default function ChatRoomScreen() {
               <View style={{ transform: [{ scaleY: -1 }] }}>
                 <EmptyState
                   emoji="👋"
-                  title="Say hi"
-                  description="You're in — start the conversation."
+                  title={t('room.sayHi')}
+                  description={t('room.sayHiHint')}
                 />
               </View>
             ) : null
@@ -350,7 +352,7 @@ export default function ChatRoomScreen() {
           <MessageInput
             onSend={handleSend}
             onAttach={() =>
-              toast.show('Photos and video land next update.', 'info')
+              toast.show(t('room.attachSoon'), 'info')
             }
             onCreatePoll={() => setPollOpen(true)}
             replyingTo={replyingTo}
@@ -424,7 +426,7 @@ export default function ChatRoomScreen() {
                   if (target) void handleToggleReaction(target, emoji);
                 }}
                 className="h-11 w-11 items-center justify-center rounded-full bg-elevated-light active:opacity-70 dark:bg-elevated-dark"
-                accessibilityLabel={`React ${emoji}`}
+                accessibilityLabel={t('room.react', { emoji })}
               >
                 <Text style={{ fontSize: 22 }}>{emoji}</Text>
               </Pressable>
@@ -432,7 +434,7 @@ export default function ChatRoomScreen() {
           </View>
 
           <PrimaryButton
-            label="Reply"
+            label={t('room.reply')}
             variant="secondary"
             leftIcon={<Ionicons name="arrow-undo-outline" size={14} color="#4B5FE0" />}
             onPress={() => {
@@ -443,7 +445,7 @@ export default function ChatRoomScreen() {
           />
           {Platform.OS === 'web' && actionTarget?.type === 'text' ? (
             <PrimaryButton
-              label="Copy text"
+              label={t('room.copyText')}
               variant="secondary"
               leftIcon={<Ionicons name="copy-outline" size={14} color="#4B5FE0" />}
               onPress={handleCopyText}
@@ -451,14 +453,14 @@ export default function ChatRoomScreen() {
             />
           ) : null}
           <PrimaryButton
-            label="Delete for me"
+            label={t('room.deleteForMe')}
             variant="secondary"
             onPress={handleDeleteForMe}
             fullWidth
           />
           {isHost && actionTarget && !actionTarget.hidden ? (
             <PrimaryButton
-              label="Remove for everyone"
+              label={t('room.removeForEveryone')}
               variant="destructive-outline"
               onPress={handleHide}
               fullWidth

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { useT, type TFunction } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useIconColor } from '@/hooks/useIconColor';
 import type { MessageWithSender } from '@/types';
@@ -35,22 +36,22 @@ function fmt(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function replySnippet(m: MessageWithSender): string {
+function replySnippet(m: MessageWithSender, t: TFunction): string {
   switch (m.type) {
     case 'text':
       return m.text ?? '';
     case 'image':
-      return '📷 Photo';
+      return t('chat.photo');
     case 'video':
-      return '🎥 Video';
+      return t('chat.video');
     case 'location':
-      return '📍 Location';
+      return t('chat.locationMsg');
     case 'audio':
-      return '🎤 Voice message';
+      return t('chat.voiceMessage');
     case 'poll':
-      return `📊 ${m.poll?.question ?? 'Poll'}`;
+      return `📊 ${m.poll?.question ?? t('chat.poll')}`;
     case 'invite':
-      return '🎟 Event invite';
+      return t('chat.eventInvite');
     case 'system':
       return m.text ?? '';
   }
@@ -71,6 +72,7 @@ export function MessageInput({
   onFinishVoice,
   onCancelVoice,
 }: Props) {
+  const t = useT();
   const iconColor = useIconColor();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -100,16 +102,16 @@ export function MessageInput({
           <View className="h-8 w-0.5 rounded-full bg-brand-500" />
           <View className="flex-1">
             <Text className="text-[11px] font-semibold text-brand-500" numberOfLines={1}>
-              Replying to {replyingTo.sender?.display_name ?? 'message'}
+              {t('input.replyingTo', { name: replyingTo.sender?.display_name ?? t('input.aMessage') })}
             </Text>
             <Text
               className="text-[12px] text-muted-light dark:text-muted-dark"
               numberOfLines={1}
             >
-              {replySnippet(replyingTo)}
+              {replySnippet(replyingTo, t)}
             </Text>
           </View>
-          <Pressable onPress={onCancelReply} hitSlop={8} accessibilityLabel="Cancel reply">
+          <Pressable onPress={onCancelReply} hitSlop={8} accessibilityLabel={t('input.cancelReply')}>
             <Ionicons name="close-circle" size={18} color="#8B8880" />
           </Pressable>
         </View>
@@ -123,18 +125,18 @@ export function MessageInput({
             {fmt(recordingMs)}
           </Text>
           <Text className="flex-1 text-xs text-muted-light dark:text-muted-dark">
-            Recording…
+            {t('input.recording')}
           </Text>
           <Pressable
             onPress={onCancelVoice}
-            accessibilityLabel="Cancel recording"
+            accessibilityLabel={t('input.cancelRecording')}
             className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
           >
             <Ionicons name="trash-outline" size={17} color="#B91C1C" />
           </Pressable>
           <Pressable
             onPress={onFinishVoice}
-            accessibilityLabel="Send voice message"
+            accessibilityLabel={t('input.sendVoice')}
             className="h-11 w-11 items-center justify-center rounded-full bg-accent-400"
           >
             <Ionicons name="paper-plane" size={17} color="#fff" />
@@ -144,7 +146,7 @@ export function MessageInput({
         <View className="flex-row items-end gap-2 px-3 py-2">
           <Pressable
             onPress={onCreatePoll ? () => setMenuOpen(true) : onAttach}
-            accessibilityLabel="Add attachment"
+            accessibilityLabel={t('input.addAttachment')}
             className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
           >
             <Ionicons name="add" size={20} color={iconColor} />
@@ -154,7 +156,7 @@ export function MessageInput({
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Message the group…"
+              placeholder={t('room.messagePlaceholder')}
               placeholderTextColor="#8B8880"
               multiline
               // Desktop web: Enter sends, Shift+Enter makes a newline —
@@ -181,7 +183,7 @@ export function MessageInput({
             <Pressable
               onPress={handleSend}
               disabled={sending}
-              accessibilityLabel="Send message"
+              accessibilityLabel={t('input.sendMessage')}
               className="h-11 w-11 items-center justify-center rounded-full bg-accent-400"
             >
               {sending ? (
@@ -193,7 +195,7 @@ export function MessageInput({
           ) : (
             <Pressable
               onPress={onStartVoice}
-              accessibilityLabel="Record voice message"
+              accessibilityLabel={t('input.recordVoice')}
               className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
             >
               <Ionicons name="mic" size={18} color={iconColor} />
@@ -207,7 +209,7 @@ export function MessageInput({
         <View className="gap-1 pb-1">
           <AttachMenuItem
             icon="image-outline"
-            label="Photo or video"
+            label={t('input.photoOrVideo')}
             onPress={() => {
               setMenuOpen(false);
               onAttach?.();
@@ -215,7 +217,7 @@ export function MessageInput({
           />
           <AttachMenuItem
             icon="stats-chart"
-            label="Create a poll"
+            label={t('input.createPoll')}
             onPress={() => {
               setMenuOpen(false);
               onCreatePoll?.();

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
@@ -43,6 +44,7 @@ const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
  *  non-friends lives on the server — the composer swaps for a lock
  *  strip once the cap is hit. */
 export default function DmRoomScreen() {
+  const t = useT();
   const { username: handleParam } = useLocalSearchParams<{ username: string }>();
   const handle = (handleParam ?? '').trim();
   const toast = useToast();
@@ -92,7 +94,7 @@ export default function DmRoomScreen() {
     (async () => {
       try {
         const profile = await profilesService.getByHandle(handle);
-        if (!profile) throw new Error('User not found');
+        if (!profile) throw new Error(t('dm.userNotFound'));
         if (cancelled) return;
         setOther(profile);
         if (looksLikeUuid(handle) && profile.username !== handle) {
@@ -108,7 +110,7 @@ export default function DmRoomScreen() {
         void loadBlockState(profile.id);
         await refetch(id);
       } catch (e) {
-        if (!cancelled) toast.show(e instanceof Error ? e.message : 'Could not open DM', 'error');
+        if (!cancelled) toast.show(e instanceof Error ? e.message : t('dm.couldNotOpen'), 'error');
       }
     })();
     return () => {
@@ -211,7 +213,7 @@ export default function DmRoomScreen() {
         await pollsService.vote(message.id, optionId);
         await refetch(dmId);
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+        toast.show(e instanceof Error ? e.message : t('room.couldNotVote'), 'error');
       }
     },
     [dmId, refetch, toast],
@@ -234,7 +236,7 @@ export default function DmRoomScreen() {
     try {
       await recorder.start();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRecord'), 'error');
     }
   }, [recorder, toast, moderationGuard]);
 
@@ -248,7 +250,7 @@ export default function DmRoomScreen() {
       await dmsService.sendVoice(other.id, dmId, viewerId, rec.uri, rec.durationMs, rec.waveform, replyTo);
       await refetch(dmId);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotSendVoice'), 'error');
     }
   }, [other, dmId, viewerId, recorder, replyingTo, refetch, toast]);
 
@@ -259,7 +261,7 @@ export default function DmRoomScreen() {
         await dmsService.toggleReaction(message.id, emoji);
         await refetch(dmId);
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not react', 'error');
+        toast.show(e instanceof Error ? e.message : t('room.couldNotReact'), 'error');
       }
     },
     [dmId, refetch, toast],
@@ -271,11 +273,11 @@ export default function DmRoomScreen() {
       await friendshipsService.request(other.id);
       setFriendship(await friendshipsService.getState(viewerId, other.id));
       toast.show(
-        friendship === 'incoming' ? "You're friends now." : 'Friend request sent.',
+        friendship === 'incoming' ? t('dm.friendsNow') : t('dm.requestSent'),
         'success',
       );
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send request', 'error');
+      toast.show(e instanceof Error ? e.message : t('dm.couldNotSendRequest'), 'error');
     }
   }, [other, viewerId, friendship, toast]);
 
@@ -289,7 +291,7 @@ export default function DmRoomScreen() {
       await refetch(dmId);
       toast.show(`${other.display_name} blocked.`, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not block', 'error');
+      toast.show(e instanceof Error ? e.message : t('dm.couldNotBlock'), 'error');
     }
   }, [other, dmId, refetch, toast]);
 
@@ -300,16 +302,16 @@ export default function DmRoomScreen() {
       await dmsService.unblock(other.id);
       setBlock((s) => ({ ...s, iBlocked: false }));
       await refetch(dmId);
-      toast.show('Unblocked.', 'success');
+      toast.show(t('dm.unblocked'), 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not unblock', 'error');
+      toast.show(e instanceof Error ? e.message : t('dm.couldNotUnblock'), 'error');
     }
   }, [other, dmId, refetch, toast]);
 
   if (!other) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <EmptyState emoji="💬" title="Loading DM…" />
+        <EmptyState emoji="💬" title={t('room.loadingDm')} />
       </SafeAreaView>
     );
   }
@@ -320,7 +322,7 @@ export default function DmRoomScreen() {
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -357,7 +359,7 @@ export default function DmRoomScreen() {
               numberOfLines={1}
             >
               {block.theyBlocked
-                ? 'last seen a long time ago'
+                ? t('presence.longAgo')
                 : formatLastSeen(other.last_seen_at, now)}
             </Text>
           </View>
@@ -366,20 +368,20 @@ export default function DmRoomScreen() {
           <Pressable
             onPress={handleAddFriend}
             className="rounded-full bg-brand-500 px-3 py-1.5"
-            accessibilityLabel={friendship === 'incoming' ? 'Accept friend request' : 'Send friend request'}
+            accessibilityLabel={friendship === 'incoming' ? t('dm.acceptRequest') : t('dm.sendRequest')}
           >
             <Text className="text-xs font-semibold text-white">
               {friendship === 'incoming'
-                ? 'Accept'
+                ? t('dm.accept')
                 : friendship === 'outgoing'
-                  ? 'Requested'
-                  : 'Add friend'}
+                  ? t('dm.requested')
+                  : t('dm.addFriend')}
             </Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => setMenuOpen(true)}
-          accessibilityLabel="More options"
+          accessibilityLabel={t('dm.moreOptions')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -424,7 +426,7 @@ export default function DmRoomScreen() {
             <View style={{ transform: [{ scaleY: -1 }] }}>
               <EmptyState
                 emoji="👋"
-                title="Say hi"
+                title={t('room.sayHi')}
                 description={
                   friendship === 'friends'
                     ? "You're friends — chat away."
@@ -445,14 +447,14 @@ export default function DmRoomScreen() {
             >
               <Ionicons name="lock-open-outline" size={16} color="#B91C1C" />
               <Text className="text-[15px] font-bold uppercase tracking-wide text-red-600">
-                Unblock
+                {t('dm.unblock')}
               </Text>
             </Pressable>
           ) : block.theyBlocked ? (
             <View className="flex-row items-center justify-center gap-2 border-t border-border-light bg-panel-light py-4 dark:border-border-dark dark:bg-panel-dark">
               <Ionicons name="ban" size={14} color="#8B8880" />
               <Text className="text-xs text-muted-light">
-                You can't message this user.
+                {t('dm.cannotMessage')}
               </Text>
             </View>
           ) : nonFriendBlocked ? (
@@ -463,14 +465,14 @@ export default function DmRoomScreen() {
               </Text>
               <Pressable onPress={handleAddFriend} className="rounded-full bg-brand-500 px-3 py-1.5">
                 <Text className="text-xs font-semibold text-white">
-                  {friendship === 'incoming' ? 'Accept' : 'Add friend'}
+                  {friendship === 'incoming' ? t('dm.accept') : t('dm.addFriend')}
                 </Text>
               </Pressable>
             </View>
           ) : (
             <MessageInput
               onSend={handleSend}
-              onAttach={() => toast.show('Photos and video land next update.', 'info')}
+              onAttach={() => toast.show(t('room.attachSoon'), 'info')}
               onCreatePoll={() => setPollOpen(true)}
               replyingTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
@@ -489,7 +491,7 @@ export default function DmRoomScreen() {
         <View className="gap-2 pb-2">
           {block.iBlocked ? (
             <PrimaryButton
-              label={`Unblock ${other.display_name}`}
+              label={t('dm.unblockUser', { name: other.display_name })}
               variant="secondary"
               leftIcon={<Ionicons name="lock-open-outline" size={14} color="#4B5FE0" />}
               onPress={handleUnblock}
@@ -497,7 +499,7 @@ export default function DmRoomScreen() {
             />
           ) : (
             <PrimaryButton
-              label={`Block ${other.display_name}`}
+              label={t('dm.blockUser', { name: other.display_name })}
               variant="destructive-outline"
               leftIcon={<Ionicons name="ban" size={14} color="#B91C1C" />}
               onPress={() => {
@@ -512,9 +514,9 @@ export default function DmRoomScreen() {
 
       <ConfirmationDialog
         open={confirmBlock}
-        title={`Block ${other.display_name}?`}
-        message="They won't be able to message you or see the events you're attending. You can unblock them anytime."
-        confirmLabel="Block"
+        title={t('dm.blockTitle', { name: other.display_name })}
+        message={t('dm.blockMessage')}
+        confirmLabel={t('dm.blockConfirm')}
         destructive
         onConfirm={handleBlock}
         onCancel={() => setConfirmBlock(false)}
@@ -546,14 +548,14 @@ export default function DmRoomScreen() {
                   if (target) void handleToggleReaction(target, emoji);
                 }}
                 className="h-11 w-11 items-center justify-center rounded-full bg-elevated-light active:opacity-70 dark:bg-elevated-dark"
-                accessibilityLabel={`React ${emoji}`}
+                accessibilityLabel={t('room.react', { emoji })}
               >
                 <Text style={{ fontSize: 22 }}>{emoji}</Text>
               </Pressable>
             ))}
           </View>
           <PrimaryButton
-            label="Reply"
+            label={t('room.reply')}
             variant="secondary"
             leftIcon={<Ionicons name="arrow-undo-outline" size={14} color="#4B5FE0" />}
             onPress={() => {

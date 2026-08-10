@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -19,6 +20,7 @@ const MIN_OPTIONS = 2;
  *  with two, add/remove freely), and an anonymous toggle. The server
  *  re-validates and enforces the ≥2 rule. */
 export function PollComposerSheet({ open, onClose, onCreate }: Props) {
+  const t = useT();
   const toast = useToast();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
@@ -53,7 +55,7 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
       await onCreate(question.trim(), cleaned, anonymous);
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not create poll', 'error');
+      toast.show(e instanceof Error ? e.message : t('poll.createFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -65,20 +67,20 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
         <View className="flex-row items-center gap-2">
           <Ionicons name="stats-chart" size={18} color="#4B5FE0" />
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            New poll
+            {t('poll.newPoll')}
           </Text>
         </View>
 
         {/* Question */}
         <View className="gap-1.5">
           <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            Question
+            {t('poll.question')}
           </Text>
           <View className="rounded-2xl border border-border-light bg-elevated-light px-4 py-3 dark:border-border-dark dark:bg-elevated-dark">
             <TextInput
               value={question}
               onChangeText={setQuestion}
-              placeholder="Ask something…"
+              placeholder={t('poll.questionPlaceholder')}
               placeholderTextColor="#8B8880"
               maxLength={200}
               multiline
@@ -90,7 +92,7 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
         {/* Options */}
         <View className="gap-1.5">
           <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            Options
+            {t('poll.options')}
           </Text>
           <ScrollView style={{ maxHeight: 260 }} showsVerticalScrollIndicator={false}>
             <View className="gap-2">
@@ -100,7 +102,7 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
                     <TextInput
                       value={opt}
                       onChangeText={(v) => setOption(i, v)}
-                      placeholder={`Option ${i + 1}`}
+                      placeholder={t('poll.optionN', { n: i + 1 })}
                       placeholderTextColor="#8B8880"
                       maxLength={100}
                       className="text-[15px] text-text-light outline-none dark:text-text-dark"
@@ -110,7 +112,7 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
                     <Pressable
                       onPress={() => removeOption(i)}
                       hitSlop={6}
-                      accessibilityLabel={`Remove option ${i + 1}`}
+                      accessibilityLabel={t('poll.removeOption', { n: i + 1 })}
                       className="h-9 w-9 items-center justify-center rounded-full"
                     >
                       <Ionicons name="close-circle" size={20} color="#8B8880" />
@@ -135,10 +137,10 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
         <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
           <View className="flex-1 pr-3">
             <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-              Anonymous
+              {t('poll.anonymous')}
             </Text>
             <Text className="text-xs text-muted-light">
-              Hide who voted — only the totals are shown.
+              {t('poll.anonymousHint')}
             </Text>
           </View>
           <Switch
@@ -150,7 +152,7 @@ export function PollComposerSheet({ open, onClose, onCreate }: Props) {
         </View>
 
         <PrimaryButton
-          label="Create poll"
+          label={t('poll.create')}
           loading={busy}
           disabled={!canCreate}
           onPress={handleCreate}

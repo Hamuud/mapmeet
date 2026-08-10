@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { useT, type TFunction } from '@/i18n';
 import { AudioBubble } from '@/components/chat/AudioBubble';
 import { Avatar } from '@/components/ui/Avatar';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
@@ -107,7 +108,7 @@ function Ticks({ read }: { read: boolean }) {
 }
 
 /** One-line summary of a message for the reply quote. */
-function snippet(m: MessageWithSender): string {
+function snippet(m: MessageWithSender, t: TFunction): string {
   switch (m.type) {
     case 'text':
       return m.text ?? '';
@@ -120,7 +121,7 @@ function snippet(m: MessageWithSender): string {
     case 'audio':
       return '🎤 Voice message';
     case 'poll':
-      return `📊 ${m.poll?.question ?? 'Poll'}`;
+      return `📊 ${m.poll?.question ?? t('chat.poll')}`;
     case 'invite':
       return '🎟 Event invite';
     case 'system':
@@ -152,6 +153,7 @@ export function MessageBubble({
   onReply,
   onContextMenu,
 }: Props) {
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const rowRef = useRef<View | null>(null);
 
@@ -232,7 +234,7 @@ export function MessageBubble({
     return (
       <View className={`my-0.5 px-4 ${isOwn ? 'items-end' : 'items-start'}`}>
         <Text className="text-xs italic text-muted-light dark:text-muted-dark">
-          Message removed by the host
+          {t('bubble.removedByHost')}
         </Text>
       </View>
     );
@@ -240,7 +242,7 @@ export function MessageBubble({
 
   // System-authored polls (the automatic "Who's coming?") have no sender.
   const senderName =
-    message.sender?.display_name ?? (message.type === 'poll' ? 'MapMeet' : 'Unknown');
+    message.sender?.display_name ?? (message.type === 'poll' ? 'MapMeet' : t('bubble.unknownSender'));
   const read = message.read_by.length > 0;
   const reactionEntries = Object.entries(message.reactions ?? {}).filter(
     ([, users]) => users.length > 0,
@@ -252,7 +254,7 @@ export function MessageBubble({
     isWeb && hovered && favoriteReaction && onToggleReaction ? (
       <Pressable
         onPress={() => onToggleReaction(message, favoriteReaction)}
-        accessibilityLabel={`React ${favoriteReaction}`}
+        accessibilityLabel={t('room.react', { emoji: favoriteReaction })}
         className="mx-1.5 h-8 w-8 items-center justify-center self-center rounded-full border border-border-light bg-elevated-light shadow-sm shadow-black/20 dark:border-border-dark dark:bg-elevated-dark"
       >
         <Text style={{ fontSize: 15 }}>{favoriteReaction}</Text>
@@ -302,7 +304,7 @@ export function MessageBubble({
               }
               numberOfLines={1}
             >
-              {repliedTo?.sender?.display_name ?? 'Original message'}
+              {repliedTo?.sender?.display_name ?? t('bubble.originalMessage')}
             </Text>
             <Text
               className={
@@ -312,7 +314,7 @@ export function MessageBubble({
               }
               numberOfLines={1}
             >
-              {repliedTo ? snippet(repliedTo) : 'Message unavailable'}
+              {repliedTo ? snippet(repliedTo, t) : t('bubble.messageUnavailable')}
             </Text>
           </View>
         ) : null}
@@ -362,7 +364,7 @@ export function MessageBubble({
           />
         ) : (
           <Text className="text-[15px] italic text-muted-light">
-            Unsupported message
+            {t('bubble.unsupported')}
           </Text>
         )}
 
@@ -500,6 +502,7 @@ export function MessageBubble({
  *  event and drops them into its chat. Expired or revoked tokens degrade
  *  to a plain "invite unavailable" line rather than a broken card. */
 function InviteCard({ token, isOwn }: { token: string; isOwn: boolean }) {
+  const t = useT();
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'gone'>('loading');
   const [joining, setJoining] = useState(false);
@@ -523,13 +526,13 @@ function InviteCard({ token, isOwn }: { token: string; isOwn: boolean }) {
 
   if (state === 'loading') {
     return (
-      <Text className="text-[13px] italic text-muted-light">Loading invite…</Text>
+      <Text className="text-[13px] italic text-muted-light">{t('bubble.loadingInvite')}</Text>
     );
   }
   if (state === 'gone' || !preview) {
     return (
       <Text className="text-[13px] italic text-muted-light">
-        🎟 This invite is no longer available
+        {t('bubble.inviteGone')}
       </Text>
     );
   }
@@ -608,7 +611,7 @@ function InviteCard({ token, isOwn }: { token: string; isOwn: boolean }) {
             expired ? 'text-muted-light' : 'text-white',
           ].join(' ')}
         >
-          {expired ? 'Invite expired' : joining ? 'Joining…' : 'Accept invite'}
+          {expired ? t('bubble.inviteExpired') : joining ? t('bubble.joining') : t('bubble.acceptInvite')}
         </Text>
       </Pressable>
     </View>
@@ -632,6 +635,7 @@ function PollCard({
   onVote: (optionId: string) => void;
   onViewResults?: () => void;
 }) {
+  const t = useT();
   const total = poll.options.reduce((sum, o) => sum + (o.votes ?? 0), 0);
   const myOption = details?.myOption ?? null;
   const hasVoted = myOption !== null;
@@ -658,7 +662,7 @@ function PollCard({
             <Pressable
               key={opt.id}
               onPress={() => onVote(opt.id)}
-              accessibilityLabel={`Vote ${opt.text}`}
+              accessibilityLabel={t('poll.vote', { option: opt.text })}
               className={[
                 'overflow-hidden rounded-xl border bg-surface-light px-3 py-2 dark:bg-surface-dark',
                 mine ? 'border-brand-500' : 'border-border-light dark:border-border-dark',
@@ -705,7 +709,7 @@ function PollCard({
                   <View />
                 )}
                 <Text className="text-[11px] text-muted-light">
-                  {votes} {votes === 1 ? 'vote' : 'votes'}
+                  {t('poll.votes', { count: votes })}
                 </Text>
               </View>
             </Pressable>
@@ -718,12 +722,12 @@ function PollCard({
           <>
             <Ionicons name="eye-off-outline" size={12} color="#8B8880" />
             <Text className="text-[11px] text-muted-light">
-              Anonymous · {total} {total === 1 ? 'vote' : 'votes'}
+              {t('poll.anonymousTally', { tally: t('poll.votes', { count: total }) })}
             </Text>
           </>
         ) : (
           <Text className="text-[11px] text-muted-light">
-            {total} {total === 1 ? 'vote' : 'votes'} · tap to vote
+            {t('poll.tapToVote', { tally: t('poll.votes', { count: total }) })}
           </Text>
         )}
       </View>
@@ -735,7 +739,7 @@ function PollCard({
           className="mt-0.5 flex-row items-center justify-center gap-1.5 rounded-xl border border-border-light bg-surface-light py-2 active:opacity-70 dark:border-border-dark dark:bg-surface-dark"
         >
           <Ionicons name="bar-chart-outline" size={14} color="#4B5FE0" />
-          <Text className="text-[13px] font-semibold text-brand-500">View results</Text>
+          <Text className="text-[13px] font-semibold text-brand-500">{t('poll.viewResults')}</Text>
         </Pressable>
       ) : null}
     </View>

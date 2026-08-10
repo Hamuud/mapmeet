@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
@@ -42,6 +43,7 @@ const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'] as const;
  *  features as event chats — replies, reactions, voice — reusing the
  *  shared MessageBubble + MessageInput. */
 export default function GroupRoomScreen() {
+  const t = useT();
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
   const iconColor = useIconColor();
@@ -91,7 +93,7 @@ export default function GroupRoomScreen() {
       setMembers(mem);
       void groupsService.markRead(groupId).catch(() => {});
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not open group', 'error');
+      toast.show(e instanceof Error ? e.message : t('group.couldNotOpen'), 'error');
     }
   }, [groupId, toast]);
 
@@ -162,7 +164,7 @@ export default function GroupRoomScreen() {
         await pollsService.vote(message.id, optionId);
         await refetch();
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not vote', 'error');
+        toast.show(e instanceof Error ? e.message : t('room.couldNotVote'), 'error');
       }
     },
     [refetch, toast],
@@ -185,7 +187,7 @@ export default function GroupRoomScreen() {
     try {
       await recorder.start();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not start recording', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRecord'), 'error');
     }
   }, [recorder, toast, moderationGuard]);
 
@@ -199,7 +201,7 @@ export default function GroupRoomScreen() {
       await groupsService.sendVoice(groupId, viewerId, rec.uri, rec.durationMs, rec.waveform, replyTo);
       await refetch();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send voice message', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotSendVoice'), 'error');
     }
   }, [groupId, viewerId, recorder, replyingTo, refetch, toast]);
 
@@ -209,7 +211,7 @@ export default function GroupRoomScreen() {
         await groupsService.toggleReaction(message.id, emoji);
         await refetch();
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Could not react', 'error');
+        toast.show(e instanceof Error ? e.message : t('room.couldNotReact'), 'error');
       }
     },
     [refetch, toast],
@@ -236,7 +238,7 @@ export default function GroupRoomScreen() {
       setShareUrl(invitesService.groupShareUrl(token));
     } catch (e) {
       setShareOpen(false);
-      toast.show(e instanceof Error ? e.message : 'Could not create link', 'error');
+      toast.show(e instanceof Error ? e.message : t('group.couldNotCreateLink'), 'error');
     }
   }, [groupId, toast]);
 
@@ -249,7 +251,7 @@ export default function GroupRoomScreen() {
       setMembers((prev) => prev.filter((m) => m.id !== target.id));
       toast.show(`${target.display_name} removed.`, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRemove'), 'error');
     }
   }, [groupId, pendingRemove, toast]);
 
@@ -258,17 +260,17 @@ export default function GroupRoomScreen() {
     setConfirmLeave(false);
     try {
       await groupsService.leave(groupId);
-      toast.show('You left the group.', 'success');
+      toast.show(t('group.left'), 'success');
       goBack('/(tabs)/chat');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not leave', 'error');
+      toast.show(e instanceof Error ? e.message : t('group.couldNotLeave'), 'error');
     }
   }, [groupId, toast]);
 
   if (!group) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <EmptyState emoji="💬" title="Loading group…" />
+        <EmptyState emoji="💬" title={t('room.loadingGroup')} />
       </SafeAreaView>
     );
   }
@@ -279,7 +281,7 @@ export default function GroupRoomScreen() {
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-2 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -304,7 +306,7 @@ export default function GroupRoomScreen() {
         </Pressable>
         <Pressable
           onPress={handleShare}
-          accessibilityLabel="Share group invite link"
+          accessibilityLabel={t('group.shareInvite')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -352,8 +354,8 @@ export default function GroupRoomScreen() {
             <View style={{ transform: [{ scaleY: -1 }] }}>
               <EmptyState
                 emoji="👋"
-                title="Say hi"
-                description="This is the start of your group. Share the link to bring more friends in."
+                title={t('room.sayHi')}
+                description={t('room.sayHiGroupHint')}
               />
             </View>
           }
@@ -362,7 +364,7 @@ export default function GroupRoomScreen() {
         <View style={{ paddingBottom: insets.bottom }}>
           <MessageInput
             onSend={handleSend}
-            onAttach={() => toast.show('Photos and video land next update.', 'info')}
+            onAttach={() => toast.show(t('room.attachSoon'), 'info')}
             onCreatePoll={() => setPollOpen(true)}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
@@ -388,14 +390,14 @@ export default function GroupRoomScreen() {
                   if (target) void handleToggleReaction(target, emoji);
                 }}
                 className="h-11 w-11 items-center justify-center rounded-full bg-elevated-light active:opacity-70 dark:bg-elevated-dark"
-                accessibilityLabel={`React ${emoji}`}
+                accessibilityLabel={t('room.react', { emoji })}
               >
                 <Text style={{ fontSize: 22 }}>{emoji}</Text>
               </Pressable>
             ))}
           </View>
           <PrimaryButton
-            label="Reply"
+            label={t('room.reply')}
             variant="secondary"
             leftIcon={<Ionicons name="arrow-undo-outline" size={14} color="#4B5FE0" />}
             onPress={() => {
@@ -451,7 +453,7 @@ export default function GroupRoomScreen() {
                     <Pressable
                       onPress={() => setPendingRemove(m)}
                       className="rounded-full border border-red-300 px-3 py-1.5 active:opacity-70"
-                      accessibilityLabel={`Remove ${m.display_name}`}
+                      accessibilityLabel={t('group.removeMember', { name: m.display_name })}
                     >
                       <Text className="text-xs font-semibold text-red-600">Remove</Text>
                     </Pressable>
@@ -461,7 +463,7 @@ export default function GroupRoomScreen() {
             })}
           </View>
           <PrimaryButton
-            label="Invite friends"
+            label={t('group.inviteFriends')}
             variant="secondary"
             leftIcon={<Ionicons name="person-add-outline" size={14} color="#4B5FE0" />}
             onPress={() => {
@@ -471,7 +473,7 @@ export default function GroupRoomScreen() {
             fullWidth
           />
           <PrimaryButton
-            label="Share invite link"
+            label={t('group.shareInviteLink')}
             variant="secondary"
             leftIcon={<Ionicons name="share-social-outline" size={14} color="#4B5FE0" />}
             onPress={() => {
@@ -481,7 +483,7 @@ export default function GroupRoomScreen() {
             fullWidth
           />
           <PrimaryButton
-            label="Leave group"
+            label={t('group.leave')}
             variant="destructive-outline"
             onPress={() => {
               setDetailsOpen(false);
@@ -507,7 +509,7 @@ export default function GroupRoomScreen() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         url={shareUrl}
-        text={`${group.emoji} Join "${group.name}" on MapMeet`}
+        text={t('group.shareText', { emoji: group.emoji, name: group.name })}
         title={group.name}
       />
 
@@ -526,9 +528,9 @@ export default function GroupRoomScreen() {
 
       <ConfirmationDialog
         open={confirmLeave}
-        title={`Leave ${group.name}?`}
-        message="You'll stop receiving messages from this group. You can rejoin with an invite link."
-        confirmLabel="Leave"
+        title={t('group.leaveTitle', { name: group.name })}
+        message={t('group.leaveMessage')}
+        confirmLabel={t('group.leaveConfirm')}
         destructive
         onConfirm={handleLeave}
         onCancel={() => setConfirmLeave(false)}
@@ -536,9 +538,9 @@ export default function GroupRoomScreen() {
 
       <ConfirmationDialog
         open={!!pendingRemove}
-        title={`Remove ${pendingRemove?.display_name ?? ''}?`}
-        message="They'll be removed from this group. They can rejoin with an invite link."
-        confirmLabel="Remove"
+        title={t('group.removeTitle', { name: pendingRemove?.display_name ?? '' })}
+        message={t('group.removeMessage')}
+        confirmLabel={t('common.remove')}
         destructive
         onConfirm={handleRemoveMember}
         onCancel={() => setPendingRemove(null)}

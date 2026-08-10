@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -31,6 +32,7 @@ export function AddGroupMembersSheet({
   onClose,
   onAdded,
 }: Props) {
+  const t = useT();
   const toast = useToast();
   const [friends, setFriends] = useState<FriendRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -65,13 +67,13 @@ export function AddGroupMembersSheet({
     try {
       await groupsService.addMembers(groupId, [...selected]);
       toast.show(
-        selected.size === 1 ? 'Friend added.' : `${selected.size} friends added.`,
+        t('addMembers.added', { count: selected.size }),
         'success',
       );
       onAdded();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not add friends', 'error');
+      toast.show(e instanceof Error ? e.message : t('addMembers.failed'), 'error');
     } finally {
       setAdding(false);
     }
@@ -82,7 +84,7 @@ export function AddGroupMembersSheet({
       <View className="gap-4 pb-2">
         <View className="flex-row items-baseline justify-between">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Invite friends
+            {t('addMembers.title')}
           </Text>
           <Text className="text-[11px] text-muted-light">{selected.size} selected</Text>
         </View>
@@ -90,12 +92,12 @@ export function AddGroupMembersSheet({
         {candidates.length === 0 ? (
           <View className="items-center gap-1 rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
             <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-              {friends.length === 0 ? 'No friends yet' : 'Everyone’s already in'}
+              {friends.length === 0 ? t('newGroup.noFriends') : t('addMembers.allIn')}
             </Text>
             <Text className="text-center text-xs text-muted-light">
               {friends.length === 0
-                ? 'Add friends from their profile first — you can only add friends to a group.'
-                : 'All of your friends are already members. Share the invite link to bring in others.'}
+                ? t('addMembers.noFriendsHint')
+                : t('addMembers.allInHint')}
             </Text>
           </View>
         ) : (
@@ -139,7 +141,7 @@ export function AddGroupMembersSheet({
         )}
 
         <PrimaryButton
-          label="Add to group"
+          label={t('addMembers.submit')}
           loading={adding}
           disabled={selected.size === 0}
           onPress={handleAdd}

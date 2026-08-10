@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -30,6 +31,7 @@ type Props = {
  *  through the host-only `remove_participant` RPC — the DB trigger
  *  posts the "<name> was removed" system message. */
 export function MembersSheet({ event, open, viewerId, onClose }: Props) {
+  const t = useT();
   const toast = useToast();
   const isHost = viewerId === event.creator_id;
   const [members, setMembers] = useState<Member[]>([]);
@@ -58,7 +60,7 @@ export function MembersSheet({ event, open, viewerId, onClose }: Props) {
       setMembers((prev) => prev.filter((m) => m.id !== target.id));
       toast.show(`${target.display_name} removed.`, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+      toast.show(e instanceof Error ? e.message : t('room.couldNotRemove'), 'error');
     }
   };
 
@@ -118,9 +120,9 @@ export function MembersSheet({ event, open, viewerId, onClose }: Props) {
 
       <ConfirmationDialog
         open={!!pendingRemove}
-        title={`Remove ${pendingRemove?.display_name ?? ''}?`}
-        message="They'll be removed from the event and this chat. They can rejoin unless the event is full."
-        confirmLabel="Remove"
+        title={t('members.removeTitle', { name: pendingRemove?.display_name ?? '' })}
+        message={t('members.removeMessage')}
+        confirmLabel={t('common.remove')}
         destructive
         onConfirm={confirmRemove}
         onCancel={() => setPendingRemove(null)}

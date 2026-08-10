@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { WAVEFORM_BARS } from '@/features/chat/useVoiceRecorder';
 import { usePreferencesStore, type VoiceRate } from '@/store/preferences.store';
 
@@ -64,6 +65,7 @@ function rateLabel(rate: VoiceRate): string {
  *  (expo-av via require — see useVoiceRecorder for why it can't be a
  *  static import yet). */
 export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
+  const t = useT();
   const [playing, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [totalMs, setTotalMs] = useState(durationMs ?? 0);
@@ -142,7 +144,7 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
   if (error) {
     return (
       <Text className={`text-[13px] italic ${fg}`}>
-        Voice message — playback needs the updated app build
+        {t('audio.needsUpdate')}
       </Text>
     );
   }
@@ -151,7 +153,7 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
     <View className="w-56 flex-row items-center gap-2.5">
       <Pressable
         onPress={toggle}
-        accessibilityLabel={playing ? 'Pause voice message' : 'Play voice message'}
+        accessibilityLabel={playing ? t('audio.pause') : t('audio.play')}
         className={[
           'h-9 w-9 items-center justify-center rounded-full',
           isOwn ? 'bg-surface-light/20 dark:bg-surface-dark/20' : 'bg-brand-500/15',
@@ -167,7 +169,7 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
         <View
           className="flex-row items-center"
           style={{ height: MAX_BAR, gap: 2 }}
-          accessibilityLabel="Voice message waveform"
+          accessibilityLabel={t('audio.waveform')}
         >
           {bars.map((v, i) => (
             <View
@@ -196,7 +198,7 @@ export function AudioBubble({ uri, durationMs, waveform, isOwn }: Props) {
           <Pressable
             onPress={cycleRate}
             hitSlop={10}
-            accessibilityLabel={`Playback speed ${rateLabel(rate)}, tap to change`}
+            accessibilityLabel={t('audio.speed', { rate: rateLabel(rate) })}
             className={[
               'rounded-full px-1.5 py-px active:opacity-60',
               isOwn ? 'bg-surface-light/20 dark:bg-surface-dark/20' : 'bg-brand-500/15',
