@@ -1,3 +1,4 @@
+import { useT } from '@/i18n';
 import { Pressable, Text, View } from 'react-native';
 
 type Props = {
@@ -10,15 +11,16 @@ type Props = {
  *  Matches the mockup's small-square design with hairline borders and
  *  a distinctive crosshair icon on the locate button. */
 export function MapZoomStack({ onZoomIn, onZoomOut, onLocate }: Props) {
+  const t = useT();
   return (
     <View className="items-center gap-2" pointerEvents="box-none">
-      <ZoomButton onPress={onZoomIn} accessibilityLabel="Zoom in">
+      <ZoomButton onPress={onZoomIn} accessibilityLabel={t('a11y.zoomIn')}>
         <Text className="text-lg font-semibold text-text-light dark:text-text-dark">+</Text>
       </ZoomButton>
-      <ZoomButton onPress={onZoomOut} accessibilityLabel="Zoom out">
+      <ZoomButton onPress={onZoomOut} accessibilityLabel={t('a11y.zoomOut')}>
         <Text className="text-lg font-semibold text-text-light dark:text-text-dark">−</Text>
       </ZoomButton>
-      <ZoomButton onPress={onLocate} accessibilityLabel="My location">
+      <ZoomButton onPress={onLocate} accessibilityLabel={t('a11y.myLocation')}>
         <Crosshair />
       </ZoomButton>
     </View>

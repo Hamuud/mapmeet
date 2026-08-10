@@ -2,19 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useT, type TranslationKey } from '@/i18n';
 import { useIconColor } from '@/hooks/useIconColor';
 import type { MapStyle } from './Map.types';
 
 type Option = {
   value: MapStyle;
-  label: string;
+  labelKey: TranslationKey;
   icon: keyof typeof Ionicons.glyphMap;
 };
 
 const OPTIONS: Option[] = [
-  { value: 'streets', label: 'Streets', icon: 'map' },
-  { value: 'satellite', label: 'Satellite', icon: 'globe' },
-  { value: 'terrain', label: 'Terrain', icon: 'trail-sign' },
+  { value: 'streets', labelKey: 'mapStyle.streets', icon: 'map' },
+  { value: 'satellite', labelKey: 'mapStyle.satellite', icon: 'globe' },
+  { value: 'terrain', labelKey: 'mapStyle.terrain', icon: 'trail-sign' },
 ];
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
  *  expand into a three-way segmented control. Kept intentionally small
  *  so it doesn't crowd the map on phone-width. */
 export function MapStyleSwitcher({ value, onChange }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const iconColor = useIconColor();
   const current = OPTIONS.find((o) => o.value === value) ?? OPTIONS[0]!;
@@ -34,12 +36,12 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
     return (
       <Pressable
         onPress={() => setOpen(true)}
-        accessibilityLabel="Change map style"
+        accessibilityLabel={t('a11y.changeMapStyle')}
         className="h-10 flex-row items-center gap-2 rounded-full border border-border-light bg-panel-light px-3 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark"
       >
         <Ionicons name="layers" size={14} color={iconColor} />
         <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
-          {current.label}
+          {t(current.labelKey)}
         </Text>
       </Pressable>
     );
@@ -62,7 +64,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
                 ? 'bg-text-light dark:bg-text-dark'
                 : 'bg-transparent',
             ].join(' ')}
-            accessibilityLabel={opt.label}
+            accessibilityLabel={t(opt.labelKey)}
           >
             <Ionicons
               name={opt.icon}
@@ -77,7 +79,7 @@ export function MapStyleSwitcher({ value, onChange }: Props) {
                   : 'text-text-light dark:text-text-dark',
               ].join(' ')}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
           </Pressable>
         );

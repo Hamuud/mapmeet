@@ -1,6 +1,8 @@
 import { useColorScheme } from 'nativewind';
 import { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
+
+import { useT } from '@/i18n';
 import {
   Animated,
   BackHandler,
@@ -59,6 +61,7 @@ export function BottomSheet({
   desktopRail = false,
   desktopWidth = 900,
 }: Props) {
+  const t = useT();
   const isWeb = Platform.OS === 'web';
   const { height: winHeight, width: winWidth } = useWindowDimensions();
   const sheetHeightPx = Math.round(winHeight * heightPct);
@@ -167,7 +170,7 @@ export function BottomSheet({
         <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
           <Pressable
             onPress={onClose}
-            accessibilityLabel="Close sheet"
+            accessibilityLabel={t('a11y.closeSheet')}
             style={{
               position: 'absolute',
               top: 0,
@@ -211,7 +214,7 @@ export function BottomSheet({
       <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
         <Pressable
           onPress={onClose}
-          accessibilityLabel="Close sheet"
+          accessibilityLabel={t('a11y.closeSheet')}
           style={{
             position: 'absolute',
             top: 0,
@@ -275,7 +278,7 @@ export function BottomSheet({
       >
         <Pressable
           onPress={onClose}
-          accessibilityLabel="Close sheet"
+          accessibilityLabel={t('a11y.closeSheet')}
           style={{ flex: 1, backgroundColor: 'black' }}
         />
       </Animated.View>

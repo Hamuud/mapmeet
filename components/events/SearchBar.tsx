@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useT } from '@/i18n';
 import { Pressable, TextInput, View } from 'react-native';
 
 type Props = {
@@ -11,9 +12,10 @@ type Props = {
 export function SearchBar({
   value,
   onChangeText,
-  placeholder = 'Search events, #tags, hosts',
+  placeholder,
   onSubmit,
 }: Props) {
+  const t = useT();
   return (
     <View
       className={[
@@ -30,14 +32,14 @@ export function SearchBar({
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('sidebar.searchPlaceholder')}
         placeholderTextColor="#8B8880"
         returnKeyType="search"
         onSubmitEditing={onSubmit}
         className="ml-2 flex-1 text-[15px] text-text-light outline-none dark:text-text-dark"
       />
       {value.length > 0 ? (
-        <Pressable onPress={() => onChangeText('')} accessibilityLabel="Clear" hitSlop={8}>
+        <Pressable onPress={() => onChangeText('')} accessibilityLabel={t('a11y.clear')} hitSlop={8}>
           <Ionicons name="close-circle" size={16} color="#8B8880" />
         </Pressable>
       ) : null}

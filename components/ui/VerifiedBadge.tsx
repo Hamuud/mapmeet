@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
+import { useT } from '@/i18n';
 import type { Profile } from '@/types';
 
 /** Instagram-style verification blue. */
@@ -21,10 +22,11 @@ type Props = {
  *  Renders nothing for regular accounts, so callers can drop it in
  *  unconditionally next to any name. */
 export function VerifiedBadge({ role, size = 14 }: Props) {
+  const t = useT();
   if (!isVerifiedRole(role)) return null;
   return (
     <View
-      accessibilityLabel="Verified account"
+      accessibilityLabel={t('a11y.verifiedAccount')}
       style={{
         width: size,
         height: size,

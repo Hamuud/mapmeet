@@ -97,7 +97,7 @@ export function DirectionsSheet({ event, onClose }: Props) {
                 Directions to {event.title}
               </Text>
               <Text className="text-xs text-muted-light dark:text-muted-dark">
-                Pick your navigation app
+                {t('directions.pickApp')}
               </Text>
             </View>
           </View>

@@ -33,7 +33,7 @@ export const uk: Record<TranslationKey, Phrase> = {
   'common.anonymous': 'Анонімно',
 
   // ── Auth ──────────────────────────────────────────────────────────
-  'auth.welcomeBack': 'З поверненням.',
+  'auth.welcomeBack': 'Вітаємо\nзнову.',
   'auth.signInSubtitle': 'Увійдіть, щоб зустрітися з друзями на карті.',
   'auth.emailConfirmed': 'Пошту підтверджено. Увійдіть, щоб почати користуватися MapMeet.',
   'auth.email': 'Пошта',
@@ -717,6 +717,17 @@ export const uk: Record<TranslationKey, Phrase> = {
   'friends.message': 'Написати',
   'boundary.chat': 'у чатах',
   'boundary.myEvents': 'у моїх подіях',
+  'a11y.verifiedAccount': 'Підтверджений акаунт',
+  'a11y.closeSheet': 'Закрити',
+  'a11y.changeMapStyle': 'Змінити стиль карти',
+  'a11y.zoomIn': 'Збільшити',
+  'a11y.zoomOut': 'Зменшити',
+  'a11y.myLocation': 'Моє місцеположення',
+  'a11y.clear': 'Очистити',
+  'mapStyle.streets': 'Вулиці',
+  'mapStyle.satellite': 'Супутник',
+  'mapStyle.terrain': 'Рельєф',
+  'directions.pickApp': 'Оберіть застосунок для навігації',
   'error.title': 'Щось пішло не так',
   'error.tryAgain': 'Спробувати ще раз',
 };
