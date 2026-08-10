@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT, useTMaybe } from '@/i18n';
 import { AddressField } from '@/components/events/AddressField';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
 import { TagsField } from '@/components/events/TagsField';
@@ -76,6 +77,8 @@ export function CreateEventSheet({
   onCoordsChange,
   onRequestPickLocation,
 }: Props) {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
@@ -128,14 +131,14 @@ export function CreateEventSheet({
       // venue label rather than displaying an address the pin left.
       setValue('address', null);
       onCoordsChange(currentCoords);
-      toast.show('Pinned to your location.', 'success');
+      toast.show(t('createEvent.pinnedToLocation'), 'success');
     }
   };
 
   const onSubmit = async (values: EventInput) => {
     if (!session) return;
     if (!values.latitude || !values.longitude) {
-      toast.show('Pick a location on the map first.', 'error');
+      toast.show(t('createEvent.pickLocationFirst'), 'error');
       return;
     }
     try {
@@ -172,11 +175,11 @@ export function CreateEventSheet({
         participant_count: 1,
         is_joined: true,
       });
-      toast.show('Event pinned to the map.', 'success');
+      toast.show(t('createEvent.created'), 'success');
       reset(defaultValues);
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not create event', 'error');
+      toast.show(e instanceof Error ? e.message : t('createEvent.failed'), 'error');
     }
   };
 
@@ -196,11 +199,11 @@ export function CreateEventSheet({
           style={{ paddingTop: insets.top }}
         >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
-            Pin an event
+            {t('createEvent.title')}
           </Text>
           <Pressable
             onPress={onClose}
-            accessibilityLabel="Close"
+            accessibilityLabel={t('common.close')}
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
@@ -219,19 +222,19 @@ export function CreateEventSheet({
             name="title"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Title"
-                placeholder="e.g. Coffee & croissants"
+                label={t('createEvent.eventTitle')}
+                placeholder={t('createEvent.titlePlaceholder')}
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.title?.message}
+                error={te(errors.title?.message)}
               />
             )}
           />
 
           <View>
             <Text className="mb-2 text-sm font-medium text-text-light dark:text-text-dark">
-              Emoji
+              {t('createEvent.emoji')}
             </Text>
             <EmojiPicker value={emoji} onChange={(v) => setValue('emoji', v)} />
           </View>
@@ -241,13 +244,13 @@ export function CreateEventSheet({
             name="description"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Description"
-                placeholder="Anything attendees should know."
+                label={t('createEvent.description')}
+                placeholder={t('createEvent.descriptionPlaceholder')}
                 value={value ?? ''}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 multiline
-                error={errors.description?.message}
+                error={te(errors.description?.message)}
               />
             )}
           />
@@ -255,7 +258,7 @@ export function CreateEventSheet({
           <TagsField
             value={tags}
             onChange={(next) => setValue('tags', next, { shouldValidate: true })}
-            error={errors.tags?.message}
+            error={te(errors.tags?.message)}
           />
 
           <View className="flex-row gap-3">
@@ -266,10 +269,10 @@ export function CreateEventSheet({
                 render={({ field: { value, onChange } }) => (
                   <DateTimeField
                     mode="date"
-                    label="Date"
+                    label={t('createEvent.date')}
                     value={value}
                     onChange={onChange}
-                    error={errors.event_date?.message}
+                    error={te(errors.event_date?.message)}
                   />
                 )}
               />
@@ -281,10 +284,10 @@ export function CreateEventSheet({
                 render={({ field: { value, onChange } }) => (
                   <DateTimeField
                     mode="time"
-                    label="Time"
+                    label={t('createEvent.time')}
                     value={value}
                     onChange={onChange}
-                    error={errors.event_time?.message}
+                    error={te(errors.event_time?.message)}
                   />
                 )}
               />
@@ -294,7 +297,7 @@ export function CreateEventSheet({
           {/* Location block ---------------------------------------------- */}
           <View>
             <Text className="mb-2 text-sm font-medium text-text-light dark:text-text-dark">
-              Location
+              {t('createEvent.location')}
             </Text>
 
             <View className="gap-3 rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
@@ -308,7 +311,7 @@ export function CreateEventSheet({
                 <Text className="flex-1 text-xs text-muted-light dark:text-muted-dark">
                   {latitude && longitude
                     ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-                    : 'No pin dropped yet'}
+                    : t('createEvent.noPin')}
                 </Text>
               </View>
 
@@ -321,7 +324,7 @@ export function CreateEventSheet({
                   setValue('longitude', hit.coords.longitude);
                   setValue('address', hit.label);
                   onCoordsChange(hit.coords);
-                  toast.show('Pinned to that address.', 'success');
+                  toast.show(t('createEvent.pinnedToAddress'), 'success');
                 }}
               />
 
@@ -330,7 +333,7 @@ export function CreateEventSheet({
                   two lines each inside the 380px desktop rail. */}
               <View className="gap-2">
                 <PrimaryButton
-                  label="Pick on map"
+                  label={t('createEvent.pickOnMap')}
                   variant="secondary"
                   size="sm"
                   leftIcon={<Ionicons name="map" size={14} color="#3757FF" />}
@@ -338,7 +341,7 @@ export function CreateEventSheet({
                   fullWidth
                 />
                 <PrimaryButton
-                  label="Use my location"
+                  label={t('createEvent.useMyLocation')}
                   variant="secondary"
                   size="sm"
                   leftIcon={<Ionicons name="navigate" size={14} color="#3757FF" />}
@@ -348,14 +351,13 @@ export function CreateEventSheet({
               </View>
 
               <Text className="text-[11px] text-muted-light dark:text-muted-dark">
-                Tip: long-press anywhere on the map to drop a pin without
-                opening this sheet.
+                {t('createEvent.longPressTip')}
               </Text>
             </View>
 
             {errors.latitude?.message || errors.longitude?.message ? (
               <Text className="mt-1.5 text-xs text-red-500">
-                {errors.latitude?.message ?? errors.longitude?.message}
+                {te(errors.latitude?.message) ?? te(errors.longitude?.message)}
               </Text>
             ) : null}
           </View>
@@ -365,15 +367,15 @@ export function CreateEventSheet({
             name="max_participants"
             render={({ field: { value, onChange } }) => (
               <Input
-                label="Maximum participants (optional)"
+                label={t('createEvent.maxParticipants')}
                 keyboardType="number-pad"
-                placeholder="No cap"
+                placeholder={t('createEvent.noCap')}
                 value={value == null ? '' : String(value)}
                 onChangeText={(t) => {
                   const n = Number(t.replace(/[^0-9]/g, ''));
                   onChange(Number.isFinite(n) && n > 0 ? n : null);
                 }}
-                error={errors.max_participants?.message}
+                error={te(errors.max_participants?.message)}
               />
             )}
           />
@@ -381,10 +383,10 @@ export function CreateEventSheet({
           <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
             <View className="flex-1 pr-4">
               <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-                Private event
+                {t('createEvent.privateEvent')}
               </Text>
               <Text className="mt-1 text-xs text-muted-light dark:text-muted-dark">
-                Only you can see private events. Share the link to invite others.
+                {t('createEvent.privateHint')}
               </Text>
             </View>
             <Switch
@@ -397,7 +399,7 @@ export function CreateEventSheet({
           <View className="flex-row gap-3 pt-2">
             <View className="flex-1">
               <PrimaryButton
-                label="Cancel"
+                label={t('common.cancel')}
                 variant="secondary"
                 onPress={onClose}
                 fullWidth
@@ -405,7 +407,7 @@ export function CreateEventSheet({
             </View>
             <View className="flex-1">
               <PrimaryButton
-                label="Create event"
+                label={t('createEvent.submit')}
                 onPress={handleSubmit(onSubmit)}
                 loading={isSubmitting}
                 fullWidth

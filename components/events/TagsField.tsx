@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
+
 import { useToast } from '@/components/ui/Toast';
 import { appendTag, normalizeTag } from '@/utils/tags';
 
@@ -16,6 +18,7 @@ type Props = {
  *  We normalize (lowercase + dash) inside `appendTag` so what the user
  *  sees is what actually lands in Postgres. */
 export function TagsField({ value, onChange, error }: Props) {
+  const t = useT();
   const toast = useToast();
   const [draft, setDraft] = useState('');
   const atMax = value.length >= 5;
@@ -33,7 +36,7 @@ export function TagsField({ value, onChange, error }: Props) {
       // something — a bare separator press with an empty draft is a
       // no-op, not an error.
       if (raw.trim().length > 0) {
-        toast.show('Tags need at least 2 characters.', 'info');
+        toast.show(t('tags.minChars'), 'info');
       }
       setDraft('');
       return;
@@ -44,7 +47,7 @@ export function TagsField({ value, onChange, error }: Props) {
       return;
     }
     if (value.length >= 5) {
-      toast.show('Up to 5 tags per event.', 'info');
+      toast.show(t('tags.max'), 'info');
       return;
     }
     const next = appendTag(value, raw);
@@ -60,7 +63,7 @@ export function TagsField({ value, onChange, error }: Props) {
     <View className="w-full">
       <View className="mb-1.5 flex-row items-center justify-between">
         <Text className="text-sm font-medium text-text-light dark:text-text-dark">
-          Tags
+          {t('tags.label')}
         </Text>
         <Text className="text-[11px] text-muted-light dark:text-muted-dark">
           {value.length}/5 · at least one
@@ -82,7 +85,7 @@ export function TagsField({ value, onChange, error }: Props) {
             <Text className="text-xs font-semibold text-brand-500">#{tag}</Text>
             <Pressable
               onPress={() => remove(tag)}
-              accessibilityLabel={`Remove ${tag}`}
+              accessibilityLabel={t('tags.remove', { tag })}
               hitSlop={6}
             >
               <Ionicons name="close" size={12} color="#3757FF" />
@@ -105,7 +108,7 @@ export function TagsField({ value, onChange, error }: Props) {
                 onChange(value.slice(0, -1));
               }
             }}
-            placeholder={value.length === 0 ? 'e.g. coffee, кава, 咖啡' : 'Add another'}
+            placeholder={value.length === 0 ? t('tags.placeholderEmpty') : t('tags.placeholderMore')}
             placeholderTextColor="#8B8880"
             autoCapitalize="none"
             autoCorrect={false}
@@ -118,7 +121,7 @@ export function TagsField({ value, onChange, error }: Props) {
         <Text className="mt-1.5 text-xs text-red-500">{error}</Text>
       ) : (
         <Text className="mt-1.5 text-[11px] text-muted-light dark:text-muted-dark">
-          Enter, comma or space commits. Backspace on empty removes the last.
+          {t('tags.hint')}
         </Text>
       )}
     </View>

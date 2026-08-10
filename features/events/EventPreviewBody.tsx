@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ShareSheet } from '@/components/ui/ShareSheet';
@@ -64,6 +65,7 @@ export function EventPreviewBody({
   onViewHost,
   onOpenChat,
 }: Props) {
+  const t = useT();
   const toast = useToast();
   const { session } = useAuth();
   const venue = useVenue(event);
@@ -134,7 +136,7 @@ export function EventPreviewBody({
     if (!wasJoined && !moderationGuard()) return;
     // Extra guard so a stale UI can't fire off a doomed request.
     if (!wasJoined && isFull) {
-      toast.show('Event is full.', 'info');
+      toast.show(t('events.full'), 'info');
       return;
     }
     patchEvent(event.id, {
@@ -175,8 +177,8 @@ export function EventPreviewBody({
       // message rather than the raw Postgres error string.
       const raw = e instanceof Error ? e.message : '';
       const msg = /is full/i.test(raw)
-        ? 'Event just filled up — try another one.'
-        : raw || 'Could not update';
+        ? t('events.justFilled')
+        : raw || t('events.couldNotUpdate');
       toast.show(msg, 'error');
     } finally {
       setBusy(false);
@@ -196,7 +198,7 @@ export function EventPreviewBody({
       setShareUrl(invitesService.shareUrl(token));
     } catch (e) {
       setShareOpen(false);
-      toast.show(e instanceof Error ? e.message : 'Could not create invite', 'error');
+      toast.show(e instanceof Error ? e.message : t('preview.inviteFailed'), 'error');
     }
   };
 
@@ -208,7 +210,7 @@ export function EventPreviewBody({
           source={{ uri: event.image_url }}
           style={{ width: '100%', height: 132, borderRadius: 16 }}
           resizeMode="cover"
-          accessibilityLabel={`${event.title} poster`}
+          accessibilityLabel={t('preview.posterAlt', { title: event.title })}
         />
       ) : null}
 
@@ -224,10 +226,10 @@ export function EventPreviewBody({
               label={`${formatEventDate(event.event_date)} · ${formatEventTime(event.event_time)}`}
             />
             {event.visibility === 'private' ? (
-              <Badge tone="accent" label="Private" />
+              <Badge tone="accent" label={t('preview.private')} />
             ) : null}
             {distanceLabel ? (
-              <Badge tone="neutral" label={`${distanceLabel} away`} />
+              <Badge tone="neutral" label={t('preview.awayFrom', { d: distanceLabel })} />
             ) : null}
           </View>
           <Text
@@ -279,7 +281,7 @@ export function EventPreviewBody({
         <View className="flex-1">
           {hasExactLocation ? (
             <PrimaryButton
-              label="Directions"
+              label={t('preview.directions')}
               variant="secondary"
               onPress={() => onDirections?.(event)}
               fullWidth
@@ -293,7 +295,7 @@ export function EventPreviewBody({
                 className="text-xs font-semibold text-muted-light"
                 numberOfLines={1}
               >
-                See venue above
+                {t('preview.seeVenueAbove')}
               </Text>
             </View>
           )}
@@ -303,12 +305,12 @@ export function EventPreviewBody({
             <View className="h-11 flex-row items-center justify-center gap-2 rounded-xl bg-brand-500/10">
               <Ionicons name="star" size={13} color="#4B5FE0" />
               <Text className="text-sm font-semibold text-brand-500">
-                You're hosting
+                {t('preview.hosting')}
               </Text>
             </View>
           ) : event.is_joined ? (
             <PrimaryButton
-              label="Joined ✓"
+              label={t('preview.joined')}
               variant="secondary"
               loading={busy}
               onPress={handleJoinToggle}
@@ -325,7 +327,7 @@ export function EventPreviewBody({
             </View>
           ) : (
             <PrimaryButton
-              label="Join event"
+              label={t('events.joinEvent')}
               variant="primary"
               loading={busy}
               onPress={handleJoinToggle}
@@ -338,7 +340,7 @@ export function EventPreviewBody({
       {/* Tickets — imported events link straight back to the source. */}
       {isImported && event.source_url ? (
         <PrimaryButton
-          label="Get tickets"
+          label={t('preview.getTickets')}
           variant="secondary"
           size="sm"
           leftIcon={<Ionicons name="ticket-outline" size={13} color="#4B5FE0" />}
@@ -346,7 +348,7 @@ export function EventPreviewBody({
             const url = event.source_url;
             if (!url) return;
             void Linking.openURL(url).catch(() =>
-              toast.show('Could not open the ticket page.', 'error'),
+              toast.show(t('preview.ticketPageFailed'), 'error'),
             );
           }}
           fullWidth
@@ -358,7 +360,7 @@ export function EventPreviewBody({
           host or someone who's joined (the RPC enforces the same rule). */}
       {canShare ? (
         <PrimaryButton
-          label="Share"
+          label={t('preview.share')}
           variant="secondary"
           size="sm"
           leftIcon={
@@ -373,7 +375,7 @@ export function EventPreviewBody({
           the event's group chat from the pin itself. */}
       {onOpenChat && (isCreator || event.is_joined) ? (
         <PrimaryButton
-          label="Chat"
+          label={t('preview.chat')}
           variant="secondary"
           size="sm"
           leftIcon={
@@ -389,7 +391,9 @@ export function EventPreviewBody({
           imported events (the "host" is an import bot). */}
       {onViewHost && !isCreator && !isImported ? (
         <PrimaryButton
-          label={`View ${event.creator.display_name.split(/\s+/)[0]}'s profile`}
+          label={t('preview.viewProfile', {
+            name: event.creator.display_name.split(/\s+/)[0] ?? event.creator.display_name,
+          })}
           variant="secondary"
           size="sm"
           leftIcon={
@@ -405,7 +409,7 @@ export function EventPreviewBody({
         <View className="flex-row gap-2">
           <View className="flex-1">
             <PrimaryButton
-              label="Edit"
+              label={t('events.edit')}
               variant="secondary"
               size="sm"
               leftIcon={<Ionicons name="create-outline" size={13} color="#4B5FE0" />}
@@ -415,7 +419,7 @@ export function EventPreviewBody({
           </View>
           <View className="flex-1">
             <PrimaryButton
-              label="Delete"
+              label={t('common.delete')}
               variant="destructive-outline"
               size="sm"
               leftIcon={<Ionicons name="trash-outline" size={13} color="#B91C1C" />}
@@ -432,11 +436,11 @@ export function EventPreviewBody({
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         url={shareUrl}
-        text={`${event.emoji} You're invited: ${event.title}`}
+        text={t('preview.inviteText', { emoji: event.emoji, title: event.title })}
         title={event.title}
         viewerId={session?.user.id ?? null}
         onSendToFriend={async (friendId) => {
-          if (!shareToken) throw new Error('Invite link not ready yet');
+          if (!shareToken) throw new Error(t('preview.inviteNotReady'));
           await dmsService.sendInvite(friendId, shareToken);
         }}
       />
@@ -457,6 +461,7 @@ const DESC_TOGGLE_MIN_CHARS = 140;
  *  the viewport and scrollable inside that cap, so on small phones the
  *  longest description still can't shove the buttons off screen. */
 function DescriptionBlock({ text }: { text: string }) {
+  const t = useT();
   const { height: winHeight } = useWindowDimensions();
   const [expanded, setExpanded] = useState(false);
   const toggleable = text.length > DESC_TOGGLE_MIN_CHARS || text.includes('\n');
@@ -488,11 +493,11 @@ function DescriptionBlock({ text }: { text: string }) {
           onPress={() => setExpanded((v) => !v)}
           hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={expanded ? 'Collapse description' : 'Expand description'}
+          accessibilityLabel={expanded ? t('preview.collapseDescription') : t('preview.expandDescription')}
           className="flex-row items-center gap-1 self-start"
         >
           <Text className="text-[13px] font-semibold text-brand-500">
-            {expanded ? 'Less' : 'More'}
+            {expanded ? t('preview.less') : t('preview.more')}
           </Text>
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -516,6 +521,7 @@ function AttendeesRow({
   loading: boolean;
   maxParticipants: number | null;
 }) {
+  const t = useT();
   const shown = attendees.slice(0, AVATAR_LIMIT);
   const overflow = Math.max(0, total - shown.length);
   return (
@@ -543,11 +549,9 @@ function AttendeesRow({
       )}
       <Text className="text-xs font-medium text-ink2-light dark:text-ink2-dark">
         {loading && attendees.length === 0
-          ? 'Loading…'
-          : total === 1
-            ? '1 going'
-            : `${total} going`}
-        {maxParticipants ? ` · cap ${maxParticipants}` : ''}
+          ? t('common.loading')
+          : t('preview.going', { count: total })}
+        {maxParticipants ? t('preview.cap', { n: maxParticipants }) : ''}
       </Text>
     </View>
   );

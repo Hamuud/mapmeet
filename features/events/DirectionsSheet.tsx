@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
+import { useT, type TranslationKey } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useToast } from '@/components/ui/Toast';
 import type { EventWithCreator } from '@/types';
@@ -13,7 +14,7 @@ type Props = {
 type MapsApp = {
   key: string;
   name: string;
-  tag: string;
+  tagKey: TranslationKey;
   icon: string;
   buildUrl: (lat: number, lng: number, title: string) => string;
 };
@@ -28,7 +29,7 @@ const APPS: MapsApp[] = [
   {
     key: 'google',
     name: 'Google Maps',
-    tag: 'Live traffic',
+    tagKey: 'directions.googleTag',
     icon: '🗺️',
     buildUrl: (lat, lng) =>
       `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${lat},${lng}`,
@@ -36,7 +37,7 @@ const APPS: MapsApp[] = [
   {
     key: 'apple',
     name: 'Apple Maps',
-    tag: 'iOS + macOS',
+    tagKey: 'directions.appleTag',
     icon: '',
     buildUrl: (lat, lng, title) =>
       `https://maps.apple.com/?daddr=${lat},${lng}&q=${encodeURIComponent(title)}&dirflg=d`,
@@ -44,7 +45,7 @@ const APPS: MapsApp[] = [
   {
     key: 'waze',
     name: 'Waze',
-    tag: 'Driver-first',
+    tagKey: 'directions.wazeTag',
     icon: '🚗',
     buildUrl: (lat, lng) => `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
   },
@@ -61,6 +62,7 @@ async function openUrl(url: string) {
 }
 
 export function DirectionsSheet({ event, onClose }: Props) {
+  const t = useT();
   const toast = useToast();
   const open = !!event;
 
@@ -71,7 +73,7 @@ export function DirectionsSheet({ event, onClose }: Props) {
       onClose();
     } catch (e) {
       toast.show(
-        e instanceof Error ? e.message : `Could not open ${app.name}`,
+        e instanceof Error ? e.message : t('directions.openFailed', { app: app.name }),
         'error',
       );
     }
@@ -115,7 +117,7 @@ export function DirectionsSheet({ event, onClose }: Props) {
                     {app.name}
                   </Text>
                   <Text className="text-xs text-muted-light dark:text-muted-dark">
-                    {app.tag}
+                    {t(app.tagKey)}
                   </Text>
                 </View>
                 <Ionicons name="open-outline" size={16} color="#8E8E93" />

@@ -1,15 +1,16 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useT, type TranslationKey } from '@/i18n';
 import type { EventFilter } from '@/types';
 
-const FILTERS: { key: EventFilter; label: string }[] = [
-  { key: 'all',      label: 'All' },
-  { key: 'today',    label: 'Today' },
-  { key: 'tomorrow', label: 'Tomorrow' },
-  { key: 'week',     label: 'This week' },
-  { key: 'nearby',   label: 'Nearby' },
-  { key: 'joined',   label: 'Joined' },
-  { key: 'created',  label: 'By me' },
+const FILTERS: { key: EventFilter; labelKey: TranslationKey }[] = [
+  { key: 'all',      labelKey: 'filter.all' },
+  { key: 'today',    labelKey: 'filter.today' },
+  { key: 'tomorrow', labelKey: 'filter.tomorrow' },
+  { key: 'week',     labelKey: 'filter.week' },
+  { key: 'nearby',   labelKey: 'filter.nearby' },
+  { key: 'joined',   labelKey: 'filter.joined' },
+  { key: 'created',  labelKey: 'filter.created' },
 ];
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function FilterBar({ value, onChange }: Props) {
+  const t = useT();
   return (
     <ScrollView
       horizontal
@@ -48,7 +50,7 @@ export function FilterBar({ value, onChange }: Props) {
                   : 'text-text-light/85 dark:text-text-dark/85',
               ].join(' ')}
             >
-              {f.label}
+              {t(f.labelKey)}
             </Text>
           </Pressable>
         );

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useT, type TranslationKey } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,14 +19,14 @@ type Props = {
   onEventPress: (id: string) => void;
 };
 
-const FILTERS: { key: EventFilter; label: string }[] = [
-  { key: 'all',      label: 'All' },
-  { key: 'today',    label: 'Today' },
-  { key: 'tomorrow', label: 'Tomorrow' },
-  { key: 'week',     label: 'This week' },
-  { key: 'nearby',   label: 'Nearby' },
-  { key: 'joined',   label: 'Joined' },
-  { key: 'created',  label: 'By me' },
+const FILTERS: { key: EventFilter; labelKey: TranslationKey }[] = [
+  { key: 'all',      labelKey: 'filter.all' },
+  { key: 'today',    labelKey: 'filter.today' },
+  { key: 'tomorrow', labelKey: 'filter.tomorrow' },
+  { key: 'week',     labelKey: 'filter.week' },
+  { key: 'nearby',   labelKey: 'filter.nearby' },
+  { key: 'joined',   labelKey: 'filter.joined' },
+  { key: 'created',  labelKey: 'filter.created' },
 ];
 
 /** Floating left-rail card for the desktop map. Contains the app
@@ -40,6 +41,7 @@ export function MapSidebar({
   selectedEventId,
   onEventPress,
 }: Props) {
+  const t = useT();
   const { profile } = useAuth();
   const iconColor = useIconColor();
   const initials = (profile?.display_name ?? 'AK')
@@ -69,7 +71,7 @@ export function MapSidebar({
         <View className="flex-row items-center gap-1.5">
           <Pressable
             className="h-9 w-9 items-center justify-center rounded-xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
-            accessibilityLabel="Notifications"
+            accessibilityLabel={t('sidebar.notifications')}
           >
             <Ionicons name="notifications-outline" size={16} color={iconColor} />
           </Pressable>
@@ -84,7 +86,7 @@ export function MapSidebar({
           <TextInput
             value={query}
             onChangeText={onQuery}
-            placeholder="Search events, #tags, hosts"
+            placeholder={t('sidebar.searchPlaceholder')}
             placeholderTextColor="#8B8880"
             className="ml-2 flex-1 text-sm text-text-light outline-none dark:text-text-dark"
           />
@@ -121,7 +123,7 @@ export function MapSidebar({
                       : 'text-text-light/85 dark:text-text-dark/85',
                   ].join(' ')}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -161,10 +163,10 @@ export function MapSidebar({
         {events.length === 0 ? (
           <View className="items-center px-4 py-10">
             <Text className="text-center text-sm text-muted-light">
-              No events match this area yet.
+              {t('sidebar.noneInArea')}
             </Text>
             <Text className="mt-1 text-center text-xs text-muted-light">
-              Zoom out or drop a pin to create the first one.
+              {t('sidebar.noneInAreaHint')}
             </Text>
           </View>
         ) : null}
@@ -183,6 +185,7 @@ function SidebarEventRow({
   selected: boolean;
   onPress: () => void;
 }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
@@ -215,11 +218,11 @@ function SidebarEventRow({
           className="font-mono text-[10px] uppercase text-muted-light"
           numberOfLines={1}
         >
-          {event.creator.display_name} · {event.participant_count} going
+          {event.creator.display_name} · {t('preview.going', { count: event.participant_count })}
         </Text>
       </View>
       {event.is_joined && !selected ? (
-        <Badge tone="primary" label="Joined" />
+        <Badge tone="primary" label={t('filter.joined')} />
       ) : null}
       {event.visibility === 'private' ? (
         <Ionicons name="lock-closed" size={12} color="#8B8880" />

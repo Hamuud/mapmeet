@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
+
 /** Just the crowd-favourites. The old ~80-emoji grid took up more than a
  *  screen height in the "Pin an event" sheet — users kept scrolling
  *  past it. Anything not in this quick row can be pasted via the
@@ -13,6 +15,7 @@ type Props = {
 };
 
 export function EmojiPicker({ value, onChange }: Props) {
+  const t = useT();
   const [custom, setCustom] = useState('');
 
   return (
@@ -24,7 +27,7 @@ export function EmojiPicker({ value, onChange }: Props) {
         </View>
         <View className="flex-1">
           <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-            Or paste any emoji
+            {t('emoji.pasteAny')}
           </Text>
           <TextInput
             value={custom}
@@ -61,7 +64,7 @@ export function EmojiPicker({ value, onChange }: Props) {
                   ? 'border-brand-500 bg-brand-500/15'
                   : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
               ].join(' ')}
-              accessibilityLabel={`Pick ${item}`}
+              accessibilityLabel={t('emoji.pick', { emoji: item })}
             >
               <Text style={{ fontSize: 22 }}>{item}</Text>
             </Pressable>

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT, useTMaybe } from '@/i18n';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
 import { TagsField } from '@/components/events/TagsField';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -33,6 +34,8 @@ type Props = {
 };
 
 export function EditEventSheet({ event, open, onClose }: Props) {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const iconColor = useIconColor();
@@ -97,10 +100,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         tags: values.tags,
       });
       patchEvent(event.id, updated);
-      toast.show('Event updated.', 'success');
+      toast.show(t('editEvent.saved'), 'success');
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update event', 'error');
+      toast.show(e instanceof Error ? e.message : t('editEvent.failed'), 'error');
     }
   };
 
@@ -115,11 +118,11 @@ export function EditEventSheet({ event, open, onClose }: Props) {
           style={{ paddingTop: insets.top }}
         >
           <Text className="text-2xl font-bold text-text-light dark:text-text-dark">
-            Edit event
+            {t('editEvent.title')}
           </Text>
           <Pressable
             onPress={onClose}
-            accessibilityLabel="Close"
+            accessibilityLabel={t('common.close')}
             hitSlop={10}
             className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
           >
@@ -137,18 +140,18 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             name="title"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Title"
+                label={t('createEvent.eventTitle')}
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.title?.message}
+                error={te(errors.title?.message)}
               />
             )}
           />
 
           <View>
             <Text className="mb-2 text-sm font-medium text-text-light dark:text-text-dark">
-              Emoji
+              {t('createEvent.emoji')}
             </Text>
             <EmojiPicker value={emoji} onChange={(v) => setValue('emoji', v)} />
           </View>
@@ -158,12 +161,12 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             name="description"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Description"
+                label={t('createEvent.description')}
                 value={value ?? ''}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 multiline
-                error={errors.description?.message}
+                error={te(errors.description?.message)}
               />
             )}
           />
@@ -171,7 +174,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
           <TagsField
             value={tags ?? []}
             onChange={(next) => setValue('tags', next, { shouldValidate: true })}
-            error={errors.tags?.message}
+            error={te(errors.tags?.message)}
           />
 
           <View className="flex-row gap-3">
@@ -182,10 +185,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
                 render={({ field: { value, onChange } }) => (
                   <DateTimeField
                     mode="date"
-                    label="Date"
+                    label={t('createEvent.date')}
                     value={value}
                     onChange={onChange}
-                    error={errors.event_date?.message}
+                    error={te(errors.event_date?.message)}
                   />
                 )}
               />
@@ -197,10 +200,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
                 render={({ field: { value, onChange } }) => (
                   <DateTimeField
                     mode="time"
-                    label="Time"
+                    label={t('createEvent.time')}
                     value={value}
                     onChange={onChange}
-                    error={errors.event_time?.message}
+                    error={te(errors.event_time?.message)}
                   />
                 )}
               />
@@ -212,15 +215,15 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             name="max_participants"
             render={({ field: { value, onChange } }) => (
               <Input
-                label="Maximum participants"
+                label={t('createEvent.maxParticipants')}
                 keyboardType="number-pad"
-                placeholder="No cap"
+                placeholder={t('createEvent.noCap')}
                 value={value == null ? '' : String(value)}
                 onChangeText={(t) => {
                   const n = Number(t.replace(/[^0-9]/g, ''));
                   onChange(Number.isFinite(n) && n > 0 ? n : null);
                 }}
-                error={errors.max_participants?.message}
+                error={te(errors.max_participants?.message)}
               />
             )}
           />
@@ -228,10 +231,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
           <View className="flex-row items-center justify-between rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
             <View className="flex-1 pr-4">
               <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
-                Private event
+                {t('createEvent.privateEvent')}
               </Text>
               <Text className="mt-1 text-xs text-muted-light dark:text-muted-dark">
-                Only you can see private events.
+                {t('createEvent.privateHint')}
               </Text>
             </View>
             <Switch
@@ -244,7 +247,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
           <View className="flex-row gap-3 pt-2">
             <View className="flex-1">
               <PrimaryButton
-                label="Cancel"
+                label={t('common.cancel')}
                 variant="secondary"
                 onPress={onClose}
                 fullWidth
@@ -252,7 +255,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             </View>
             <View className="flex-1">
               <PrimaryButton
-                label="Save changes"
+                label={t('editEvent.submit')}
                 onPress={handleSubmit(onSubmit)}
                 loading={isSubmitting}
                 fullWidth

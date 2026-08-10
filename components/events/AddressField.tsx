@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
+
 import { geocodingService, type GeocodeResult } from '@/services/geocoding.service';
 
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
  *  dropdown of matches → picking one bubbles a LatLng up. Purely a
  *  helper — the sheet still owns the source-of-truth coords. */
 export function AddressField({ onSelect }: Props) {
+  const t = useT();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,7 +66,7 @@ export function AddressField({ onSelect }: Props) {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search address"
+          placeholder={t('address.searchPlaceholder')}
           placeholderTextColor="#8E8E93"
           autoCapitalize="none"
           autoCorrect={false}

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { formatEventDate, formatEventTime } from '@/utils/format';
@@ -17,6 +18,7 @@ type Props = {
  *  without waiting for zoom to separate them (which never works when
  *  events share the exact same coordinate). */
 export function ClusterPickerSheet({ events, onClose, onPick }: Props) {
+  const t = useT();
   const open = !!events && events.length > 0;
   const heightPct = events && events.length > 4 ? 0.7 : 0.5;
   return (
@@ -24,10 +26,10 @@ export function ClusterPickerSheet({ events, onClose, onPick }: Props) {
       {events ? (
         <View className="flex-1">
           <Text className="text-xl font-semibold text-text-light dark:text-text-dark">
-            {events.length} events here
+            {t('cluster.eventsHere', { count: events.length })}
           </Text>
           <Text className="mt-1 text-xs text-muted-light dark:text-muted-dark">
-            Pick one to see details.
+            {t('cluster.pickOne')}
           </Text>
 
           <FlatList
@@ -54,7 +56,7 @@ export function ClusterPickerSheet({ events, onClose, onPick }: Props) {
                     </Text>
                     {item.visibility === 'private' ? (
                       <Badge
-                        label="Private"
+                        label={t('preview.private')}
                         tone="private"
                         icon={
                           <Ionicons name="lock-closed" size={10} color="#B45309" />

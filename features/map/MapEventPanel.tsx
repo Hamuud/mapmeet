@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { useToast } from '@/components/ui/Toast';
 import { EventPreviewBody } from '@/features/events/EventPreviewBody';
@@ -34,6 +35,7 @@ export function MapEventPanel({
   onViewHost,
   onOpenChat,
 }: Props) {
+  const t = useT();
   const toast = useToast();
   const iconColor = useIconColor();
   const removeEvent = useEventsStore((s) => s.removeEvent);
@@ -44,10 +46,10 @@ export function MapEventPanel({
     try {
       await eventsService.remove(event.id);
       removeEvent(event.id);
-      toast.show('Event deleted.', 'success');
+      toast.show(t('events.deleted'), 'success');
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not delete', 'error');
+      toast.show(e instanceof Error ? e.message : t('events.couldNotDelete'), 'error');
     }
   };
 
@@ -60,11 +62,11 @@ export function MapEventPanel({
         {/* Header row — close chip returns to the events list. */}
         <View className="flex-row items-center justify-between px-5 pt-5 pb-3">
           <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            Event details
+            {t('sidebar.eventDetails')}
           </Text>
           <Pressable
             onPress={onClose}
-            accessibilityLabel="Close event details"
+            accessibilityLabel={t('sidebar.closeDetails')}
             hitSlop={8}
             className="h-8 w-8 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
           >
@@ -91,9 +93,9 @@ export function MapEventPanel({
 
       <ConfirmationDialog
         open={confirmDelete}
-        title="Delete event?"
-        message="This can't be undone. Attendees will lose their spot."
-        confirmLabel="Delete"
+        title={t('preview.deleteTitle')}
+        message={t('preview.deleteMessage')}
+        confirmLabel={t('common.delete')}
         destructive
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}

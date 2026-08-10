@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { formatEventDate, formatEventTime } from '@/utils/format';
@@ -14,10 +15,11 @@ type Props = {
 };
 
 export function EventCard({ event, distanceLabel, onPress, trailing }: Props) {
+  const t = useT();
   const creator = event.creator ?? {
     id: event.creator_id,
     username: 'unknown',
-    display_name: 'Unknown',
+    display_name: t('card.unknownHost'),
     avatar_url: null,
   };
   const tags = Array.isArray(event.tags) ? event.tags : [];
@@ -44,7 +46,7 @@ export function EventCard({ event, distanceLabel, onPress, trailing }: Props) {
             label={`${formatEventDate(event.event_date)} · ${formatEventTime(event.event_time)}`}
           />
           {event.visibility === 'private' ? (
-            <Badge label="Private" tone="accent" />
+            <Badge label={t('preview.private')} tone="accent" />
           ) : null}
         </View>
 
