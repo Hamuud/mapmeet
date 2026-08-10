@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT, type TranslationKey } from '@/i18n';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -10,19 +11,16 @@ import { useAuthStore } from '@/store/auth.store';
 import { goBack } from '@/utils/nav';
 
 type AttendingVisibility = 'nobody' | 'friends' | 'everyone';
-const ATTENDING_VIS: {
-  value: AttendingVisibility;
-  label: string;
-  hint: string;
-}[] = [
-  { value: 'nobody', label: 'Nobody', hint: 'Only you can see them' },
-  { value: 'friends', label: 'Friends only', hint: "Only people you're friends with" },
-  { value: 'everyone', label: 'Everyone', hint: 'Anyone who views your profile' },
+const ATTENDING_VIS: { value: AttendingVisibility; labelKey: TranslationKey; hintKey: TranslationKey }[] = [
+  { value: 'nobody', labelKey: 'privacy.nobody', hintKey: 'privacy.nobodyHint' },
+  { value: 'friends', labelKey: 'privacy.friends', hintKey: 'privacy.friendsHint' },
+  { value: 'everyone', labelKey: 'privacy.everyone', hintKey: 'privacy.everyoneHint' },
 ];
 
 /** Privacy settings. For now just the "who can see the events I'm
  *  attending" control; more toggles land here over time. */
 export default function PrivacyScreen() {
+  const t = useT();
   const toast = useToast();
   const iconColor = useIconColor();
   const { profile } = useAuth();
@@ -38,7 +36,7 @@ export default function PrivacyScreen() {
       await profilesService.setAttendingVisibility(value);
     } catch (e) {
       setProfile(previous);
-      toast.show(e instanceof Error ? e.message : 'Could not update', 'error');
+      toast.show(e instanceof Error ? e.message : t('privacy.updateFailed'), 'error');
     }
   };
 
@@ -48,14 +46,14 @@ export default function PrivacyScreen() {
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/settings')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
           <Ionicons name="chevron-back" size={18} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          Privacy
+          {t('privacy.title')}
         </Text>
       </View>
 
@@ -63,10 +61,10 @@ export default function PrivacyScreen() {
         <View className="gap-3">
           <View>
             <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
-              Who can see the events I'm attending?
+              {t('privacy.attendingQuestion')}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-light dark:text-muted-dark">
-              Controls who can see the events you've joined on your profile.
+              {t('privacy.attendingHint')}
             </Text>
           </View>
 
@@ -86,10 +84,10 @@ export default function PrivacyScreen() {
                 >
                   <View className="flex-1">
                     <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </Text>
                     <Text className="text-xs text-muted-light dark:text-muted-dark">
-                      {opt.hint}
+                      {t(opt.hintKey)}
                     </Text>
                   </View>
                   <View

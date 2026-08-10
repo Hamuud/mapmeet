@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -34,6 +35,7 @@ export function ReportSheet({
   targetText,
   targetLabel,
 }: Props) {
+  const t = useT();
   const toast = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [details, setDetails] = useState('');
@@ -67,10 +69,10 @@ export function ReportSheet({
         targetText: targetText ?? null,
         details: details.trim() || null,
       });
-      toast.show('Report sent. Our moderators will review it.', 'success');
+      toast.show(t('report.sent'), 'success');
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send report', 'error');
+      toast.show(e instanceof Error ? e.message : t('report.failed'), 'error');
     } finally {
       setSending(false);
     }
@@ -83,12 +85,11 @@ export function ReportSheet({
           <View className="flex-row items-center gap-2">
             <Ionicons name="flag-outline" size={18} color="#B91C1C" />
             <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-              Report {targetLabel}
+              {t('report.title', { target: targetLabel })}
             </Text>
           </View>
           <Text className="text-xs text-muted-light dark:text-muted-dark">
-            Pick everything that applies. Reports are reviewed by moderators —
-            the person isn't told who reported them.
+            {t('report.hint')}
           </Text>
         </View>
 
@@ -116,7 +117,7 @@ export function ReportSheet({
                     {on ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
                   </View>
                   <Text className="flex-1 text-[15px] text-text-light dark:text-text-dark">
-                    {r.label}
+                    {t(r.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -126,13 +127,13 @@ export function ReportSheet({
 
         <View className="gap-1.5">
           <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            More detail (optional)
+            {t('report.moreDetail')}
           </Text>
           <View className="rounded-2xl border border-border-light bg-elevated-light px-4 py-3 dark:border-border-dark dark:bg-elevated-dark">
             <TextInput
               value={details}
               onChangeText={setDetails}
-              placeholder="Anything that helps us understand what happened"
+              placeholder={t('report.detailPlaceholder')}
               placeholderTextColor="#8B8880"
               multiline
               maxLength={1000}
@@ -143,7 +144,7 @@ export function ReportSheet({
         </View>
 
         <PrimaryButton
-          label={selected.size > 1 ? `Send report (${selected.size} reasons)` : 'Send report'}
+          label={selected.size > 1 ? t('report.sendN', { n: selected.size }) : t('report.send')}
           variant="destructive"
           loading={sending}
           disabled={selected.size === 0}

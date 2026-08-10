@@ -1,7 +1,10 @@
 import { Text, View } from 'react-native';
 
+import { currentBcp47, useT } from '@/i18n';
+
 /** Date group header between message clusters — "— TODAY —" style. */
 export function DateSeparator({ iso }: { iso: string }) {
+  const t = useT();
   const d = new Date(iso);
   const today = new Date();
   const yesterday = new Date();
@@ -13,10 +16,14 @@ export function DateSeparator({ iso }: { iso: string }) {
     a.getDate() === b.getDate();
 
   const label = sameDay(d, today)
-    ? 'Today'
+    ? t('time.today')
     : sameDay(d, yesterday)
-      ? 'Yesterday'
-      : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      ? t('time.yesterday')
+      : d.toLocaleDateString(currentBcp47(), {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
 
   return (
     <View className="my-3 flex-row items-center gap-3 px-8">

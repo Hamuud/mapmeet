@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -57,6 +58,7 @@ export function ShareSheet({
   onSendToFriend,
   viewerId,
 }: Props) {
+  const t = useT();
   const toast = useToast();
   const message = url ? `${text}\n${url}` : text;
 
@@ -83,7 +85,7 @@ export function ShareSheet({
       await onSendToFriend(friendId);
       setSentTo((prev) => new Set(prev).add(friendId));
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send invite', 'error');
+      toast.show(e instanceof Error ? e.message : t('share.sendFailed'), 'error');
     } finally {
       setSendingTo(null);
     }
@@ -124,7 +126,7 @@ export function ShareSheet({
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(url);
-        toast.show('Link copied. Good for 24 hours.', 'success');
+        toast.show(t('share.copied'), 'success');
       } else {
         // Native (or a browser without the clipboard API): fall back to
         // the OS share sheet, which offers Copy among other targets.
@@ -160,10 +162,10 @@ export function ShareSheet({
       <View className="gap-4 pb-2">
         <View className="gap-0.5">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Share link
+            {t('share.title')}
           </Text>
           <Text className="text-xs text-muted-light">
-            Anyone with this link can join. It expires in 24 hours.
+            {t('share.hint')}
           </Text>
         </View>
 
@@ -172,7 +174,7 @@ export function ShareSheet({
         {onSendToFriend && friends.length > 0 ? (
           <View className="gap-2">
             <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              Send to a friend
+              {t('share.sendToFriend')}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View className="flex-row gap-3 pr-2">
@@ -184,7 +186,7 @@ export function ShareSheet({
                       key={f.other.id}
                       onPress={() => void handleSendToFriend(f.other.id)}
                       disabled={sent || !!sendingTo || !url}
-                      accessibilityLabel={`Send to ${f.other.display_name}`}
+                      accessibilityLabel={t('share.sendTo', { name: f.other.display_name })}
                       className="w-[68px] items-center gap-1.5 active:opacity-70"
                       style={{ opacity: url ? 1 : 0.4 }}
                     >
@@ -213,7 +215,7 @@ export function ShareSheet({
                         ].join(' ')}
                         numberOfLines={1}
                       >
-                        {sent ? 'Sent' : f.other.display_name.split(/\s+/)[0]}
+                        {sent ? t('share.sent') : (f.other.display_name.split(/\s+/)[0] ?? f.other.display_name)}
                       </Text>
                     </Pressable>
                   );
@@ -234,7 +236,7 @@ export function ShareSheet({
                 openExternal(c.href(url));
                 onClose();
               }}
-              accessibilityLabel={`Share via ${c.label}`}
+              accessibilityLabel={t('share.via', { app: c.label })}
               className="items-center gap-1.5 active:opacity-70"
               style={{ opacity: url ? 1 : 0.4 }}
             >
@@ -254,7 +256,7 @@ export function ShareSheet({
         {/* Copy + more */}
         <View className="gap-2">
           <PrimaryButton
-            label={url ? 'Copy link' : 'Creating link…'}
+            label={url ? t('share.copyLink') : t('share.creatingLink')}
             variant="secondary"
             loading={!url}
             leftIcon={<Ionicons name="copy-outline" size={15} color="#4B5FE0" />}
@@ -262,7 +264,7 @@ export function ShareSheet({
             fullWidth
           />
           <PrimaryButton
-            label="More options…"
+            label={t('share.moreOptions')}
             variant="ghost"
             disabled={!url}
             leftIcon={<Ionicons name="ellipsis-horizontal" size={15} color="#8B8880" />}

@@ -3,6 +3,7 @@ import { Component, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { PrimaryButton } from './PrimaryButton';
+import { useT } from '@/i18n';
 
 type Props = {
   children: ReactNode;
@@ -33,7 +34,23 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override render() {
     if (!this.state.err) return this.props.children;
-    return (
+    // The fallback is its own function component so it can use the
+    // translation hook — class components can't.
+    return <ErrorFallback err={this.state.err} where={this.props.where} onReset={this.reset} />;
+  }
+}
+
+function ErrorFallback({
+  err,
+  where,
+  onReset,
+}: {
+  err: Error;
+  where?: string;
+  onReset: () => void;
+}) {
+  const t = useT();
+  return (
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 16 }}
@@ -44,23 +61,22 @@ export class ErrorBoundary extends Component<Props, State> {
             <Ionicons name="warning" size={26} color="#EF4444" />
           </View>
           <Text className="mt-3 text-center font-display text-2xl text-text-light dark:text-text-dark">
-            Something went wrong
+            {t('error.title')}
           </Text>
-          {this.props.where ? (
+          {where ? (
             <Text className="mt-1 text-xs text-muted-light dark:text-muted-dark">
-              {this.props.where}
+              {where}
             </Text>
           ) : null}
         </View>
 
         <View className="rounded-2xl border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
           <Text className="font-mono text-[11px] text-text-light dark:text-text-dark">
-            {this.state.err.message}
+            {err.message}
           </Text>
         </View>
 
-        <PrimaryButton label="Try again" onPress={this.reset} fullWidth />
+        <PrimaryButton label={t('error.tryAgain')} onPress={onReset} fullWidth />
       </ScrollView>
-    );
-  }
+  );
 }

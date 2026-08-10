@@ -236,6 +236,7 @@ function FriendRowView({
   onAccept: () => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 dark:border-border-dark dark:bg-panel-dark">
       <Pressable onPress={onOpenProfile} className="flex-1 flex-row items-center gap-3">
@@ -262,12 +263,12 @@ function FriendRowView({
             className="h-9 flex-row items-center rounded-full bg-brand-500 px-3"
           >
             <Ionicons name="chatbubble-outline" size={13} color="#fff" />
-            <Text className="ml-1.5 text-xs font-semibold text-white">Message</Text>
+            <Text className="ml-1.5 text-xs font-semibold text-white">{t('friends.message')}</Text>
           </Pressable>
           <Pressable
             onPress={onRemove}
             className="h-9 w-9 items-center justify-center rounded-full border border-red-300"
-            accessibilityLabel="Unfriend"
+            accessibilityLabel={t('friends.unfriend')}
           >
             <Ionicons name="close" size={14} color="#EF4444" />
           </Pressable>
@@ -278,12 +279,12 @@ function FriendRowView({
             onPress={onAccept}
             className="h-9 flex-row items-center rounded-full bg-brand-500 px-3"
           >
-            <Text className="text-xs font-semibold text-white">Accept</Text>
+            <Text className="text-xs font-semibold text-white">{t('friends.accept')}</Text>
           </Pressable>
           <Pressable
             onPress={onRemove}
             className="h-9 w-9 items-center justify-center rounded-full border border-red-300"
-            accessibilityLabel="Reject"
+            accessibilityLabel={t('friends.reject')}
           >
             <Ionicons name="close" size={14} color="#EF4444" />
           </Pressable>

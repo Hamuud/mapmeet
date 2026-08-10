@@ -34,8 +34,9 @@ function goToMap() {
 }
 
 export default function MyEventsScreen() {
+  const t = useT();
   return (
-    <ErrorBoundary where="My Events">
+    <ErrorBoundary where={t('boundary.myEvents')}>
       <MyEventsBody />
     </ErrorBoundary>
   );

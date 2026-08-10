@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { currentBcp47, useT, type TranslationKey } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -13,7 +14,7 @@ import { useIconColor } from '@/hooks/useIconColor';
 import {
   ASSIGNABLE_ROLES,
   MUTE_OPTIONS,
-  reasonLabel,
+  reasonLabelKey,
   reportsService,
   type AdminReport,
   type ReportStatus,
@@ -23,11 +24,11 @@ import { formatRelativeTime } from '@/utils/format';
 import { goBack } from '@/utils/nav';
 
 type Filter = ReportStatus | 'all';
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'open', label: 'Open' },
-  { key: 'resolved', label: 'Resolved' },
-  { key: 'dismissed', label: 'Dismissed' },
-  { key: 'all', label: 'All' },
+const FILTERS: { key: Filter; labelKey: TranslationKey }[] = [
+  { key: 'open', labelKey: 'admin.tabOpen' },
+  { key: 'resolved', labelKey: 'admin.tabResolved' },
+  { key: 'dismissed', labelKey: 'admin.tabDismissed' },
+  { key: 'all', labelKey: 'filter.all' },
 ];
 type Tab = 'reports' | 'roles';
 
@@ -36,6 +37,13 @@ type Tab = 'reports' | 'roles';
  *  re-checks is_admin() server-side, so this is UI convenience, not the
  *  security boundary. */
 export default function AdminScreen() {
+  const t = useT();
+  // Reason codes come back from the DB; unknown ones (newer build) fall
+  // through as the raw code rather than rendering blank.
+  const tReason = (code: string) => {
+    const key = reasonLabelKey(code);
+    return key ? t(key) : code;
+  };
   const toast = useToast();
   const iconColor = useIconColor();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -62,7 +70,7 @@ export default function AdminScreen() {
     try {
       setReports(await reportsService.list(filter));
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not load reports', 'error');
+      toast.show(e instanceof Error ? e.message : t('admin.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -80,7 +88,7 @@ export default function AdminScreen() {
         toast.show(okMessage, 'success');
         await load();
       } catch (e) {
-        toast.show(e instanceof Error ? e.message : 'Action failed', 'error');
+        toast.show(e instanceof Error ? e.message : t('admin.actionFailed'), 'error');
       }
     },
     [load, toast],
@@ -91,9 +99,9 @@ export default function AdminScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="🔒"
-          title="Admins only"
-          description="This screen is limited to moderators."
-          actionLabel="Go back"
+          title={t('admin.adminsOnly')}
+          description={t('admin.adminsOnlyHint')}
+          actionLabel={t('user.goBack')}
           onAction={() => goBack('/settings')}
         />
       </SafeAreaView>
@@ -105,7 +113,7 @@ export default function AdminScreen() {
       <View className="flex-row items-center gap-2.5 border-b border-border-light px-3 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/settings')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -113,13 +121,13 @@ export default function AdminScreen() {
         </Pressable>
         <View className="flex-1">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Complaints & reports
+            {t('admin.title')}
           </Text>
           <Text className="text-xs text-muted-light">{reports.length} shown</Text>
         </View>
         <Pressable
           onPress={() => void load()}
-          accessibilityLabel="Refresh"
+          accessibilityLabel={t('admin.refresh')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
@@ -182,7 +190,7 @@ export default function AdminScreen() {
                         : 'text-muted-light',
                     ].join(' ')}
                   >
-                    {f.label}
+                    {t(f.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -202,11 +210,11 @@ export default function AdminScreen() {
           loading ? null : (
             <EmptyState
               emoji="✅"
-              title="Nothing to review"
+              title={t('admin.nothingToReview')}
               description={
                 filter === 'open'
-                  ? 'No open complaints right now.'
-                  : 'No reports in this bucket.'
+                  ? t('admin.noOpen')
+                  : t('admin.noneInBucket')
               }
             />
           )
@@ -233,7 +241,7 @@ export default function AdminScreen() {
                   className="text-sm font-bold text-text-light dark:text-text-dark"
                   numberOfLines={1}
                 >
-                  {item.target_display_name ?? item.target_text ?? 'Unknown target'}
+                  {item.target_display_name ?? item.target_text ?? t('admin.unknownTarget')}
                 </Text>
                 <Text className="text-[11px] text-muted-light" numberOfLines={1}>
                   {item.target_type}
@@ -254,7 +262,7 @@ export default function AdminScreen() {
               {item.reasons.map((r) => (
                 <View key={r} className="rounded-full bg-red-500/10 px-2 py-0.5">
                   <Text className="text-[10px] font-semibold text-red-600">
-                    {reasonLabel(r)}
+                    {tReason(r)}
                   </Text>
                 </View>
               ))}
@@ -281,11 +289,11 @@ export default function AdminScreen() {
           <View className="gap-3 pb-2">
             <View className="gap-0.5">
               <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-                {target.target_display_name ?? target.target_text ?? 'Report'}
+                {target.target_display_name ?? target.target_text ?? t('admin.report')}
               </Text>
               <Text className="text-xs text-muted-light">
                 Reported by @{target.reporter_username} ·{' '}
-                {target.reasons.map(reasonLabel).join(', ')}
+                {target.reasons.map(tReason).join(', ')}
               </Text>
             </View>
 
@@ -293,17 +301,17 @@ export default function AdminScreen() {
 
             {/* Report outcome */}
             <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              Report
+              {t('admin.report')}
             </Text>
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <PrimaryButton
-                  label="Dismiss (false)"
+                  label={t('admin.dismissFalse')}
                   variant="secondary"
                   onPress={() =>
                     void act(
                       () => reportsService.resolve(target.id, 'dismissed'),
-                      'Report dismissed.',
+                      t('admin.dismissed'),
                     )
                   }
                   fullWidth
@@ -311,12 +319,12 @@ export default function AdminScreen() {
               </View>
               <View className="flex-1">
                 <PrimaryButton
-                  label="Mark resolved"
+                  label={t('admin.markResolved')}
                   variant="secondary"
                   onPress={() =>
                     void act(
                       () => reportsService.resolve(target.id, 'resolved'),
-                      'Report resolved.',
+                      t('admin.resolved'),
                     )
                   }
                   fullWidth
@@ -326,13 +334,13 @@ export default function AdminScreen() {
 
             {target.target_type === 'review' && target.target_id ? (
               <PrimaryButton
-                label="Delete this review"
+                label={t('admin.deleteReview')}
                 variant="destructive-outline"
                 leftIcon={<Ionicons name="trash-outline" size={14} color="#B91C1C" />}
                 onPress={() =>
                   void act(
                     () => reportsService.deleteReview(target.target_id!),
-                    'Review deleted.',
+                    t('admin.reviewDeleted'),
                   )
                 }
                 fullWidth
@@ -342,10 +350,10 @@ export default function AdminScreen() {
             {target.target_user_id ? (
               <>
                 <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
-                  Act on the account
+                  {t('admin.actOnAccount')}
                 </Text>
                 <PrimaryButton
-                  label="Issue warning"
+                  label={t('admin.issueWarning')}
                   variant="secondary"
                   leftIcon={<Ionicons name="alert-circle-outline" size={14} color="#4B5FE0" />}
                   onPress={() =>
@@ -356,14 +364,14 @@ export default function AdminScreen() {
                           action: 'warn',
                           reportId: target.id,
                         }),
-                      'Warning issued.',
+                      t('admin.warningIssued'),
                     )
                   }
                   fullWidth
                 />
 
                 <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-                  Mute
+                  {t('admin.mute')}
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
                   {MUTE_OPTIONS.map((m) => (
@@ -378,13 +386,13 @@ export default function AdminScreen() {
                               minutes: m.minutes,
                               reportId: target.id,
                             }),
-                          `Muted for ${m.label}.`,
+                          t('admin.mutedFor', { label: t(m.labelKey) }),
                         )
                       }
                       className="rounded-xl border border-border-light bg-elevated-light px-4 py-2 active:opacity-70 dark:border-border-dark dark:bg-elevated-dark"
                     >
                       <Text className="text-[13px] font-semibold text-text-light dark:text-text-dark">
-                        {m.label}
+                        {t(m.labelKey)}
                       </Text>
                     </Pressable>
                   ))}
@@ -398,13 +406,13 @@ export default function AdminScreen() {
                               action: 'unmute',
                               reportId: target.id,
                             }),
-                          'Mute lifted.',
+                          t('admin.muteLifted'),
                         )
                       }
                       className="rounded-xl border border-brand-500 px-4 py-2 active:opacity-70"
                     >
                       <Text className="text-[13px] font-semibold text-brand-500">
-                        Unmute
+                        {t('admin.unmute')}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -412,7 +420,7 @@ export default function AdminScreen() {
 
                 {target.target_banned ? (
                   <PrimaryButton
-                    label="Lift ban"
+                    label={t('admin.liftBan')}
                     variant="secondary"
                     onPress={() =>
                       void act(
@@ -422,14 +430,14 @@ export default function AdminScreen() {
                             action: 'unban',
                             reportId: target.id,
                           }),
-                        'Ban lifted.',
+                        t('admin.banLifted'),
                       )
                     }
                     fullWidth
                   />
                 ) : (
                   <PrimaryButton
-                    label="Ban permanently"
+                    label={t('admin.banPermanently')}
                     variant="destructive"
                     onPress={() => setConfirmBan(target)}
                     fullWidth
@@ -443,9 +451,9 @@ export default function AdminScreen() {
 
       <ConfirmationDialog
         open={!!confirmBan}
-        title={`Ban ${confirmBan?.target_display_name ?? 'this user'}?`}
-        message="They'll be blocked from posting messages, creating events and leaving reviews until the ban is lifted."
-        confirmLabel="Ban"
+        title={t('admin.banTitle', { name: confirmBan?.target_display_name ?? t('admin.thisUser') })}
+        message={t('admin.banMessage')}
+        confirmLabel={t('admin.banConfirm')}
         destructive
         onConfirm={() => {
           const r = confirmBan;
@@ -458,7 +466,7 @@ export default function AdminScreen() {
                   action: 'ban',
                   reportId: r.id,
                 }),
-              'Account banned.',
+              t('admin.banned'),
             );
           }
         }}
@@ -472,6 +480,7 @@ export default function AdminScreen() {
  *  Staff can open the reports queue; only the owner can reach this panel,
  *  and assign_role re-checks that server-side. */
 function RolesPanel() {
+  const t = useT();
   const toast = useToast();
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'support' | 'admin' | 'user'>('support');
@@ -503,7 +512,7 @@ function RolesPanel() {
       setUsername('');
       await loadStaff();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not assign role', 'error');
+      toast.show(e instanceof Error ? e.message : t('admin.roleFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -513,13 +522,13 @@ function RolesPanel() {
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} showsVerticalScrollIndicator={false}>
       <View className="gap-2">
         <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-          Assign a role
+          {t('admin.assignRole')}
         </Text>
         <View className="h-12 justify-center rounded-2xl border border-border-light bg-elevated-light px-4 dark:border-border-dark dark:bg-elevated-dark">
           <TextInput
             value={username}
             onChangeText={setUsername}
-            placeholder="username (without @)"
+            placeholder={t('admin.usernamePlaceholder')}
             placeholderTextColor="#8B8880"
             autoCapitalize="none"
             autoCorrect={false}
@@ -551,9 +560,9 @@ function RolesPanel() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
-                    {r.label}
+                    {t(r.labelKey)}
                   </Text>
-                  <Text className="text-xs text-muted-light">{r.hint}</Text>
+                  <Text className="text-xs text-muted-light">{t(r.hintKey)}</Text>
                 </View>
               </Pressable>
             );
@@ -561,7 +570,7 @@ function RolesPanel() {
         </View>
 
         <PrimaryButton
-          label="Apply role"
+          label={t('admin.applyRole')}
           loading={busy}
           disabled={!username.trim()}
           onPress={handleAssign}
@@ -608,6 +617,7 @@ function RolesPanel() {
 /** Current standing of the reported account: bans, live mutes, warnings
  *  and how many complaints they've collected. */
 function StatusStrip({ report }: { report: AdminReport }) {
+  const t = useT();
   if (!report.target_user_id) return null;
   const muted =
     report.target_muted_until && new Date(report.target_muted_until) > new Date()
@@ -616,16 +626,21 @@ function StatusStrip({ report }: { report: AdminReport }) {
   return (
     <View className="flex-row flex-wrap items-center gap-1.5">
       {report.target_banned ? (
-        <Chip tone="danger" label="Banned" />
+        <Chip tone="danger" label={t('admin.chipBanned')} />
       ) : muted ? (
-        <Chip tone="warn" label={`Muted until ${new Date(muted).toLocaleString()}`} />
+        <Chip
+          tone="warn"
+          label={t('admin.chipMutedUntil', {
+            date: new Date(muted).toLocaleString(currentBcp47()),
+          })}
+        />
       ) : (
-        <Chip tone="ok" label="Active" />
+        <Chip tone="ok" label={t('admin.chipActive')} />
       )}
       {(report.target_warnings ?? 0) > 0 ? (
-        <Chip tone="warn" label={`${report.target_warnings} warning(s)`} />
+        <Chip tone="warn" label={t('admin.chipWarnings', { n: report.target_warnings ?? 0 })} />
       ) : null}
-      <Chip tone="muted" label={`${report.target_report_count ?? 0} report(s)`} />
+      <Chip tone="muted" label={t('admin.chipReports', { n: report.target_report_count ?? 0 })} />
     </View>
   );
 }

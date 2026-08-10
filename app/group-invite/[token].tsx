@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -18,6 +19,7 @@ type Preview = Awaited<ReturnType<typeof groupsService.previewInvite>>;
  *  the friends-only rule is for the in-app "add member" flow, this
  *  link is the deliberately-broader Telegram-style share. */
 export default function GroupInviteScreen() {
+  const t = useT();
   const { token } = useLocalSearchParams<{ token: string }>();
   const { session } = useAuth();
   const toast = useToast();
@@ -36,7 +38,7 @@ export default function GroupInviteScreen() {
         if (!cancelled) setPreview(row);
       })
       .catch((e) => {
-        if (!cancelled) toast.show(e instanceof Error ? e.message : 'Could not load invite', 'error');
+        if (!cancelled) toast.show(e instanceof Error ? e.message : t('invite.loadFailed'), 'error');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -49,7 +51,7 @@ export default function GroupInviteScreen() {
   const handleAccept = async () => {
     if (!token) return;
     if (!session) {
-      toast.show('Sign in to join the group.', 'info');
+      toast.show(t('invite.signInToJoinGroup'), 'info');
       router.replace('/(auth)/login');
       return;
     }
@@ -59,7 +61,7 @@ export default function GroupInviteScreen() {
       toast.show("You're in — opening the group.", 'success');
       router.replace({ pathname: '/group/[id]', params: { id: groupId } });
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not join', 'error');
+      toast.show(e instanceof Error ? e.message : t('invite.joinFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -78,9 +80,9 @@ export default function GroupInviteScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="💬"
-          title="Invite not found"
-          description="This link may have been mistyped or the invite was cancelled."
-          actionLabel="Open map"
+          title={t('invite.notFound')}
+          description={t('invite.notFoundHint')}
+          actionLabel={t('events.openMap')}
           onAction={() => router.replace('/(tabs)/map')}
         />
       </SafeAreaView>
@@ -92,9 +94,9 @@ export default function GroupInviteScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="⏰"
-          title="This invite has expired"
-          description="Group invites are valid for 24 hours. Ask someone in the group for a fresh link."
-          actionLabel="Open map"
+          title={t('invite.expired')}
+          description={t('invite.expiredGroupHint')}
+          actionLabel={t('events.openMap')}
           onAction={() => router.replace('/(tabs)/map')}
         />
       </SafeAreaView>
@@ -106,14 +108,14 @@ export default function GroupInviteScreen() {
       <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/chat')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
           <Ionicons name="chevron-back" size={18} color="#4B5FE0" />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          Group invite
+          {t('invite.groupInvite')}
         </Text>
         <View className="h-9 w-9" />
       </View>
@@ -135,14 +137,14 @@ export default function GroupInviteScreen() {
 
         <View className="mt-2 w-full">
           <PrimaryButton
-            label={session ? 'Join group' : 'Sign in to join'}
+            label={session ? t('invite.joinGroup') : t('invite.signInToJoin')}
             loading={busy}
             onPress={handleAccept}
             fullWidth
           />
         </View>
         <Text className="text-center text-[11px] text-muted-light">
-          This invite link is valid for 24 hours from creation.
+          {t('invite.footerGroup')}
         </Text>
       </View>
     </SafeAreaView>

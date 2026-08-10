@@ -23,8 +23,9 @@ import type { EventWithCreator } from '@/types';
 type Folder = 'active' | 'archive' | 'direct';
 
 export default function ChatScreen() {
+  const t = useT();
   return (
-    <ErrorBoundary where="Chat">
+    <ErrorBoundary where={t('boundary.chat')}>
       <ChatListBody />
     </ErrorBoundary>
   );

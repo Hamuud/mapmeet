@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -16,6 +17,7 @@ import { formatEventDate, formatEventTime } from '@/utils/format';
  *  link. Loads the event preview via the token, and offers a Join
  *  button; on success, routes into the event's chat. */
 export default function InviteAcceptScreen() {
+  const t = useT();
   const { token } = useLocalSearchParams<{ token: string }>();
   const { session } = useAuth();
   const toast = useToast();
@@ -35,7 +37,7 @@ export default function InviteAcceptScreen() {
       })
       .catch((e) => {
         if (!cancelled) {
-          toast.show(e instanceof Error ? e.message : 'Could not load invite', 'error');
+          toast.show(e instanceof Error ? e.message : t('invite.loadFailed'), 'error');
         }
       })
       .finally(() => {
@@ -52,7 +54,7 @@ export default function InviteAcceptScreen() {
       // Route through sign-in first — after auth the user can revisit
       // this URL. Deep-link preservation is a follow-up; for now punt
       // to the login screen.
-      toast.show('Sign in to accept the invite.', 'info');
+      toast.show(t('invite.signInToAccept'), 'info');
       router.replace('/(auth)/login');
       return;
     }
@@ -62,7 +64,7 @@ export default function InviteAcceptScreen() {
       toast.show("You're in — opening the chat.", 'success');
       router.replace({ pathname: '/chat/[id]', params: { id: eventId } });
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not accept invite', 'error');
+      toast.show(e instanceof Error ? e.message : t('invite.acceptFailed'), 'error');
     } finally {
       setBusy(false);
     }
@@ -81,9 +83,9 @@ export default function InviteAcceptScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="🎟️"
-          title="Invite not found"
-          description="This link may have been mistyped or the invite was cancelled."
-          actionLabel="Open map"
+          title={t('invite.notFound')}
+          description={t('invite.notFoundHint')}
+          actionLabel={t('events.openMap')}
           onAction={() => router.replace('/(tabs)/map')}
         />
       </SafeAreaView>
@@ -95,9 +97,9 @@ export default function InviteAcceptScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="⏰"
-          title="This invite has expired"
-          description="Invites are only valid for 24 hours. Ask the host or someone attending for a fresh one."
-          actionLabel="Open map"
+          title={t('invite.expired')}
+          description={t('invite.expiredEventHint')}
+          actionLabel={t('events.openMap')}
           onAction={() => router.replace('/(tabs)/map')}
         />
       </SafeAreaView>
@@ -109,14 +111,14 @@ export default function InviteAcceptScreen() {
       <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/map')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
           <Ionicons name="chevron-back" size={18} color="#4B5FE0" />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          You're invited
+          {t('invite.youreInvited')}
         </Text>
         <View className="h-9 w-9" />
       </View>
@@ -127,7 +129,7 @@ export default function InviteAcceptScreen() {
             source={{ uri: preview.event_image_url }}
             style={{ width: '100%', height: 180, borderRadius: 16 }}
             resizeMode="cover"
-            accessibilityLabel={`${preview.event_title} poster`}
+            accessibilityLabel={t('preview.posterAlt', { title: preview.event_title })}
           />
         ) : null}
 
@@ -173,14 +175,14 @@ export default function InviteAcceptScreen() {
         </View>
 
         <PrimaryButton
-          label={session ? 'Join event' : 'Sign in to join'}
+          label={session ? t('invite.joinEvent') : t('invite.signInToJoin')}
           loading={busy}
           onPress={handleAccept}
           fullWidth
         />
 
         <Text className="text-center text-[11px] text-muted-light">
-          This invite is single-link, valid for 24 hours from creation.
+          {t('invite.footerEvent')}
         </Text>
       </View>
     </SafeAreaView>

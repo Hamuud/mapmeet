@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/i18n';
 import { supabase } from './supabase';
 
 export type ReportTargetType = 'user' | 'review' | 'event' | 'hashtag' | 'message';
@@ -6,29 +7,31 @@ export type ModerationAction = 'warn' | 'mute' | 'unmute' | 'ban' | 'unban';
 
 /** The reasons a reporter can pick. Stored as the `key`; the label is
  *  what both the report sheet and the admin queue render. */
-export const REPORT_REASONS: { key: string; label: string }[] = [
-  { key: 'harassment', label: 'Harassment or bullying' },
-  { key: 'hate', label: 'Hate speech' },
-  { key: 'drugs', label: 'Prohibited substances' },
-  { key: 'violence', label: 'Violence or threats' },
-  { key: 'sexual', label: 'Sexual or explicit content' },
-  { key: 'spam', label: 'Spam or scam' },
-  { key: 'impersonation', label: 'Impersonation / fake profile' },
-  { key: 'false_review', label: 'False or fake review' },
-  { key: 'hashtag', label: 'Prohibited hashtag' },
-  { key: 'other', label: 'Something else' },
+export const REPORT_REASONS: { key: string; labelKey: TranslationKey }[] = [
+  { key: 'harassment', labelKey: 'reason.harassment' },
+  { key: 'hate', labelKey: 'reason.hate' },
+  { key: 'drugs', labelKey: 'reason.drugs' },
+  { key: 'violence', labelKey: 'reason.violence' },
+  { key: 'sexual', labelKey: 'reason.sexual' },
+  { key: 'spam', labelKey: 'reason.spam' },
+  { key: 'impersonation', labelKey: 'reason.impersonation' },
+  { key: 'false_review', labelKey: 'reason.false_review' },
+  { key: 'hashtag', labelKey: 'reason.hashtag' },
+  { key: 'other', labelKey: 'reason.other' },
 ];
 
-export function reasonLabel(key: string): string {
-  return REPORT_REASONS.find((r) => r.key === key)?.label ?? key;
+/** Dictionary key for a stored reason code, or null when the code came
+ *  from a newer build than this client knows about. */
+export function reasonLabelKey(key: string): TranslationKey | null {
+  return REPORT_REASONS.find((r) => r.key === key)?.labelKey ?? null;
 }
 
 /** Mute presets offered in the admin queue. */
-export const MUTE_OPTIONS: { label: string; minutes: number }[] = [
-  { label: '30 min', minutes: 30 },
-  { label: '60 min', minutes: 60 },
-  { label: '24 h', minutes: 60 * 24 },
-  { label: '1 week', minutes: 60 * 24 * 7 },
+export const MUTE_OPTIONS: { labelKey: TranslationKey; minutes: number }[] = [
+  { labelKey: 'mute.30min', minutes: 30 },
+  { labelKey: 'mute.60min', minutes: 60 },
+  { labelKey: 'mute.24h', minutes: 60 * 24 },
+  { labelKey: 'mute.week', minutes: 60 * 24 * 7 },
 ];
 
 export type AdminReport = {
@@ -75,10 +78,14 @@ export type StaffMember = {
 
 /** Assignable tiers — 'owner' is deliberately absent: it can't be handed
  *  out or taken away through the app. */
-export const ASSIGNABLE_ROLES: { key: 'support' | 'admin' | 'user'; label: string; hint: string }[] = [
-  { key: 'support', label: 'Support', hint: 'Reviews reports; cannot assign roles' },
-  { key: 'admin', label: 'Admin', hint: 'Full moderation; cannot assign roles' },
-  { key: 'user', label: 'Remove access', hint: 'Back to a regular account' },
+export const ASSIGNABLE_ROLES: {
+  key: 'support' | 'admin' | 'user';
+  labelKey: TranslationKey;
+  hintKey: TranslationKey;
+}[] = [
+  { key: 'support', labelKey: 'role.support', hintKey: 'role.supportHint' },
+  { key: 'admin', labelKey: 'role.admin', hintKey: 'role.adminHint' },
+  { key: 'user', labelKey: 'role.remove', hintKey: 'role.removeHint' },
 ];
 
 export const reportsService = {

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useT } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -21,6 +22,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
 /** "Send feedback" composer: a message plus optional photo/video evidence.
  *  Submissions are stored server-side and forwarded on by email. */
 export function FeedbackSheet({ open, onClose, userId }: Props) {
+  const t = useT();
   const toast = useToast();
   const { pickMedia } = useImagePicker();
   const [message, setMessage] = useState('');
@@ -47,11 +49,11 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
       const tooBig = picked.filter((p) => (p.size ?? 0) > MAX_BYTES);
       const ok = picked.filter((p) => (p.size ?? 0) <= MAX_BYTES);
       if (tooBig.length > 0) {
-        toast.show('Some files were over 25 MB and were skipped.', 'info');
+        toast.show(t('feedback.tooBig'), 'info');
       }
       setMedia((prev) => [...prev, ...ok].slice(0, MAX_ATTACHMENTS));
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not open your library', 'error');
+      toast.show(e instanceof Error ? e.message : t('feedback.libraryFailed'), 'error');
     }
   };
 
@@ -59,16 +61,16 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
     const body = message.trim();
     if (!body || sending) return;
     if (!userId) {
-      toast.show('Sign in to send feedback.', 'error');
+      toast.show(t('feedback.signIn'), 'error');
       return;
     }
     setSending(true);
     try {
       await feedbackService.submit(userId, body, media);
-      toast.show('Thanks! Your feedback was sent.', 'success');
+      toast.show(t('feedback.sent'), 'success');
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send feedback', 'error');
+      toast.show(e instanceof Error ? e.message : t('feedback.failed'), 'error');
     } finally {
       setSending(false);
     }
@@ -81,7 +83,7 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
           <View className="flex-row items-center gap-2">
             <Ionicons name="chatbubble-ellipses-outline" size={18} color="#4B5FE0" />
             <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-              Send feedback
+              {t('feedback.title')}
             </Text>
           </View>
           <Text className="text-xs text-muted-light dark:text-muted-dark">
@@ -94,7 +96,7 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
           <TextInput
             value={message}
             onChangeText={setMessage}
-            placeholder="What happened? Steps to reproduce help a lot."
+            placeholder={t('feedback.placeholder')}
             placeholderTextColor="#8B8880"
             multiline
             maxLength={4000}
@@ -107,7 +109,7 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
         <View className="gap-2">
           <View className="flex-row items-baseline justify-between">
             <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              Attachments
+              {t('feedback.attachments')}
             </Text>
             <Text className="text-[11px] text-muted-light">
               {media.length}/{MAX_ATTACHMENTS}
@@ -132,13 +134,13 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
                       >
                         <Ionicons name="videocam" size={22} color="#8B8880" />
                         <Text className="mt-1 font-mono text-[9px] uppercase text-muted-light">
-                          Video
+                          {t('feedback.video')}
                         </Text>
                       </View>
                     )}
                     <Pressable
                       onPress={() => setMedia((prev) => prev.filter((_, idx) => idx !== i))}
-                      accessibilityLabel="Remove attachment"
+                      accessibilityLabel={t('feedback.removeAttachment')}
                       hitSlop={6}
                       className="absolute -right-1.5 -top-1.5 h-6 w-6 items-center justify-center rounded-full bg-surface-light dark:bg-surface-dark"
                     >
@@ -156,7 +158,7 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
           >
             <Ionicons name="images-outline" size={16} color="#4B5FE0" />
             <Text className="text-[13px] font-semibold text-brand-500">
-              Add photo or video
+              {t('feedback.addMedia')}
             </Text>
           </Pressable>
         </View>
@@ -164,7 +166,7 @@ export function FeedbackSheet({ open, onClose, userId }: Props) {
         {/* No leftIcon: the primary button inverts with the theme, so a
             fixed-colour glyph would vanish in one of the two modes. */}
         <PrimaryButton
-          label="Send feedback"
+          label={t('feedback.title')}
           loading={sending}
           disabled={!message.trim()}
           onPress={handleSend}
