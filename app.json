@@ -4,10 +4,12 @@
     "slug": "mapmeet",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
     "scheme": "mapmeet",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
+      "image": "./assets/images/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0E0E10"
     },
@@ -23,13 +25,13 @@
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map.",
         "NSPhotoLibraryUsageDescription": "MapMeet needs access to your photo library so you can set a profile picture.",
         "NSCameraUsageDescription": "MapMeet uses the camera so you can take a profile picture."
       }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0E0E10"
       },
       "package": "com.mapmeet.app",
@@ -54,7 +56,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "MapMeet uses your location to show nearby events on the map."
+          "locationWhenInUsePermission": "MapMeet uses your location to show nearby events on the map."
         }
       ],
       [
