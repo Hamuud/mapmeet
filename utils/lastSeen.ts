@@ -1,9 +1,11 @@
+import { currentBcp47, t } from '@/i18n';
+
 /** Treat someone as "Online" if their last heartbeat was within this
  *  window. The heartbeat fires ~every 45s, so 90s tolerates one miss. */
 export const ONLINE_WINDOW_MS = 90_000;
 
 function timeOfDay(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString(currentBcp47(), { hour: 'numeric', minute: '2-digit' });
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -18,29 +20,31 @@ function sameDay(a: Date, b: Date): boolean {
  *  "Online", "last seen just now", "last seen 12 minutes ago",
  *  "last seen at 14:30", "last seen yesterday at 22:10", or a date. */
 export function formatLastSeen(iso: string | null | undefined, now: Date = new Date()): string {
-  if (!iso) return 'last seen recently';
+  if (!iso) return t('presence.recently');
   const seen = new Date(iso);
-  if (Number.isNaN(seen.getTime())) return 'last seen recently';
+  if (Number.isNaN(seen.getTime())) return t('presence.recently');
 
   const diff = now.getTime() - seen.getTime();
-  if (diff < ONLINE_WINDOW_MS) return 'Online';
-  if (diff < 60_000) return 'last seen just now';
+  if (diff < ONLINE_WINDOW_MS) return t('presence.online');
+  if (diff < 60_000) return t('presence.justNow');
 
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `last seen ${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
+  if (mins < 60) return t('presence.minutesAgo', { count: mins });
 
-  if (sameDay(seen, now)) return `last seen at ${timeOfDay(seen)}`;
+  if (sameDay(seen, now)) return t('presence.atTime', { time: timeOfDay(seen) });
 
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (sameDay(seen, yesterday)) return `last seen yesterday at ${timeOfDay(seen)}`;
+  if (sameDay(seen, yesterday)) return t('presence.yesterdayAt', { time: timeOfDay(seen) });
 
-  return `last seen ${seen.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+  return t('presence.onDate', {
+    date: seen.toLocaleDateString(currentBcp47(), { month: 'short', day: 'numeric' }),
+  });
 }
 
 /** True when the timestamp counts as currently online. */
 export function isOnline(iso: string | null | undefined, now: Date = new Date()): boolean {
   if (!iso) return false;
-  const t = new Date(iso).getTime();
-  return !Number.isNaN(t) && now.getTime() - t < ONLINE_WINDOW_MS;
+  const seen = new Date(iso).getTime();
+  return !Number.isNaN(seen) && now.getTime() - seen < ONLINE_WINDOW_MS;
 }

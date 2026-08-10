@@ -1,3 +1,4 @@
+import { t } from '@/i18n';
 import type { LatLng } from '@/types';
 
 const EARTH_RADIUS_KM = 6371;
@@ -17,7 +18,7 @@ export function distanceKm(a: LatLng, b: LatLng): number {
 }
 
 export function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} m`;
-  if (km < 10) return `${km.toFixed(1)} km`;
-  return `${Math.round(km)} km`;
+  if (km < 1) return t('distance.metres', { n: Math.round(km * 1000) });
+  if (km < 10) return t('distance.km', { n: km.toFixed(1) });
+  return t('distance.km', { n: Math.round(km) });
 }

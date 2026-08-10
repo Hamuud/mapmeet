@@ -25,6 +25,7 @@ import { MapSidebar } from '@/features/map/MapSidebar';
 import { MapZoomStack } from '@/features/map/MapZoomStack';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
+import { useT } from '@/i18n';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useLocation } from '@/hooks/useLocation';
 import { useEventsStore } from '@/store/events.store';
@@ -47,6 +48,7 @@ function withinBounds(
 }
 
 export default function MapScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const isDesktop = useIsDesktop();
   const iconColor = useIconColor();
@@ -301,7 +303,7 @@ export default function MapScreen() {
           <View className="w-full max-w-md flex-row items-center gap-3 rounded-xl bg-text-light px-4 py-3 shadow-lg shadow-black/30 dark:bg-text-dark">
             <Ionicons name="hand-left" size={16} color="#F6F4EE" />
             <Text className="flex-1 text-sm font-semibold text-surface-light dark:text-surface-dark">
-              Tap the map to pin the event
+              {t('map.tapToPin')}
             </Text>
             <Pressable
               onPress={() => {
@@ -310,7 +312,9 @@ export default function MapScreen() {
               }}
               className="rounded-full bg-white/20 px-3 py-1"
             >
-              <Text className="text-xs font-semibold text-surface-light dark:text-surface-dark">Cancel</Text>
+              <Text className="text-xs font-semibold text-surface-light dark:text-surface-dark">
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -347,7 +351,7 @@ export default function MapScreen() {
           >
             <View className="rounded-lg border border-border-light bg-panel-light px-3 py-2 shadow-sm shadow-black/10 dark:border-border-dark dark:bg-panel-dark">
               <Text className="font-mono text-[11px] text-ink2-light dark:text-ink2-dark">
-                Drop a pin to create
+                {t('map.dropPinHint')}
               </Text>
             </View>
             <Pressable
@@ -362,7 +366,7 @@ export default function MapScreen() {
                 setCreateOpen(true);
               }}
               className="h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 shadow-lg shadow-accent-400/50 active:opacity-90"
-              accessibilityLabel="Create event"
+              accessibilityLabel={t('map.createEvent')}
             >
               <Ionicons name="add" size={26} color="#fff" />
             </Pressable>
@@ -389,7 +393,7 @@ export default function MapScreen() {
                 if (coords) mapRef.current?.animateTo(coords, 14);
               }}
               className="h-11 w-11 items-center justify-center rounded-xl border border-border-light bg-panel-light shadow-md shadow-black/20 dark:border-border-dark dark:bg-panel-dark"
-              accessibilityLabel="Recenter"
+              accessibilityLabel={t('map.recenter')}
             >
               <Ionicons name="navigate" size={18} color={iconColor} />
             </Pressable>
@@ -412,7 +416,7 @@ export default function MapScreen() {
                 setCreateOpen(true);
               }}
               className="h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 shadow-lg shadow-accent-400/50 active:opacity-90"
-              accessibilityLabel="Create event"
+              accessibilityLabel={t('map.createEvent')}
             >
               <Ionicons name="add" size={26} color="#fff" />
             </Pressable>

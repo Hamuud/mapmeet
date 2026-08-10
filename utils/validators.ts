@@ -1,26 +1,26 @@
 import { z } from 'zod';
 
 export const signInSchema = z.object({
-  email: z.string().email('Enter a valid email.'),
-  password: z.string().min(8, 'Password must be at least 8 characters.'),
+  email: z.string().email('validation.email'),
+  password: z.string().min(8, 'validation.passwordMin'),
 });
 
 export const signUpSchema = z.object({
-  email: z.string().email('Enter a valid email.'),
-  password: z.string().min(8, 'Password must be at least 8 characters.'),
+  email: z.string().email('validation.email'),
+  password: z.string().min(8, 'validation.passwordMin'),
   username: z
     .string()
-    .min(3, 'Username must be at least 3 characters.')
-    .max(24, 'Username must be 24 characters or fewer.')
-    .regex(/^[a-zA-Z0-9_.]+$/, 'Letters, numbers, "_" and "." only.'),
+    .min(3, 'validation.usernameMin')
+    .max(24, 'validation.usernameMax')
+    .regex(/^[a-zA-Z0-9_.]+$/, 'validation.usernameChars'),
   displayName: z
     .string()
-    .min(1, 'Display name is required.')
-    .max(40, 'Display name must be 40 characters or fewer.'),
+    .min(1, 'validation.displayNameRequired')
+    .max(40, 'validation.displayNameMax'),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('Enter a valid email.'),
+  email: z.string().email('validation.email'),
 });
 
 // Mirror of the SQL check constraint on events.tags — 2..24 chars, no
@@ -30,23 +30,23 @@ export const forgotPasswordSchema = z.object({
 const TAG_REGEX = /^\S{2,24}$/;
 
 export const eventSchema = z.object({
-  title: z.string().min(1, 'Title is required.').max(80),
+  title: z.string().min(1, 'validation.titleRequired').max(80),
   description: z.string().max(500).optional().or(z.literal('')),
   // Cap matches the DB CHECK `char_length(emoji) between 1 and 8`,
   // which counts Unicode code points. Flag emojis (🏳️‍🌈 = 4) and
   // families (👨‍👩‍👧‍👦 = 7) both fit — the previous 8-UTF-16-unit
   // conflation was cutting complex ZWJ sequences.
-  emoji: z.string().min(1, 'Pick an emoji.').refine(
+  emoji: z.string().min(1, 'validation.emojiRequired').refine(
     (v) => Array.from(v).length <= 8,
-    'Emoji is too long — pick a single one.',
+    'validation.emojiTooLong',
   ),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   // Venue label from the address search — display-only, coords stay
   // the source of truth for the pin.
   address: z.string().max(200).optional().nullable(),
-  event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date.'),
-  event_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Invalid time.'),
+  event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'validation.invalidDate'),
+  event_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'validation.invalidTime'),
   max_participants: z
     .number()
     .int()
@@ -55,9 +55,9 @@ export const eventSchema = z.object({
     .nullable(),
   visibility: z.enum(['public', 'private']).default('public'),
   tags: z
-    .array(z.string().regex(TAG_REGEX, 'Use 2–24 letters, digits, `-` or `_`.'))
-    .min(1, 'Add at least one tag.')
-    .max(5, 'Up to 5 tags.'),
+    .array(z.string().regex(TAG_REGEX, 'validation.tagFormat'))
+    .min(1, 'validation.tagMin')
+    .max(5, 'validation.tagMax'),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

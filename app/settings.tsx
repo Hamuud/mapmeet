@@ -14,10 +14,16 @@ import { FeedbackSheet } from '@/features/settings/FeedbackSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
+import { LOCALE_LABEL, LOCALES, useT, type Locale } from '@/i18n';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
 
 const APPEARANCE_OPTIONS: readonly Appearance[] = ['light', 'dark', 'auto'] as const;
+const APPEARANCE_LABEL = {
+  light: 'settings.appearanceLight',
+  dark: 'settings.appearanceDark',
+  auto: 'settings.appearanceAuto',
+} as const;
 const RADII_KM = [1, 3, 5, 10, 25, 50] as const;
 
 /** MapMeet Settings screen. Reachable from the "You" tab. Groups:
@@ -25,6 +31,7 @@ const RADII_KM = [1, 3, 5, 10, 25, 50] as const;
  *  appearance, language, search radius), and Support (help/feedback/
  *  legal). Sign-out at the bottom, version footer. */
 export default function SettingsScreen() {
+  const t = useT();
   const toast = useToast();
   const iconColor = useIconColor();
   const { profile, signOut } = useAuth();
@@ -34,7 +41,8 @@ export default function SettingsScreen() {
   const setPushNotifications = usePreferencesStore((s) => s.setPushNotifications);
   const appearance = usePreferencesStore((s) => s.appearance);
   const setAppearance = usePreferencesStore((s) => s.setAppearance);
-  const language = usePreferencesStore((s) => s.language);
+  const locale = usePreferencesStore((s) => s.locale);
+  const setLocale = usePreferencesStore((s) => s.setLocale);
   const searchRadiusKm = usePreferencesStore((s) => s.searchRadiusKm);
   const setSearchRadiusKm = usePreferencesStore((s) => s.setSearchRadiusKm);
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
@@ -57,21 +65,21 @@ export default function SettingsScreen() {
       await signOut();
       router.replace('/(auth)/login');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not sign out', 'error');
+      toast.show(e instanceof Error ? e.message : t('settings.signOutFailed'), 'error');
     }
   };
 
   const openOSSettings = () => {
     Linking.openSettings().catch(() =>
-      toast.show('Could not open Settings.', 'error'),
+      toast.show(t('settings.openSettingsFailed'), 'error'),
     );
   };
 
   const locationStatusLabel = (() => {
-    if (locStatus === 'granted') return 'ON';
-    if (locStatus === 'denied') return 'OFF';
+    if (locStatus === 'granted') return t('settings.statusOn');
+    if (locStatus === 'denied') return t('settings.statusOff');
     if (locStatus === 'requesting') return '…';
-    return 'ASK';
+    return t('settings.statusAsk');
   })();
 
   const emailFallback = profile?.phone ?? '';
@@ -82,14 +90,14 @@ export default function SettingsScreen() {
       <View className="flex-row items-center justify-between border-b border-border-light px-5 py-3 dark:border-border-dark">
         <Pressable
           onPress={() => goBack('/(tabs)/profile')}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
         >
           <Ionicons name="chevron-back" size={18} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-          Settings
+          {t('settings.title')}
         </Text>
         <View className="h-9 w-9" />
       </View>
@@ -122,34 +130,34 @@ export default function SettingsScreen() {
               className="rounded-full border border-border-light bg-elevated-light px-3 py-1.5 dark:border-border-dark dark:bg-elevated-dark"
             >
               <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
-                Edit
+                {t('settings.edit')}
               </Text>
             </Pressable>
           </View>
         ) : null}
 
         {/* ACCOUNT */}
-        <Section title="Account">
+        <Section title={t('settings.sectionAccount')}>
           <SettingsRow
             icon="person-outline"
-            label="Personal info"
+            label={t('settings.personalInfo')}
             onPress={() => router.push('/profile-edit')}
           />
           <SettingsRow
             icon="lock-closed-outline"
-            label="Privacy"
-            hint="Who can see the events you're attending"
+            label={t('settings.privacy')}
+            hint={t('settings.privacyHint')}
             onPress={() => router.push('/privacy')}
           />
           <SettingsRow
             icon="location-outline"
-            label="Location"
+            label={t('settings.location')}
             hint={
               locStatus === 'granted'
-                ? 'While using the app'
+                ? t('settings.locationWhileUsing')
                 : locStatus === 'denied'
-                  ? 'Turned off — open Settings to enable'
-                  : 'Tap to request'
+                  ? t('settings.locationOff')
+                  : t('settings.locationAsk')
             }
             rightText={locationStatusLabel}
             onPress={() =>
@@ -159,10 +167,10 @@ export default function SettingsScreen() {
         </Section>
 
         {/* PREFERENCES */}
-        <Section title="Preferences">
+        <Section title={t('settings.sectionPreferences')}>
           <SettingsRow
             icon="notifications-outline"
-            label="Push notifications"
+            label={t('settings.pushNotifications')}
             rightSlot={
               <Switch
                 value={pushNotifications}
@@ -173,7 +181,7 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="sunny-outline"
-            label="Appearance"
+            label={t('settings.appearance')}
             rightSlot={
               <View className="flex-row rounded-xl border border-border-light bg-elevated-light p-0.5 dark:border-border-dark dark:bg-elevated-dark">
                 {APPEARANCE_OPTIONS.map((opt) => (
@@ -189,13 +197,13 @@ export default function SettingsScreen() {
                   >
                     <Text
                       className={[
-                        'text-[11px] font-semibold capitalize',
+                        'text-[11px] font-semibold',
                         appearance === opt
                           ? 'text-text-light dark:text-text-dark'
                           : 'text-muted-light',
                       ].join(' ')}
                     >
-                      {opt}
+                      {t(APPEARANCE_LABEL[opt])}
                     </Text>
                   </Pressable>
                 ))}
@@ -204,20 +212,21 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="globe-outline"
-            label="Language"
-            rightText={language}
+            label={t('settings.language')}
+            hint={t('settings.languageHint')}
+            rightText={LOCALE_LABEL[locale]}
             onPress={() => setLangOpen(true)}
           />
           <SettingsRow
             icon="pin-outline"
-            label="Search radius"
-            hint={`Events shown within ${searchRadiusKm} km`}
+            label={t('settings.searchRadius')}
+            hint={t('settings.searchRadiusHint', { km: searchRadiusKm })}
             onPress={() => setRadiusOpen(true)}
           />
           <SettingsRow
             icon="happy-outline"
-            label="Favourite reaction"
-            hint="Suggested when you hover a chat message"
+            label={t('settings.favouriteReaction')}
+            hint={t('settings.favouriteReactionHint')}
             rightText={favoriteReaction}
             onPress={() => setReactionOpen(true)}
           />
@@ -226,45 +235,47 @@ export default function SettingsScreen() {
         {/* MODERATION — only rendered for admins. The screen and every
             RPC behind it re-check is_admin() server-side. */}
         {profile?.is_admin ? (
-          <Section title="Moderation">
+          <Section title={t('settings.sectionModeration')}>
             <SettingsRow
               icon="shield-checkmark-outline"
-              label="Complaints & reports"
-              hint="Review reports, warn, mute or ban"
+              label={t('settings.complaints')}
+              hint={t('settings.complaintsHint')}
               onPress={() => router.push('/admin')}
             />
           </Section>
         ) : null}
 
         {/* SUPPORT */}
-        <Section title="Support">
+        <Section title={t('settings.sectionSupport')}>
           <SettingsRow
             icon="help-circle-outline"
-            label="Help center"
+            label={t('settings.helpCenter')}
             onPress={() =>
               Linking.openURL('https://hamuud.github.io/mapmeet/').catch(() =>
-                toast.show('Could not open help center.', 'error'),
+                toast.show(t('settings.helpCenterFailed'), 'error'),
               )
             }
           />
           <SettingsRow
             icon="chatbubble-outline"
-            label="Send feedback"
-            hint="Report a bug — attach photos or video"
+            label={t('settings.sendFeedback')}
+            hint={t('settings.sendFeedbackHint')}
             onPress={() => setFeedbackOpen(true)}
           />
           <SettingsRow
             icon="document-text-outline"
-            label="Terms & privacy"
+            label={t('settings.legal')}
             onPress={() =>
-              toast.show('Docs land alongside the public launch.', 'info')
+              Linking.openURL('https://hamuud.github.io/mapmeet/legal/').catch(() =>
+                toast.show(t('settings.legalFailed'), 'error'),
+              )
             }
           />
         </Section>
 
         {/* Sign out */}
         <PrimaryButton
-          label="Sign out"
+          label={t('settings.signOut')}
           variant="destructive-outline"
           onPress={() => setConfirmOpen(true)}
           fullWidth
@@ -283,33 +294,64 @@ export default function SettingsScreen() {
 
       <ConfirmationDialog
         open={confirmOpen}
-        title="Sign out?"
-        message="You'll need to sign back in to see your events."
-        confirmLabel="Sign out"
+        title={t('settings.signOutTitle')}
+        message={t('settings.signOutMessage')}
+        confirmLabel={t('settings.signOut')}
         destructive
         onConfirm={handleSignOut}
         onCancel={() => setConfirmOpen(false)}
       />
 
-      {/* Language picker */}
-      <ConfirmationDialog
-        open={langOpen}
-        title="Language"
-        message="Full localization arrives in v0.2. English is the only shipped option today."
-        confirmLabel="OK"
-        onConfirm={() => setLangOpen(false)}
-        onCancel={() => setLangOpen(false)}
-      />
+      {/* Language picker. Each option is written in its own language —
+          someone who can't read the current UI still recognises theirs. */}
+      <BottomSheet open={langOpen} onClose={() => setLangOpen(false)} autoHeight>
+        <View className="gap-1 pb-2">
+          <Text className="text-lg font-bold text-text-light dark:text-text-dark">
+            {t('settings.language')}
+          </Text>
+          <Text className="text-xs text-muted-light dark:text-muted-dark">
+            {t('settings.languageHint')}
+          </Text>
+        </View>
+        <View className="mt-3 gap-2">
+          {LOCALES.map((code: Locale) => {
+            const active = code === locale;
+            return (
+              <Pressable
+                key={code}
+                onPress={() => {
+                  setLocale(code);
+                  setLangOpen(false);
+                }}
+                accessibilityLabel={LOCALE_LABEL[code]}
+                className={[
+                  'flex-row items-center justify-between rounded-2xl border px-4 py-3',
+                  active
+                    ? 'border-text-light bg-elevated-light dark:border-text-dark dark:bg-elevated-dark'
+                    : 'border-border-light dark:border-border-dark',
+                ].join(' ')}
+              >
+                <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+                  {LOCALE_LABEL[code]}
+                </Text>
+                {active ? (
+                  <Ionicons name="checkmark" size={18} color={iconColor} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </BottomSheet>
 
       {/* Favourite reaction picker — the palette mirrors the
           toggle_reaction RPC whitelist. */}
       <BottomSheet open={reactionOpen} onClose={() => setReactionOpen(false)} autoHeight>
         <View className="gap-1 pb-2">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Favourite reaction
+            {t('settings.favouriteReaction')}
           </Text>
           <Text className="text-xs text-muted-light dark:text-muted-dark">
-            Shown as a one-tap suggestion when you hover a message in chat.
+            {t('settings.favouriteReactionSheetHint')}
           </Text>
         </View>
         <View className="mt-3 flex-row justify-between px-1">
@@ -328,7 +370,7 @@ export default function SettingsScreen() {
                     ? 'border-brand-500 bg-brand-500/15'
                     : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
                 ].join(' ')}
-                accessibilityLabel={`Set ${emoji} as favourite`}
+                accessibilityLabel={t('settings.setAsFavourite', { emoji })}
               >
                 <Text style={{ fontSize: 24 }}>{emoji}</Text>
               </Pressable>
@@ -343,10 +385,10 @@ export default function SettingsScreen() {
       <BottomSheet open={radiusOpen} onClose={() => setRadiusOpen(false)} autoHeight>
         <View className="gap-1 pb-2">
           <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            Search radius
+            {t('settings.searchRadius')}
           </Text>
           <Text className="text-xs text-muted-light dark:text-muted-dark">
-            Used by the Nearby filter to show events around you.
+            {t('settings.searchRadiusSheetHint')}
           </Text>
         </View>
         <View className="mt-3 flex-row flex-wrap gap-2">
@@ -374,7 +416,7 @@ export default function SettingsScreen() {
                       : 'text-text-light dark:text-text-dark',
                   ].join(' ')}
                 >
-                  {r} km
+                  {r} {t('common.km')}
                 </Text>
               </Pressable>
             );

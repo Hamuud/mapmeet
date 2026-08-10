@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
+import { useT, type TFunction } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { dmsService, type DmRoom } from '@/services/dms.service';
 import { groupsService, type GroupRoom } from '@/services/groups.service';
@@ -33,6 +34,7 @@ export default function ChatScreen() {
  *  or joined. The chat id IS the event id, so membership falls straight
  *  out of the events store with zero extra fetches. */
 function ChatListBody() {
+  const t = useT();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? null;
   const events = useEventsStore((s) => s.events);
@@ -136,12 +138,12 @@ function ChatListBody() {
       <View className="px-5 pb-3 pt-2">
         <View className="flex-row items-center justify-between">
           <Text className="font-display text-4xl text-text-light dark:text-text-dark">
-            Chats
+            {t('chat.title')}
           </Text>
           {/* New group chat — friends only. */}
           <Pressable
             onPress={() => setNewGroupOpen(true)}
-            accessibilityLabel="New group chat"
+            accessibilityLabel={t('chat.newGroup')}
             hitSlop={8}
             className="h-10 w-10 items-center justify-center rounded-full bg-accent-400"
           >
@@ -151,21 +153,21 @@ function ChatListBody() {
         {/* Active / Direct / Archive folders */}
         <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <FolderTab
-            label="Active"
+            label={t('chat.tabActive')}
             count={active.length}
             unread={activeUnread}
             selected={folder === 'active'}
             onPress={() => setFolder('active')}
           />
           <FolderTab
-            label="Direct"
+            label={t('chat.tabDirect')}
             count={directCount}
             unread={directUnread}
             selected={folder === 'direct'}
             onPress={() => setFolder('direct')}
           />
           <FolderTab
-            label="Archive"
+            label={t('chat.tabArchive')}
             count={archive.length}
             unread={archiveUnread}
             selected={folder === 'archive'}
@@ -194,13 +196,13 @@ function ChatListBody() {
           }
           ListEmptyComponent={
             directLoading ? (
-              <EmptyState emoji="⏳" title="Loading…" />
+              <EmptyState emoji="⏳" title={t('common.loading')} />
             ) : (
               <EmptyState
                 emoji="✉️"
-                title="No direct messages yet"
-                description="Tap + to start a group with friends, or Message on a profile for a DM."
-                actionLabel="Find friends"
+                title={t('chat.emptyDirect')}
+                description={t('chat.emptyDirectHint')}
+                actionLabel={t('chat.findFriends')}
                 onAction={() => router.push('/friends')}
               />
             )
@@ -229,16 +231,16 @@ function ChatListBody() {
             folder === 'active' ? (
               <EmptyState
                 emoji="💬"
-                title="No active chats"
-                description="Join an event on the map — every event comes with its own group chat."
-                actionLabel="Open map"
+                title={t('chat.emptyActive')}
+                description={t('chat.emptyActiveHint')}
+                actionLabel={t('events.openMap')}
                 onAction={() => router.push('/(tabs)/map')}
               />
             ) : (
               <EmptyState
                 emoji="🗂️"
-                title="Archive is empty"
-                description="Once an event wraps, its chat moves here so the history stays readable."
+                title={t('chat.emptyArchive')}
+                description={t('chat.emptyArchiveHint')}
               />
             )
           }
@@ -302,22 +304,22 @@ function FolderTab({
   );
 }
 
-function previewText(preview: ChatPreview | undefined): string {
+function previewText(preview: ChatPreview | undefined, t: TFunction): string {
   const m = preview?.lastMessage;
-  if (!m) return 'No messages yet — say hi 👋';
+  if (!m) return t('chat.noMessages');
   switch (m.type) {
     case 'text':
       return m.text ?? '';
     case 'image':
-      return '📷 Photo';
+      return t('chat.photo');
     case 'video':
-      return '🎥 Video';
+      return t('chat.video');
     case 'location':
-      return '📍 Location';
+      return t('chat.locationMsg');
     case 'audio':
-      return '🎤 Voice message';
+      return t('chat.voiceMessage');
     case 'poll':
-      return `📊 ${m.text ?? 'Poll'}`;
+      return `📊 ${m.text ?? t('chat.poll')}`;
     case 'system':
       return m.text ?? '';
   }
@@ -330,6 +332,7 @@ function DmRow({
   room: DmRoom;
   viewerId: string | null;
 }) {
+  const t = useT();
   const last = room.lastMessage;
   const lastIsOwn = !!(last && viewerId && last.sender_id === viewerId);
   return (
@@ -373,12 +376,12 @@ function DmRow({
           numberOfLines={1}
         >
           {last?.type === 'invite'
-            ? `${lastIsOwn ? 'You: ' : ''}🎟 Event invite`
+            ? `${lastIsOwn ? t('chat.youPrefix') : ''}${t('chat.eventInvite')}`
             : last?.type === 'audio'
-              ? `${lastIsOwn ? 'You: ' : ''}🎤 Voice message`
+              ? `${lastIsOwn ? t('chat.youPrefix') : ''}${t('chat.voiceMessage')}`
               : last
-                ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
-                : `Say hi to @${room.other.username}`}
+                ? `${lastIsOwn ? t('chat.youPrefix') : ''}${last.text ?? ''}`
+                : t('chat.sayHiTo', { username: room.other.username })}
         </Text>
       </View>
       {room.unreadCount > 0 ? (
@@ -399,6 +402,7 @@ function GroupRow({
   room: GroupRoom;
   viewerId: string | null;
 }) {
+  const t = useT();
   const last = room.lastMessage;
   const lastIsOwn = !!(last && viewerId && last.sender_id === viewerId);
   return (
@@ -437,10 +441,10 @@ function GroupRow({
           {last?.type === 'system'
             ? (last.text ?? '')
             : last?.type === 'audio'
-              ? `${lastIsOwn ? 'You: ' : ''}🎤 Voice message`
+              ? `${lastIsOwn ? t('chat.youPrefix') : ''}${t('chat.voiceMessage')}`
               : last
-                ? `${lastIsOwn ? 'You: ' : ''}${last.text ?? ''}`
-                : 'No messages yet — say hi 👋'}
+                ? `${lastIsOwn ? t('chat.youPrefix') : ''}${last.text ?? ''}`
+                : t('chat.noMessages')}
         </Text>
       </View>
       {room.unreadCount > 0 ? (
@@ -465,6 +469,7 @@ function ChatRow({
   isHost: boolean;
   viewerId: string | null;
 }) {
+  const t = useT();
   const unread = preview?.unreadCount ?? 0;
   const last = preview?.lastMessage;
   const lastIsOwn = !!(last && viewerId && last.sender_id === viewerId);
@@ -502,8 +507,8 @@ function ChatRow({
           ].join(' ')}
           numberOfLines={1}
         >
-          {lastIsOwn && last?.type === 'text' ? 'You: ' : ''}
-          {previewText(preview)}
+          {lastIsOwn && last?.type === 'text' ? t('chat.youPrefix') : ''}
+          {previewText(preview, t)}
         </Text>
       </View>
 

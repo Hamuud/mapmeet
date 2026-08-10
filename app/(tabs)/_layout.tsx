@@ -12,6 +12,7 @@ import { RestrictionDialog } from '@/features/moderation/RestrictionDialog';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
 import { useChatSync } from '@/hooks/useChatSync';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useT } from '@/i18n';
 import { usePresence } from '@/hooks/usePresence';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
@@ -21,6 +22,7 @@ import { useModerationStore } from '@/store/moderation.store';
  *  background, hairline top border, ink active state, muted inactive
  *  state, 64pt content height. Four tabs: Map · Events · Chat · You. */
 export default function TabsLayout() {
+  const t = useT();
   const { colorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'light';
   const insets = useSafeAreaInsets();
@@ -71,7 +73,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Map',
+          title: t('tabs.map'),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'map' : 'map-outline'} size={size} color={color} />
           ),
@@ -80,7 +82,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="events"
         options={{
-          title: 'Events',
+          title: t('tabs.events'),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'calendar' : 'calendar-outline'}
@@ -93,7 +95,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Chat',
+          title: t('tabs.chat'),
           // Unread count across every chat the viewer belongs to.
           tabBarBadge:
             unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
@@ -115,7 +117,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'You',
+          title: t('tabs.you'),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'person' : 'person-outline'}

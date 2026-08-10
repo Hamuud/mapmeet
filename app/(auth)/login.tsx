@@ -17,11 +17,14 @@ import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
+import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 import { signInSchema, type SignInInput } from '@/utils/validators';
 
 export default function LoginScreen() {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const iconColor = useIconColor();
   const setSession = useAuthStore((s) => s.setSession);
@@ -45,12 +48,12 @@ export default function LoginScreen() {
       await setSession(session);
       router.replace('/(tabs)/map');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Sign in failed', 'error');
+      toast.show(e instanceof Error ? e.message : t('auth.signInFailed'), 'error');
     }
   };
 
   const oauthComingSoon = () =>
-    toast.show('OAuth providers land in the next update.', 'info');
+    toast.show(t('auth.oauthComingSoon'), 'info');
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -68,13 +71,13 @@ export default function LoginScreen() {
           <View className="flex-row items-center">
             <Pressable
               onPress={() => router.canGoBack() && router.back()}
-              accessibilityLabel="Back"
+              accessibilityLabel={t('common.back')}
               hitSlop={8}
             >
               <View className="flex-row items-center gap-1">
                 <Ionicons name="chevron-back" size={14} color={iconColor} />
                 <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
-                  Back
+                  {t('common.back')}
                 </Text>
               </View>
             </Pressable>
@@ -92,10 +95,10 @@ export default function LoginScreen() {
           {/* Display title */}
           <View>
             <Text className="font-display text-5xl leading-[1.05] text-text-light dark:text-text-dark">
-              Welcome{'\n'}back.
+              {t('auth.welcomeBack')}
             </Text>
             <Text className="mt-3 text-sm text-muted-light">
-              Sign in to meet friends on the map today.
+              {t('auth.signInSubtitle')}
             </Text>
           </View>
 
@@ -105,7 +108,7 @@ export default function LoginScreen() {
             <View className="flex-row items-center gap-2.5 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3">
               <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
               <Text className="flex-1 text-sm font-medium text-green-700 dark:text-green-400">
-                Your email is confirmed. Sign in to start using MapMeet.
+                {t('auth.emailConfirmed')}
               </Text>
             </View>
           ) : null}
@@ -117,27 +120,27 @@ export default function LoginScreen() {
               name="email"
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
-                  label="Email"
+                  label={t('auth.email')}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
                   autoComplete="email"
                   textContentType="emailAddress"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.email?.message}
+                  error={te(errors.email?.message)}
                 />
               )}
             />
             <View>
               <View className="mb-1.5 flex-row items-center justify-between">
                 <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
-                  Password
+                  {t('auth.password')}
                 </Text>
                 <Link href="/(auth)/forgot-password" className="text-xs text-text-light dark:text-text-dark">
-                  Forgot?
+                  {t('auth.forgot')}
                 </Link>
               </View>
               <Controller
@@ -152,7 +155,7 @@ export default function LoginScreen() {
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
-                    error={errors.password?.message}
+                    error={te(errors.password?.message)}
                     rightAdornment={
                       <Pressable
                         onPress={() => setShowPassword((v) => !v)}
@@ -173,7 +176,7 @@ export default function LoginScreen() {
 
           {/* Primary action */}
           <PrimaryButton
-            label="Sign in"
+            label={t('auth.signIn')}
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             fullWidth
@@ -184,7 +187,7 @@ export default function LoginScreen() {
           <View className="flex-row items-center gap-3">
             <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
             <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              or
+              {t('common.or')}
             </Text>
             <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
           </View>
@@ -192,14 +195,14 @@ export default function LoginScreen() {
           {/* OAuth ghosts — placeholders until we wire them up. */}
           <View className="gap-3">
             <PrimaryButton
-              label="Continue with Google"
+              label={t('auth.continueGoogle')}
               variant="secondary"
               onPress={oauthComingSoon}
               leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
               fullWidth
             />
             <PrimaryButton
-              label="Continue with Apple"
+              label={t('auth.continueApple')}
               variant="secondary"
               onPress={oauthComingSoon}
               leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
@@ -208,9 +211,9 @@ export default function LoginScreen() {
           </View>
 
           <View className="mt-2 flex-row justify-center gap-1">
-            <Text className="text-sm text-muted-light">New here?</Text>
+            <Text className="text-sm text-muted-light">{t('auth.newHere')}</Text>
             <Link href="/(auth)/signup" className="text-sm font-semibold text-text-light dark:text-text-dark">
-              Create an account →
+              {t('auth.createAccount')}
             </Link>
           </View>
         </ScrollView>

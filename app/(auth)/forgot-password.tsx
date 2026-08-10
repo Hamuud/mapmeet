@@ -8,10 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@/utils/validators';
 
 export default function ForgotPasswordScreen() {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const {
     control,
@@ -26,10 +29,10 @@ export default function ForgotPasswordScreen() {
   const onSubmit = async ({ email }: ForgotPasswordInput) => {
     try {
       await authService.requestPasswordReset(email);
-      toast.show('Reset link sent — check your inbox.', 'success');
+      toast.show(t('auth.resetLinkSent'), 'success');
       reset();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send reset link', 'error');
+      toast.show(e instanceof Error ? e.message : t('auth.resetLinkFailed'), 'error');
     }
   };
 
@@ -46,10 +49,10 @@ export default function ForgotPasswordScreen() {
         >
           <View className="mt-6">
             <Text className="text-4xl font-bold text-text-light dark:text-text-dark">
-              Reset password
+              {t('auth.resetTitle')}
             </Text>
             <Text className="mt-2 text-base text-muted-light dark:text-muted-dark">
-              We'll email you a secure reset link.
+              {t('auth.resetSubtitle')}
             </Text>
           </View>
 
@@ -58,22 +61,22 @@ export default function ForgotPasswordScreen() {
             name="email"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Email"
+                label={t('auth.email')}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 leftAdornment={<Ionicons name="mail-outline" size={16} color="#8E8E93" />}
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.email?.message}
+                error={te(errors.email?.message)}
               />
             )}
           />
 
           <PrimaryButton
-            label="Send reset link"
+            label={t('auth.sendResetLink')}
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             fullWidth
@@ -82,10 +85,10 @@ export default function ForgotPasswordScreen() {
 
           <View className="flex-row justify-center gap-1 pt-2">
             <Text className="text-sm text-muted-light dark:text-muted-dark">
-              Remembered it?
+              {t('auth.rememberedIt')}
             </Text>
             <Link href="/(auth)/login" className="text-sm font-semibold text-brand-500">
-              Back to sign in
+              {t('auth.backToSignIn')}
             </Link>
           </View>
         </ScrollView>

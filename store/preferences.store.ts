@@ -2,7 +2,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+import { LOCALES, type Locale } from '@/i18n/types';
+
 export type Appearance = 'light' | 'dark' | 'auto';
+
+/** Best guess at the user's language on very first launch, before they
+ *  have ever opened Settings. Web exposes navigator.languages; Hermes
+ *  exposes the resolved ICU locale. Anything unexpected → English. */
+function deviceLocale(): Locale {
+  try {
+    const tags: string[] =
+      typeof navigator !== 'undefined' && navigator.languages?.length
+        ? [...navigator.languages]
+        : [Intl.DateTimeFormat().resolvedOptions().locale];
+    for (const tag of tags) {
+      const base = tag.toLowerCase().split('-')[0] as Locale;
+      if (LOCALES.includes(base)) return base;
+    }
+  } catch {
+    // Intl missing or locked down — English is the safe default.
+  }
+  return 'en';
+}
 
 /** Voice-note playback speeds, in the order the bubble's pill cycles
  *  them (Telegram's ladder). */
@@ -12,7 +33,8 @@ export type VoiceRate = (typeof VOICE_RATES)[number];
 type PreferencesState = {
   pushNotifications: boolean;
   appearance: Appearance;
-  language: string;
+  /** UI language. Defaults to the device's on first launch. */
+  locale: Locale;
   searchRadiusKm: number;
   /** Emoji used by the hover quick-react chip in chat. Must be one of
    *  the toggle_reaction RPC whitelist. */
@@ -24,7 +46,7 @@ type PreferencesState = {
 
   setPushNotifications: (v: boolean) => void;
   setAppearance: (v: Appearance) => void;
-  setLanguage: (v: string) => void;
+  setLocale: (v: Locale) => void;
   setSearchRadiusKm: (v: number) => void;
   setFavoriteReaction: (v: string) => void;
   /** 1× → 1.5× → 2× → 1× */
@@ -41,14 +63,14 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set) => ({
       pushNotifications: true,
       appearance: 'auto',
-      language: 'English',
+      locale: deviceLocale(),
       searchRadiusKm: 5,
       favoriteReaction: '❤️',
       voiceRate: 1,
 
       setPushNotifications: (pushNotifications) => set({ pushNotifications }),
       setAppearance: (appearance) => set({ appearance }),
-      setLanguage: (language) => set({ language }),
+      setLocale: (locale) => set({ locale }),
       setSearchRadiusKm: (searchRadiusKm) => set({ searchRadiusKm }),
       setFavoriteReaction: (favoriteReaction) => set({ favoriteReaction }),
       cycleVoiceRate: () =>
@@ -62,6 +84,19 @@ export const usePreferencesStore = create<PreferencesState>()(
     {
       name: 'mapmeet-preferences-v1',
       storage: createJSONStorage(() => AsyncStorage),
+      // v1 stored a display string ('English'); v2 stores a locale tag.
+      // Anyone upgrading had only ever seen English, so map to 'en'
+      // rather than re-sniffing the device and changing their UI under
+      // them without being asked.
+      version: 2,
+      migrate: (persisted, from) => {
+        const state = (persisted ?? {}) as Record<string, unknown> & { locale?: Locale };
+        if (from < 2) {
+          delete state.language;
+          state.locale = 'en';
+        }
+        return state as unknown as PreferencesState;
+      },
     },
   ),
 );

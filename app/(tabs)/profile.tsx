@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { ratingsService, type UserReview } from '@/services/ratings.service';
@@ -26,6 +27,7 @@ type Tab = 'hosting' | 'attending' | 'past' | 'reviews';
  *  stats, and a Hosting / Attending / Past event list. Settings live
  *  behind the ⚙️ button in the header; Edit profile is its own screen. */
 export default function YouScreen() {
+  const t = useT();
   const { profile } = useAuth();
   const iconColor = useIconColor();
   const events = useEventsStore((s) => s.events);
@@ -109,8 +111,8 @@ export default function YouScreen() {
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
         <EmptyState
           emoji="👤"
-          title="No profile yet"
-          description="Your profile will appear here once you sign in."
+          title={t('profile.noProfile')}
+          description={t('profile.noProfileHint')}
         />
       </SafeAreaView>
     );
@@ -132,7 +134,7 @@ export default function YouScreen() {
             <View className="flex-row items-center justify-end">
               <Pressable
                 onPress={() => router.push('/settings')}
-                accessibilityLabel="Settings"
+                accessibilityLabel={t('profile.settings')}
                 hitSlop={8}
                 className="h-9 w-9 items-center justify-center rounded-full border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
               >
@@ -166,14 +168,14 @@ export default function YouScreen() {
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <PrimaryButton
-                  label="Edit profile"
+                  label={t('profile.editProfile')}
                   onPress={() => router.push('/profile-edit')}
                   fullWidth
                 />
               </View>
               <View className="flex-1">
                 <PrimaryButton
-                  label="Friends"
+                  label={t('profile.friends')}
                   variant="secondary"
                   leftIcon={
                     <Ionicons name="people-outline" size={14} color={iconColor} />
@@ -184,7 +186,7 @@ export default function YouScreen() {
               </View>
               <View className="flex-1">
                 <PrimaryButton
-                  label="Settings"
+                  label={t('profile.settings')}
                   variant="secondary"
                   leftIcon={
                     <Ionicons name="settings-outline" size={14} color={iconColor} />
@@ -197,10 +199,10 @@ export default function YouScreen() {
 
             {/* Stats */}
             <View className="flex-row items-stretch gap-3">
-              {rating ? <StatTile value={rating} label="★ Rating" /> : null}
-              <StatTile value={hostingCount} label="Events" />
-              <StatTile value={attendingCount} label="Attending" />
-              <StatTile value={past.length} label="Past" />
+              {rating ? <StatTile value={rating} label={t('profile.statRating')} /> : null}
+              <StatTile value={hostingCount} label={t('profile.statEvents')} />
+              <StatTile value={attendingCount} label={t('profile.statAttending')} />
+              <StatTile value={past.length} label={t('profile.statPast')} />
             </View>
 
             {/* Bio */}
@@ -220,7 +222,7 @@ export default function YouScreen() {
                   >
                     <Text style={{ fontSize: 12 }}>{i.emoji}</Text>
                     <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
-                      {i.label}
+                      {t(i.labelKey)}
                     </Text>
                   </View>
                 ))}
@@ -230,22 +232,22 @@ export default function YouScreen() {
             {/* Segmented control */}
             <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
               <SegmentTab
-                label={`Hosting · ${hosting.length}`}
+                label={t('profile.tabHosting', { n: hosting.length })}
                 active={tab === 'hosting'}
                 onPress={() => setTab('hosting')}
               />
               <SegmentTab
-                label={`Attending · ${attending.length}`}
+                label={t('profile.tabAttending', { n: attending.length })}
                 active={tab === 'attending'}
                 onPress={() => setTab('attending')}
               />
               <SegmentTab
-                label="Past"
+                label={t('profile.tabPast')}
                 active={tab === 'past'}
                 onPress={() => setTab('past')}
               />
               <SegmentTab
-                label={`Reviews · ${reviews.length}`}
+                label={t('profile.tabReviews', { n: reviews.length })}
                 active={tab === 'reviews'}
                 onPress={() => setTab('reviews')}
               />
@@ -267,25 +269,25 @@ export default function YouScreen() {
           tab === 'reviews' ? (
             <EmptyState
               emoji="📝"
-              title="No reviews yet"
-              description="Anonymous feedback others leave about you will show up here."
+              title={t('profile.noReviews')}
+              description={t('profile.noReviewsHint')}
             />
           ) : (
             <EmptyState
               emoji={tab === 'hosting' ? '📍' : tab === 'attending' ? '🙋' : '🗓️'}
               title={
                 tab === 'hosting'
-                  ? "You aren't hosting anything yet"
+                  ? t('profile.emptyHosting')
                   : tab === 'attending'
-                    ? 'No upcoming events joined'
-                    : 'No past events'
+                    ? t('profile.emptyAttending')
+                    : t('profile.emptyPast')
               }
               description={
                 tab === 'past'
-                  ? "Once your events wrap, they'll show up here."
-                  : 'Open the map and pin your first event.'
+                  ? t('profile.emptyPastHint')
+                  : t('profile.emptyHostingHint')
               }
-              actionLabel="Open map"
+              actionLabel={t('events.openMap')}
               onAction={() => router.push('/(tabs)/map')}
             />
           )

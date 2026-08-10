@@ -17,11 +17,14 @@ import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
+import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 import { signUpSchema, type SignUpInput } from '@/utils/validators';
 
 export default function SignUpScreen() {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const iconColor = useIconColor();
   const setSession = useAuthStore((s) => s.setSession);
@@ -42,11 +45,11 @@ export default function SignUpScreen() {
         await setSession(session);
         router.replace('/(tabs)/map');
       } else {
-        toast.show('Check your inbox to confirm your email.', 'success');
+        toast.show(t('auth.checkInbox'), 'success');
         router.replace('/(auth)/login');
       }
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Sign up failed', 'error');
+      toast.show(e instanceof Error ? e.message : t('auth.signUpFailed'), 'error');
     }
   };
 
@@ -64,13 +67,13 @@ export default function SignUpScreen() {
           <View className="flex-row items-center">
             <Pressable
               onPress={() => router.canGoBack() && router.back()}
-              accessibilityLabel="Back"
+              accessibilityLabel={t('common.back')}
               hitSlop={8}
             >
               <View className="flex-row items-center gap-1">
                 <Ionicons name="chevron-back" size={14} color={iconColor} />
                 <Text className="font-mono text-[10px] uppercase tracking-wider text-text-light dark:text-text-dark">
-                  Back
+                  {t('common.back')}
                 </Text>
               </View>
             </Pressable>
@@ -78,10 +81,10 @@ export default function SignUpScreen() {
 
           <View>
             <Text className="font-display text-5xl leading-[1.05] text-text-light dark:text-text-dark">
-              Set up your{'\n'}profile.
+              {t('auth.setUpProfile')}
             </Text>
             <Text className="mt-3 text-sm text-muted-light">
-              This is what people see when you host or join.
+              {t('auth.setUpSubtitle')}
             </Text>
           </View>
 
@@ -91,12 +94,12 @@ export default function SignUpScreen() {
               name="displayName"
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
-                  label="Display name"
-                  placeholder="Alex Kowalski"
+                  label={t('auth.displayName')}
+                  placeholder={t('auth.displayNamePlaceholder')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.displayName?.message}
+                  error={te(errors.displayName?.message)}
                 />
               )}
             />
@@ -105,17 +108,17 @@ export default function SignUpScreen() {
               name="username"
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
-                  label="Username"
+                  label={t('auth.username')}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder="alexk"
+                  placeholder={t('auth.usernamePlaceholder')}
                   leftAdornment={
                     <Text className="text-sm text-muted-light">@</Text>
                   }
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.username?.message}
+                  error={te(errors.username?.message)}
                 />
               )}
             />
@@ -124,16 +127,16 @@ export default function SignUpScreen() {
               name="email"
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
-                  label="Email"
+                  label={t('auth.email')}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
                   autoComplete="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.email?.message}
+                  error={te(errors.email?.message)}
                 />
               )}
             />
@@ -142,13 +145,13 @@ export default function SignUpScreen() {
               name="password"
               render={({ field: { value, onChange, onBlur } }) => (
                 <Input
-                  label="Password"
+                  label={t('auth.password')}
                   secureTextEntry={!showPassword}
-                  placeholder="At least 8 characters"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.password?.message}
+                  error={te(errors.password?.message)}
                   rightAdornment={
                     <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={6}>
                       <Ionicons
@@ -164,7 +167,7 @@ export default function SignUpScreen() {
           </View>
 
           <PrimaryButton
-            label="Continue"
+            label={t('common.continue')}
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             fullWidth
@@ -172,12 +175,12 @@ export default function SignUpScreen() {
           />
 
           <View className="mt-2 flex-row justify-center gap-1">
-            <Text className="text-sm text-muted-light">Already have an account?</Text>
+            <Text className="text-sm text-muted-light">{t('auth.haveAccount')}</Text>
             <Link
               href="/(auth)/login"
               className="text-sm font-semibold text-text-light dark:text-text-dark"
             >
-              Sign in →
+              {t('auth.signInArrow')}
             </Link>
           </View>
         </ScrollView>

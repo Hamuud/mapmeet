@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useToast } from '@/components/ui/Toast';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
+import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
 import { eventsService } from '@/services/events.service';
@@ -41,6 +42,7 @@ export default function MyEventsScreen() {
 }
 
 function MyEventsBody() {
+  const t = useT();
   const toast = useToast();
   const { profile } = useAuth();
   const { coords, status: locStatus, request: requestLocation } = useLocation();
@@ -150,7 +152,7 @@ function MyEventsBody() {
         event.max_participants != null &&
         event.participant_count >= event.max_participants;
       if (!wasJoined && isFull) {
-        toast.show('Event is full.', 'info');
+        toast.show(t('events.full'), 'info');
         return;
       }
       patchEvent(event.id, {
@@ -171,8 +173,8 @@ function MyEventsBody() {
         const raw = e instanceof Error ? e.message : '';
         toast.show(
           /is full/i.test(raw)
-            ? 'Event just filled up — try another one.'
-            : raw || 'Could not update',
+            ? t('events.justFilled')
+            : raw || t('events.couldNotUpdate'),
           'error',
         );
       }
@@ -187,9 +189,9 @@ function MyEventsBody() {
     try {
       await eventsService.remove(target.id);
       removeEvent(target.id);
-      toast.show('Event deleted.', 'success');
+      toast.show(t('events.deleted'), 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not delete', 'error');
+      toast.show(e instanceof Error ? e.message : t('events.couldNotDelete'), 'error');
     }
   };
 
@@ -198,7 +200,7 @@ function MyEventsBody() {
       {/* Header + segmented tabs */}
       <View className="px-5 pb-3 pt-2">
         <Text className="font-display text-4xl text-text-light dark:text-text-dark">
-          My events
+          {t('events.title')}
         </Text>
         {/* Four equal-width segments spanning the full row. Count
             renders only on the active pill so labels stay legible even
@@ -206,25 +208,25 @@ function MyEventsBody() {
             crowd the text off-center. */}
         <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <SegmentButton
-            label="Created"
+            label={t('events.tabCreated')}
             count={tab === 'created' ? created.length : null}
             active={tab === 'created'}
             onPress={() => setTab('created')}
           />
           <SegmentButton
-            label="Joined"
+            label={t('events.tabJoined')}
             count={tab === 'joined' ? joined.length : null}
             active={tab === 'joined'}
             onPress={() => setTab('joined')}
           />
           <SegmentButton
-            label="Nearby"
+            label={t('events.tabNearby')}
             count={tab === 'nearby' && coords ? nearby.length : null}
             active={tab === 'nearby'}
             onPress={() => setTab('nearby')}
           />
           <SegmentButton
-            label="Past"
+            label={t('events.tabPast')}
             count={tab === 'past' ? past.length : null}
             active={tab === 'past'}
             onPress={() => setTab('past')}
@@ -237,14 +239,14 @@ function MyEventsBody() {
         <View className="px-5 pb-2 pt-1">
           <View className="mb-2 flex-row items-center justify-between">
             <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              Radius
+              {t('events.radius')}
             </Text>
             <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
               {coords
-                ? `${nearby.length} within ${radius} km`
+                ? t('events.withinRadius', { n: nearby.length, km: radius })
                 : locStatus === 'requesting'
-                  ? 'Locating…'
-                  : 'No location'}
+                  ? t('events.locating')
+                  : t('events.noLocation')}
             </Text>
           </View>
           <ScrollView
@@ -296,21 +298,21 @@ function MyEventsBody() {
             !coords ? (
               <EmptyState
                 emoji="📍"
-                title="Enable location to find events nearby"
+                title={t('events.enableLocationTitle')}
                 description={
                   locStatus === 'denied'
-                    ? 'Location is off. Turn it on in Settings, then try again.'
-                    : 'We need your location to compute distances.'
+                    ? t('events.locationDenied')
+                    : t('events.locationNeeded')
                 }
-                actionLabel="Try again"
+                actionLabel={t('events.tryAgain')}
                 onAction={() => void requestLocation()}
               />
             ) : (
               <EmptyState
                 emoji="🌍"
-                title={`No events within ${radius} km`}
-                description="Pick a bigger radius, or open the map to pin one yourself."
-                actionLabel="Open map"
+                title={t('events.noneWithin', { km: radius })}
+                description={t('events.widenRadius')}
+                actionLabel={t('events.openMap')}
                 onAction={goToMap}
               />
             )
@@ -330,7 +332,7 @@ function MyEventsBody() {
                 />
                 <ActionChip
                   icon="location"
-                  label="View on map"
+                  label={t('events.viewOnMap')}
                   onPress={() => openMapWithEvent(item.event.id)}
                 />
               </View>
@@ -352,19 +354,19 @@ function MyEventsBody() {
               }
               title={
                 tab === 'created'
-                  ? 'No events yet'
+                  ? t('events.emptyCreated')
                   : tab === 'joined'
-                    ? "You haven't joined any events"
-                    : 'No past events yet'
+                    ? t('events.emptyJoined')
+                    : t('events.emptyPast')
               }
               description={
                 tab === 'created'
-                  ? 'Drop your first pin from the map tab.'
+                  ? t('events.emptyCreatedHint')
                   : tab === 'joined'
-                    ? 'Tap a marker on the map to join.'
-                    : 'Events you host or join land here an hour after they wrap.'
+                    ? t('events.emptyJoinedHint')
+                    : t('events.emptyPastHint')
               }
-              actionLabel={tab === 'past' ? undefined : 'Open map'}
+              actionLabel={tab === 'past' ? undefined : t('events.openMap')}
               onAction={tab === 'past' ? undefined : goToMap}
             />
           }
@@ -375,17 +377,17 @@ function MyEventsBody() {
                 <View className="flex-row items-center gap-2 pl-3">
                   <ActionChip
                     icon="location"
-                    label="View on map"
+                    label={t('events.viewOnMap')}
                     onPress={() => openMapWithEvent(item.id)}
                   />
                   <ActionChip
                     icon="create-outline"
-                    label="Edit"
+                    label={t('events.edit')}
                     onPress={() => setEditEvent(item)}
                   />
                   <ActionChip
                     icon="trash-outline"
-                    label="Delete"
+                    label={t('common.delete')}
                     tone="danger"
                     onPress={() => setPendingDelete(item)}
                   />
@@ -394,13 +396,13 @@ function MyEventsBody() {
                 <View className="flex-row items-center gap-2 pl-3">
                   <ActionChip
                     icon="ellipse-outline"
-                    label="Ended"
+                    label={t('events.ended')}
                     onPress={() => {}}
                   />
                   {profile && item.creator_id === profile.id ? (
                     <ActionChip
                       icon="trash-outline"
-                      label="Delete"
+                      label={t('common.delete')}
                       tone="danger"
                       onPress={() => setPendingDelete(item)}
                     />
@@ -410,7 +412,7 @@ function MyEventsBody() {
                 <View className="flex-row items-center pl-3">
                   <ActionChip
                     icon="location"
-                    label="View on map"
+                    label={t('events.viewOnMap')}
                     onPress={() => openMapWithEvent(item.id)}
                   />
                 </View>
@@ -428,9 +430,9 @@ function MyEventsBody() {
 
       <ConfirmationDialog
         open={!!pendingDelete}
-        title="Delete event?"
-        message="Attendees will lose their spot. This can't be undone."
-        confirmLabel="Delete"
+        title={t('events.deleteTitle')}
+        message={t('events.deleteMessage')}
+        confirmLabel={t('common.delete')}
         destructive
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
@@ -500,6 +502,7 @@ function JoinButton({
   viewerId: string | null;
   onToggle: () => void;
 }) {
+  const t = useT();
   const isCreator = !!viewerId && event.creator_id === viewerId;
   const isFull =
     event.max_participants != null &&
@@ -509,7 +512,7 @@ function JoinButton({
     return (
       <View className="flex-row items-center gap-1 rounded-full bg-brand-500/10 px-3 py-1.5">
         <Ionicons name="star" size={12} color="#4B5FE0" />
-        <Text className="text-[11px] font-semibold text-brand-500">Hosting</Text>
+        <Text className="text-[11px] font-semibold text-brand-500">{t('events.hosting')}</Text>
       </View>
     );
   }
@@ -521,7 +524,7 @@ function JoinButton({
         className="flex-row items-center gap-1 rounded-full border border-border-light bg-panel-light px-3 py-1.5 active:opacity-70 dark:border-border-dark dark:bg-panel-dark"
       >
         <Ionicons name="checkmark-circle" size={13} color="#4B5FE0" />
-        <Text className="text-[11px] font-semibold text-brand-500">Joined</Text>
+        <Text className="text-[11px] font-semibold text-brand-500">{t('events.joined')}</Text>
       </Pressable>
     );
   }
@@ -529,7 +532,7 @@ function JoinButton({
     return (
       <View className="flex-row items-center gap-1 rounded-full border border-border-light bg-panel-light px-3 py-1.5 dark:border-border-dark dark:bg-panel-dark">
         <Ionicons name="lock-closed" size={12} color="#8B8880" />
-        <Text className="text-[11px] font-semibold text-muted-light">Full</Text>
+        <Text className="text-[11px] font-semibold text-muted-light">{t('events.fullShort')}</Text>
       </View>
     );
   }
@@ -540,7 +543,7 @@ function JoinButton({
       className="flex-row items-center gap-1 rounded-full bg-brand-500 px-3.5 py-1.5 active:opacity-90"
     >
       <Ionicons name="add" size={14} color="#fff" />
-      <Text className="text-[11px] font-bold text-white">Join event</Text>
+      <Text className="text-[11px] font-bold text-white">{t('events.joinEvent')}</Text>
     </Pressable>
   );
 }

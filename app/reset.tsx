@@ -9,15 +9,16 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
 
 const schema = z
   .object({
-    password: z.string().min(8, 'At least 8 characters.'),
+    password: z.string().min(8, 'validation.passwordMinShort'),
     confirm: z.string(),
   })
   .refine((v) => v.password === v.confirm, {
-    message: 'Passwords do not match.',
+    message: 'validation.passwordsMatch',
     path: ['confirm'],
   });
 
@@ -27,6 +28,8 @@ type Form = z.infer<typeof schema>;
  *  already restored the recovery session by the time we mount — so the
  *  user just needs to pick a new password. */
 export default function ResetScreen() {
+  const t = useT();
+  const te = useTMaybe();
   const toast = useToast();
   const {
     control,
@@ -40,10 +43,10 @@ export default function ResetScreen() {
   const onSubmit = async ({ password }: Form) => {
     try {
       await authService.updatePassword(password);
-      toast.show('Password updated. You are signed in.', 'success');
+      toast.show(t('auth.passwordUpdated'), 'success');
       router.replace('/(tabs)/map');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update password', 'error');
+      toast.show(e instanceof Error ? e.message : t('auth.passwordUpdateFailed'), 'error');
     }
   };
 
@@ -60,10 +63,10 @@ export default function ResetScreen() {
         >
           <View className="mt-6">
             <Text className="text-4xl font-bold text-text-light dark:text-text-dark">
-              New password
+              {t('auth.newPasswordTitle')}
             </Text>
             <Text className="mt-2 text-base text-muted-light dark:text-muted-dark">
-              Choose something you haven't used elsewhere.
+              {t('auth.newPasswordSubtitle')}
             </Text>
           </View>
 
@@ -72,16 +75,16 @@ export default function ResetScreen() {
             name="password"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="New password"
+                label={t('auth.newPassword')}
                 secureTextEntry
-                placeholder="At least 8 characters"
+                placeholder={t('auth.passwordPlaceholder')}
                 leftAdornment={
                   <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" />
                 }
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.password?.message}
+                error={te(errors.password?.message)}
               />
             )}
           />
@@ -90,22 +93,22 @@ export default function ResetScreen() {
             name="confirm"
             render={({ field: { value, onChange, onBlur } }) => (
               <Input
-                label="Confirm password"
+                label={t('auth.confirmPassword')}
                 secureTextEntry
-                placeholder="Retype the same password"
+                placeholder={t('auth.retypePassword')}
                 leftAdornment={
                   <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" />
                 }
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.confirm?.message}
+                error={te(errors.confirm?.message)}
               />
             )}
           />
 
           <PrimaryButton
-            label="Update password"
+            label={t('auth.updatePassword')}
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             fullWidth
