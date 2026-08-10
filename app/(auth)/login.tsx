@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { OAUTH_SIGN_IN } from '@/config/features';
 import { useIconColor } from '@/hooks/useIconColor';
 import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
@@ -183,32 +184,37 @@ export default function LoginScreen() {
             size="lg"
           />
 
-          {/* Divider */}
-          <View className="flex-row items-center gap-3">
-            <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
-            <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-              {t('common.or')}
-            </Text>
-            <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
-          </View>
+          {/* Google / Apple sign-in. Hidden until the providers are really
+              wired up — App Review reads a "coming soon" button as an
+              unfinished app. Flip OAUTH_SIGN_IN in config/features.ts. */}
+          {OAUTH_SIGN_IN ? (
+            <>
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
+                <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+                  {t('common.or')}
+                </Text>
+                <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
+              </View>
 
-          {/* OAuth ghosts — placeholders until we wire them up. */}
-          <View className="gap-3">
-            <PrimaryButton
-              label={t('auth.continueGoogle')}
-              variant="secondary"
-              onPress={oauthComingSoon}
-              leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
-              fullWidth
-            />
-            <PrimaryButton
-              label={t('auth.continueApple')}
-              variant="secondary"
-              onPress={oauthComingSoon}
-              leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
-              fullWidth
-            />
-          </View>
+              <View className="gap-3">
+                <PrimaryButton
+                  label={t('auth.continueGoogle')}
+                  variant="secondary"
+                  onPress={oauthComingSoon}
+                  leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
+                  fullWidth
+                />
+                <PrimaryButton
+                  label={t('auth.continueApple')}
+                  variant="secondary"
+                  onPress={oauthComingSoon}
+                  leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
+                  fullWidth
+                />
+              </View>
+            </>
+          ) : null}
 
           <View className="mt-2 flex-row justify-center gap-1">
             <Text className="text-sm text-muted-light">{t('auth.newHere')}</Text>

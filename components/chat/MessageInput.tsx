@@ -11,14 +11,16 @@ import {
 
 import { useT, type TFunction } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { CHAT_MEDIA_ATTACHMENTS } from '@/config/features';
 import { useIconColor } from '@/hooks/useIconColor';
 import type { MessageWithSender } from '@/types';
 
 type Props = {
   onSend: (text: string) => Promise<void>;
   onAttach?: () => void;
-  /** When provided, the [+] opens a menu (Photo · Poll) instead of firing
-   *  onAttach directly. Wired in event + group chats. */
+  /** When provided, the [+] offers a poll. While media attachments are
+   *  disabled it is the only entry, so [+] opens the composer directly
+   *  rather than a one-item menu. */
   onCreatePoll?: () => void;
   /** Reply context — renders the quoted strip above the input. */
   replyingTo?: MessageWithSender | null;
@@ -79,6 +81,15 @@ export function MessageInput({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const hasText = draft.trim().length > 0;
+
+  // What [+] does: the full menu when there's a real choice, otherwise
+  // whichever single action is available, otherwise nothing at all —
+  // no button is better than one that apologises.
+  const canAttach = CHAT_MEDIA_ATTACHMENTS && !!onAttach;
+  const plusAction =
+    canAttach && onCreatePoll
+      ? () => setMenuOpen(true)
+      : (onCreatePoll ?? (canAttach ? onAttach : null));
 
   const handleSend = async () => {
     const text = draft.trim();
@@ -144,13 +155,19 @@ export function MessageInput({
         </View>
       ) : (
         <View className="flex-row items-end gap-2 px-3 py-2">
-          <Pressable
-            onPress={onCreatePoll ? () => setMenuOpen(true) : onAttach}
-            accessibilityLabel={t('input.addAttachment')}
-            className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
-          >
-            <Ionicons name="add" size={20} color={iconColor} />
-          </Pressable>
+          {plusAction ? (
+            <Pressable
+              onPress={plusAction}
+              accessibilityLabel={
+                !canAttach && onCreatePoll
+                  ? t('input.createPoll')
+                  : t('input.addAttachment')
+              }
+              className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark"
+            >
+              <Ionicons name="add" size={20} color={iconColor} />
+            </Pressable>
+          ) : null}
 
           <View className="max-h-28 min-h-[44px] flex-1 justify-center rounded-3xl border border-border-light bg-elevated-light px-4 py-2 dark:border-border-dark dark:bg-elevated-dark">
             <TextInput
@@ -204,17 +221,19 @@ export function MessageInput({
         </View>
       )}
 
-      {/* [+] menu — photo/video or a poll. */}
+      {/* [+] menu — only reachable while there is more than one choice. */}
       <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} autoHeight>
         <View className="gap-1 pb-1">
-          <AttachMenuItem
-            icon="image-outline"
-            label={t('input.photoOrVideo')}
-            onPress={() => {
-              setMenuOpen(false);
-              onAttach?.();
-            }}
-          />
+          {canAttach ? (
+            <AttachMenuItem
+              icon="image-outline"
+              label={t('input.photoOrVideo')}
+              onPress={() => {
+                setMenuOpen(false);
+                onAttach?.();
+              }}
+            />
+          ) : null}
           <AttachMenuItem
             icon="stats-chart"
             label={t('input.createPoll')}

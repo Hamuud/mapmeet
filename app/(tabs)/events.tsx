@@ -395,11 +395,7 @@ function MyEventsBody() {
                 </View>
               ) : tab === 'past' ? (
                 <View className="flex-row items-center gap-2 pl-3">
-                  <ActionChip
-                    icon="ellipse-outline"
-                    label={t('events.ended')}
-                    onPress={() => {}}
-                  />
+                  <StatusChip icon="ellipse-outline" label={t('events.ended')} />
                   {profile && item.creator_id === profile.id ? (
                     <ActionChip
                       icon="trash-outline"
@@ -555,6 +551,24 @@ type ActionChipProps = {
   onPress: () => void;
   tone?: 'default' | 'danger';
 };
+
+/** Same shape as ActionChip but inert — "Ended" states a fact about the
+ *  event, it isn't something you can do. Rendering it as a Pressable
+ *  that swallowed the tap made it look like a broken button. */
+function StatusChip({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-1 rounded-full border border-border-light bg-panel-light px-3 py-1 dark:border-border-dark dark:bg-panel-dark">
+      <Ionicons name={icon} size={12} color="#8B8880" />
+      <Text className="text-[11px] font-semibold text-muted-light">{label}</Text>
+    </View>
+  );
+}
 
 function ActionChip({ icon, label, onPress, tone = 'default' }: ActionChipProps) {
   const isDanger = tone === 'danger';
