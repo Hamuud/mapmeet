@@ -4,7 +4,9 @@ Everything to paste into App Store Connect for the 1.0.0 submission.
 Character counts are verified against Apple's limits.
 
 Add **two** localisations under *App Information → Localizable Information*:
-**English (U.S.)** as primary and **Ukrainian**. The app itself ships in both,
+**English (U.K.)** as primary and **Ukrainian**. The copy below is written in
+British English ("centre") to match that primary language — switching the
+primary to English (U.S.) would need a spelling pass. The app itself ships in both,
 and Ukraine is the market the imported events come from — a Ukrainian-language
 listing is what actually gets found there.
 
@@ -16,7 +18,8 @@ listing is what actually gets found there.
 |---|---|
 | Bundle ID | `com.mapmeet.app` |
 | SKU | `mapmeet-001` |
-| Primary category | **Social Networking** |
+| Primary language | **English (U.K.)** |
+| Primary category | **Social Networking** — the core loop is meeting people; Meetup is filed the same way |
 | Secondary category | **Lifestyle** |
 | Content rights | Contains no third-party content *(the karabas.com listings are factual event data with attribution and a link; if a reviewer queries it, see §6)* |
 | Age rating | Calculated **13+**, overridden to **16+** to match the EULA. See §5 |
@@ -37,7 +40,7 @@ listing is what actually gets found there.
 
 ---
 
-## 2. English (U.S.)
+## 2. English (U.K.)
 
 ### App Name  (24/30)
 ```
