@@ -19,7 +19,7 @@ listing is what actually gets found there.
 | Primary category | **Social Networking** |
 | Secondary category | **Lifestyle** |
 | Content rights | Contains no third-party content *(the karabas.com listings are factual event data with attribution and a link; if a reviewer queries it, see §6)* |
-| Age rating | **17+** — see §5 |
+| Age rating | Computed by Apple from the questionnaire — expect **16+ or 18+**. See §5 |
 | Copyright | `2026 AlyaskaTeam` |
 | Price | Free |
 
@@ -185,21 +185,42 @@ against captures taken with the app set to Ukrainian.
 
 ## 5. Age rating questionnaire
 
-Answer **None** to every violence, sexual content, horror, gambling, drug and
-profanity question. The ones that are not "None":
+Apple's 2025 questionnaire. You do **not** pick the rating — Apple computes it
+from these answers, on the current 4+ / 9+ / 13+ / 16+ / 18+ scale. Expect
+MapMeet to land at **16+ or 18+**.
 
-| Question | Answer |
-|---|---|
-| Unrestricted Web Access | **No** — the app has no browser |
-| **Age Assurance / user-generated content** | **Yes** — the app has chat and user-created content |
-| Does your app contain user-generated content? | **Yes** |
-| Can users communicate with each other? | **Yes** |
-| Does your app share the user's location with other users? | **Yes** — events are pinned on a public map |
+### Step 1 — In-App Controls
 
-That combination lands you at **17+**, which matches the 16+ minimum in the
-Terms and is the right bracket for an app whose purpose is meeting strangers.
+| Question | Answer | Why |
+|---|---|---|
+| Parental Controls | **NO** | No guardian monitoring or restriction tools exist |
+| Age Assurance | **NO** | Sign-up collects email, username, display name and password — no date of birth, no ID check, and the Declared Age Range API is not called. The 16+ rule in the Terms is a rule, not a mechanism |
 
----
+### Step 1 — Capabilities
+
+| Question | Answer | Why |
+|---|---|---|
+| Unrestricted Web Access | **NO** | There is no in-app browser. Every external link — tickets, legal pages, links posted in chat — goes out through `Linking.openURL` to the system browser. `expo-web-browser` is a transitive dependency and is never called |
+| User-Generated Content | **YES** | Events, chat messages, voice notes, polls, profiles and reviews |
+| Social Media | **YES** | The public map, Nearby list and tag search are a discovery surface that spreads user-created events to people who never chose to follow their author — Apple's "similar discovery method". Sharing out to Telegram/WhatsApp/Viber is redistribution on top |
+| Social Media Disabled for Users Under 13 | **NO** | Nothing is gated by age, and the Declared Age Range API is not called |
+| Messaging and Chat | **YES** | Direct messages, group chats and per-event chats |
+| Advertising | **NO** | No ads and no ad SDKs. The karabas.com ticket links are aggregated public event data with attribution — there is no commercial or affiliate arrangement, so it is not paid promotion |
+
+### Steps 2–7 — content questions
+
+Answer **None** to every violence, sexual content, nudity, profanity, horror,
+alcohol/tobacco/drugs, gambling and contests question. MapMeet ships no such
+content of its own.
+
+The one that reads ambiguously: questions about content are asking what **the
+app itself** contains, not what a user could theoretically type into a chat.
+User-generated risk is already declared by the UGC and Messaging answers above,
+and is handled by the report/block/moderation tooling.
+
+> **Do not under-declare to chase a lower rating.** If Apple decides the answers
+> don't match the app, they reset the rating and can pull the listing. "Social
+> Media = YES" costs a bracket and is easy to defend; "NO" is not.
 
 ## 6. App Review Information
 
