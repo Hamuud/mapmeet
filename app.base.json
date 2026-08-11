@@ -67,7 +67,8 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "./plugins/withFmtConstevalFix"
     ],
     "experiments": {
       "typedRoutes": true
