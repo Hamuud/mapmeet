@@ -19,7 +19,7 @@ listing is what actually gets found there.
 | Primary category | **Social Networking** |
 | Secondary category | **Lifestyle** |
 | Content rights | Contains no third-party content *(the karabas.com listings are factual event data with attribution and a link; if a reviewer queries it, see §6)* |
-| Age rating | Computed by Apple from the questionnaire — expect **16+ or 18+**. See §5 |
+| Age rating | Calculated **13+**, overridden to **16+** to match the EULA. See §5 |
 | Copyright | `2026 AlyaskaTeam` |
 | Price | Free |
 
@@ -185,9 +185,16 @@ against captures taken with the app set to Ukrainian.
 
 ## 5. Age rating questionnaire
 
-Apple's 2025 questionnaire. You do **not** pick the rating — Apple computes it
-from these answers, on the current 4+ / 9+ / 13+ / 16+ / 18+ scale. Expect
-MapMeet to land at **16+ or 18+**.
+Apple's 2025 questionnaire. Apple computes a rating from the answers, then
+Step 7 lets you override it upwards.
+
+**Outcome for MapMeet: calculated 13+, overridden to 16+.**
+
+The override is not optional housekeeping — the Terms say "you may use MapMeet
+only if you are 16 or older", so shipping at the calculated 13+ would have the
+App Store advertising the app to an age group our own EULA bars. Apple names
+exactly this case on the Step 7 screen: *"if your app ... has a EULA with age
+requirements, you can specify an age rating that better represents your app."*
 
 ### Step 1 — In-App Controls
 
@@ -221,6 +228,41 @@ and is handled by the report/block/moderation tooling.
 > **Do not under-declare to chase a lower rating.** If Apple decides the answers
 > don't match the app, they reset the rating and can pull the listing. "Social
 > Media = YES" costs a bracket and is easy to defend; "NO" is not.
+
+### Step 7 — Additional Information
+
+| Field | Value |
+|---|---|
+| Calculated Rating | 13+ |
+| Age Categories and Override | **Override to Higher Age Rating → 16+** |
+| Age Suitability URL | `https://hamuud.github.io/mapmeet/legal/terms.html#eligibility` |
+
+The URL deep-links to clause 2 of the Terms, which is the document that
+justifies the override.
+
+Step 7 also warns the app will not be sold in **Afghanistan** while a category
+is Entertainment, Lifestyle or Games. That is local law, not a defect, and is
+not worth distorting the categories to avoid.
+
+### Content answers, evidenced against the live feed
+
+Each of these was checked against the 158 imported karabas.com listings rather
+than assumed — the feed refreshes weekly, so re-check if the imported
+categories are ever broadened.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Profanity or Crude Humor | Infrequent | 4 listings contain profanity in descriptions (3 stand-up, 1 theatre) |
+| Horror/Fear Themes | None | — |
+| Alcohol, Tobacco, Drug references | Infrequent | 20 listings mention a bar, wine, beer or cocktails |
+| Medical or Treatment Information | None | The app gives no guidance; it lists events |
+| Health or Wellness Topics | No | Listing a yoga class is not *providing* self-care advice |
+| Mature or Suggestive Themes | Infrequent | 5 listings incl. a stand-up show "Сексологія" and 4 marked 18+ |
+| Sexual Content or Nudity | None | References, never depictions. 0 nudity matches |
+| Graphic Sexual Content | None | — |
+| All four Violence questions | None | 0 weapon and 0 violence matches; 9 "war" hits were all false positives ("forget about the war for a few hours") |
+| Simulated Gambling / Gambling / Loot Boxes | None / No / No | No purchases, currency or betting anywhere in the app |
+| Contests | None | The profile ★ rating is a reputation score, not a leaderboard — no ranking, prize or points mechanic exists in the codebase |
 
 ## 6. App Review Information
 
