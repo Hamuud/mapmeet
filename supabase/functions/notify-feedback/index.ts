@@ -67,8 +67,16 @@ Deno.serve(async (req) => {
           .join('')}</ul>`
       : '<p><em>No attachments.</em></p>';
 
+    // Account deletions arrive through the same table; they deserve a
+    // subject you can spot in an inbox without opening it.
+    const isDeletion = row.kind === 'account_deletion';
+    const heading = isDeletion ? 'MapMeet account deleted' : 'New MapMeet feedback';
+    const subject = isDeletion
+      ? `MapMeet account deleted — ${row.reason ?? 'no reason given'}`
+      : `MapMeet feedback from ${who}`;
+
     const html = `
-      <h2>New MapMeet feedback</h2>
+      <h2>${escapeHtml(heading)}</h2>
       <p><strong>From:</strong> ${escapeHtml(who)}</p>
       <p><strong>App:</strong> ${escapeHtml(row.app_version ?? '—')} · <strong>Platform:</strong> ${escapeHtml(row.platform ?? '—')}</p>
       <hr />
@@ -88,7 +96,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: FROM,
         to: [TO],
-        subject: `MapMeet feedback from ${who}`,
+        subject,
         html,
       }),
     });

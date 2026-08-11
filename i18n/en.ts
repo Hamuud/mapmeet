@@ -727,6 +727,32 @@ export const en = {
   'directions.pickApp': 'Pick your navigation app',
   'error.title': 'Something went wrong',
   'error.tryAgain': 'Try again',
+
+  // ── Delete account ────────────────────────────────────────────────
+  'account.delete': 'Delete account',
+  'account.deleteHint': 'Permanently remove your account and data',
+  'account.deleteTitle': 'Delete your account',
+  'account.deleteIntro': 'This is permanent. Before you go, it would help us to know why you are leaving — it goes straight to the MapMeet team.',
+  'account.whatHappens': 'What gets deleted',
+  'account.whatHappensBody': 'Your profile, photo, events, the people you joined, your friends, ratings and reviews. Messages you sent into group or event chats stay for the other people in them, shown as from a deleted account.',
+  'account.reasonLabel': 'Why are you leaving?',
+  'account.reasonNotUseful': "I don't find it useful",
+  'account.reasonTooFewEvents': 'Not enough events near me',
+  'account.reasonPrivacy': 'Privacy concerns',
+  'account.reasonBadExperience': 'A bad experience with someone',
+  'account.reasonTakingABreak': "I'm just taking a break",
+  'account.reasonOther': 'Something else',
+  'account.detailsLabel': 'Anything else? (optional)',
+  'account.detailsPlaceholder': 'Tell us what went wrong — it helps us fix it.',
+  'account.pickReason': 'Please pick a reason first.',
+  'account.continueToConfirm': 'Continue',
+  'account.confirmTitle': 'Confirm with your password',
+  'account.confirmBody': 'Enter your password to confirm it is really you. Your account is deleted immediately and cannot be restored.',
+  'account.passwordLabel': 'Your password',
+  'account.deleteForever': 'Delete my account',
+  'account.wrongPassword': 'That password is not correct.',
+  'account.deleted': 'Your account has been deleted.',
+  'account.deleteFailed': 'Could not delete your account',
 } as const satisfies Record<string, Phrase>;
 
 export type TranslationKey = keyof typeof en;

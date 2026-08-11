@@ -10,6 +10,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
+import { DeleteAccountSheet } from '@/features/settings/DeleteAccountSheet';
 import { FeedbackSheet } from '@/features/settings/FeedbackSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
@@ -53,6 +54,7 @@ export default function SettingsScreen() {
   const [langOpen, setLangOpen] = useState(false);
   const [radiusOpen, setRadiusOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const version =
     (Constants.expoConfig?.version as string | undefined) ??
@@ -163,6 +165,13 @@ export default function SettingsScreen() {
             onPress={() =>
               locStatus === 'denied' ? openOSSettings() : void requestLocation()
             }
+          />
+          <SettingsRow
+            icon="trash-outline"
+            label={t('account.delete')}
+            hint={t('account.deleteHint')}
+            destructive
+            onPress={() => setDeleteOpen(true)}
           />
         </Section>
 
@@ -285,6 +294,8 @@ export default function SettingsScreen() {
           MapMeet · v{version}
         </Text>
       </ScrollView>
+
+      <DeleteAccountSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} />
 
       <FeedbackSheet
         open={feedbackOpen}
@@ -455,6 +466,8 @@ type SettingsRowProps = {
   rightText?: string;
   rightSlot?: React.ReactNode;
   onPress?: () => void;
+  /** Red icon + label, for the one row that destroys something. */
+  destructive?: boolean;
 };
 
 function SettingsRow({
@@ -464,16 +477,27 @@ function SettingsRow({
   rightText,
   rightSlot,
   onPress,
+  destructive = false,
 }: SettingsRowProps) {
   const iconColor = useIconColor();
   const mutedIconColor = useMutedIconColor();
   const content = (
     <View className="flex-row items-center gap-3 border-b border-border-light px-4 py-3 last:border-b-0 dark:border-border-dark">
-      <View className="h-9 w-9 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
-        <Ionicons name={icon} size={16} color={iconColor} />
+      <View
+        className={[
+          'h-9 w-9 items-center justify-center rounded-xl',
+          destructive ? 'bg-red-500/10' : 'bg-elevated-light dark:bg-elevated-dark',
+        ].join(' ')}
+      >
+        <Ionicons name={icon} size={16} color={destructive ? '#B91C1C' : iconColor} />
       </View>
       <View className="flex-1">
-        <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+        <Text
+          className={[
+            'text-[15px] font-semibold',
+            destructive ? 'text-red-700 dark:text-red-400' : 'text-text-light dark:text-text-dark',
+          ].join(' ')}
+        >
           {label}
         </Text>
         {hint ? (

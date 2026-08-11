@@ -63,6 +63,23 @@ export const storageService = {
     return data.publicUrl;
   },
 
+  /** Remove every avatar the user has ever uploaded, on account
+   *  deletion. Storage does not cascade, and SQL is forbidden from
+   *  deleting storage.objects, so this has to go through the API — the
+   *  "owner delete own avatar" policy scopes it to your own prefix.
+   *  Best-effort: a storage hiccup must not block the deletion itself. */
+  async removeAvatars(userId: string): Promise<void> {
+    try {
+      const { data, error } = await supabase.storage.from('avatars').list(userId);
+      if (error || !data?.length) return;
+      await supabase.storage
+        .from('avatars')
+        .remove(data.map((f) => `${userId}/${f.name}`));
+    } catch {
+      // Swallowed on purpose — see the doc comment.
+    }
+  },
+
   /** Upload one feedback attachment (photo or video). Keyed under the
    *  sender's uid — the bucket policy only allows writes to that prefix. */
   async uploadFeedbackMedia(

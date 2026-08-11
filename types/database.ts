@@ -545,6 +545,10 @@ export type Database = {
         }[];
       };
       accept_group_invite: { Args: { p_token: string }; Returns: string };
+      delete_my_account: {
+        Args: { p_reason: string; p_details?: string | null };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
