@@ -54,7 +54,7 @@ Fill in:
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
 For Android native Google Maps, also mirror your key into
-`app.json → expo.android.config.googleMaps.apiKey`.
+`app.base.json → expo.android.config.googleMaps.apiKey`.
 
 ### 4. Run the Postgres migrations
 
