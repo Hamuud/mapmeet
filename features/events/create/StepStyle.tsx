@@ -3,8 +3,10 @@ import { Text, View } from 'react-native';
 
 import { PinStyleField } from '@/components/events/PinStyleField';
 import { MapMarker } from '@/components/map/MapMarker';
-import { PIN_COLORS } from '@/features/events/pinStyle';
+import { resolveColorValue } from '@/features/events/pinStyle';
 import { useT } from '@/i18n';
+import { useModerationStore } from '@/store/moderation.store';
+import { canStylePinFreeform } from '@/utils/roles';
 
 import { StepHeading } from './StepHeading';
 import type { StepProps } from './types';
@@ -17,6 +19,8 @@ import type { StepProps } from './types';
  *  Continue works untouched. */
 export function StepStyle({ form }: StepProps) {
   const t = useT();
+  const role = useModerationStore((s) => s.role);
+  const freeform = canStylePinFreeform(role);
   const { setValue, watch } = form;
 
   const emoji = watch('emoji');
@@ -24,12 +28,13 @@ export function StepStyle({ form }: StepProps) {
   const visibility = watch('visibility');
   const color = watch('pin_color');
   const effect = watch('pin_effect') ?? 'none';
+  const glyphs = watch('pin_effect_emoji') ?? null;
 
   return (
     <View className="gap-5">
       <StepHeading
         title={t('createEvent.styleTitle')}
-        hint={t('createEvent.styleHint')}
+        hint={t(freeform ? 'createEvent.styleHintDesigner' : 'createEvent.styleHint')}
       />
 
       <View className="items-center gap-2 rounded-2xl border border-border-light bg-elevated-light py-6 dark:border-border-dark dark:bg-elevated-dark">
@@ -38,8 +43,9 @@ export function StepStyle({ form }: StepProps) {
             emoji={emoji || '❓'}
             title={title.trim() || t('createEvent.untitled')}
             isPrivate={visibility === 'private'}
-            pinColor={color ? PIN_COLORS[color] : null}
+            pinColor={resolveColorValue(color, freeform)}
             pinEffect={effect}
+            pinGlyphs={glyphs}
           />
         </View>
         <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light dark:text-muted-dark">
@@ -50,8 +56,13 @@ export function StepStyle({ form }: StepProps) {
       <PinStyleField
         color={color}
         effect={effect}
+        glyphs={glyphs}
+        freeform={freeform}
         onColorChange={(v) => setValue('pin_color', v, { shouldDirty: true })}
         onEffectChange={(v) => setValue('pin_effect', v, { shouldDirty: true })}
+        onGlyphsChange={(v) =>
+          setValue('pin_effect_emoji', v, { shouldDirty: true })
+        }
       />
 
       <View className="flex-row items-start gap-2.5 rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
@@ -62,7 +73,7 @@ export function StepStyle({ form }: StepProps) {
           style={{ marginTop: 1 }}
         />
         <Text className="flex-1 text-[12px] leading-snug text-muted-light dark:text-muted-dark">
-          {t('pinStyle.perkNote')}
+          {t(freeform ? 'pinStyle.perkNoteDesigner' : 'pinStyle.perkNote')}
         </Text>
       </View>
     </View>

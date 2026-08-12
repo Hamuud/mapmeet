@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
+import { DEFAULT_STAR_GLYPH } from '@/features/events/pinStyle';
 import type { PinEffect } from '@/types/database';
 
 type Props = {
@@ -17,6 +18,9 @@ type Props = {
    *  the event directly, or a lapsed subscriber keeps their colour. */
   pinColor?: string | null;
   pinEffect?: PinEffect | null;
+  /** Falling particles for the 'stars' effect. A designer's own emoji;
+   *  defaults to the ✦ sparkle. Fewer than three cycles. */
+  pinGlyphs?: string[] | null;
 };
 
 const TAG_SIZE = 44;
@@ -55,9 +59,12 @@ function GlowRing({ color, size }: { color: string; size: number }) {
   );
 }
 
-/** Three sparkles drifting down past the tag, staggered. The literal
- *  "falling stars" of the brief. */
-function FallingStars({ size }: { size: number }) {
+/** Three particles drifting down past the tag, staggered. The literal
+ *  "falling stars" of the brief — except a designer can swap the ✦ for
+ *  their own emoji, which is why the glyph is a parameter. They render
+ *  at the same 10px either way: the point is confetti, not a second
+ *  emoji competing with the one in the pin. */
+function FallingStars({ size, glyphs }: { size: number; glyphs: string[] }) {
   // One ref holding three values, not three useRef calls in a loop —
   // hooks can't run inside `.map`.
   const drops = useRef([
@@ -115,7 +122,7 @@ function FallingStars({ size }: { size: number }) {
             ],
           }}
         >
-          ✦
+          {glyphs[i % glyphs.length] ?? DEFAULT_STAR_GLYPH}
         </Animated.Text>
       ))}
     </View>
@@ -175,12 +182,14 @@ export function MapMarker({
   hosted,
   pinColor,
   pinEffect,
+  pinGlyphs,
 }: Props) {
   const size = selected ? TAG_SIZE_SELECTED : TAG_SIZE;
   // Selection outranks the premium colour: a user has to be able to tell
   // which pin they just tapped, whoever owns it.
   const styled = !!pinColor && !selected;
   const effect = styled || pinColor ? (pinEffect ?? 'none') : 'none';
+  const glyphs = pinGlyphs?.length ? pinGlyphs : [DEFAULT_STAR_GLYPH];
 
   return (
     <View className="items-center">
@@ -223,7 +232,9 @@ export function MapMarker({
           ) : null}
         </View>
 
-        {effect === 'stars' ? <FallingStars size={size} /> : null}
+        {effect === 'stars' ? (
+          <FallingStars size={size} glyphs={glyphs} />
+        ) : null}
       </View>
 
       {/* Point dot */}

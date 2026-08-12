@@ -24,11 +24,11 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
 import { MapMarker } from '@/components/map/MapMarker';
-import { PIN_COLORS } from '@/features/events/pinStyle';
+import { resolveColorValue } from '@/features/events/pinStyle';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
-import { canStylePin } from '@/utils/roles';
+import { canStylePin, canStylePinFreeform } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { EventWithCreator } from '@/types';
 
@@ -47,6 +47,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const role = useModerationStore((s) => s.role);
   const canStyle = canStylePin(role);
+  const freeform = canStylePinFreeform(role);
 
   const {
     control,
@@ -69,6 +70,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       visibility: 'public',
       pin_color: null,
       pin_effect: 'none',
+      pin_effect_emoji: null,
       tags: [],
     },
   });
@@ -87,6 +89,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       visibility: event.visibility,
       pin_color: event.pin_color ?? null,
       pin_effect: event.pin_effect ?? 'none',
+      pin_effect_emoji: event.pin_effect_emoji ?? null,
       tags: event.tags ?? [],
     });
   }, [event, reset]);
@@ -96,6 +99,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
   const tags = watch('tags');
   const pinColor = watch('pin_color');
   const pinEffect = watch('pin_effect') ?? 'none';
+  const pinGlyphs = watch('pin_effect_emoji') ?? null;
 
   const onSubmit = async (values: EventInput) => {
     if (!event) return;
@@ -112,6 +116,7 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         visibility: values.visibility,
         pin_color: values.pin_color,
         pin_effect: values.pin_effect,
+        pin_effect_emoji: values.pin_effect_emoji,
         tags: values.tags,
       });
       patchEvent(event.id, updated);
@@ -210,8 +215,9 @@ export function EditEventSheet({ event, open, onClose }: Props) {
                   <MapMarker
                     emoji={emoji || '❓'}
                     isPrivate={visibility === 'private'}
-                    pinColor={pinColor ? PIN_COLORS[pinColor] : null}
+                    pinColor={resolveColorValue(pinColor, freeform)}
                     pinEffect={pinEffect}
+                    pinGlyphs={pinGlyphs}
                     compact
                   />
                 </View>
@@ -219,8 +225,13 @@ export function EditEventSheet({ event, open, onClose }: Props) {
               <PinStyleField
                 color={pinColor}
                 effect={pinEffect}
+                glyphs={pinGlyphs}
+                freeform={freeform}
                 onColorChange={(v) => setValue('pin_color', v, { shouldDirty: true })}
                 onEffectChange={(v) => setValue('pin_effect', v, { shouldDirty: true })}
+                onGlyphsChange={(v) =>
+                  setValue('pin_effect_emoji', v, { shouldDirty: true })
+                }
               />
             </View>
           ) : null}

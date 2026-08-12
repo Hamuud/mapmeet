@@ -5,9 +5,11 @@ import { Pressable, Switch, Text, View } from 'react-native';
 import { Input } from '@/components/ui/Input';
 import { useT, useTMaybe } from '@/i18n';
 import { useIconColor } from '@/hooks/useIconColor';
+import { useModerationStore } from '@/store/moderation.store';
+import { canStylePinFreeform } from '@/utils/roles';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 
-import { PIN_COLORS, PIN_EFFECTS } from '@/features/events/pinStyle';
+import { PIN_EFFECTS, resolveColorValue } from '@/features/events/pinStyle';
 
 import { StepHeading } from './StepHeading';
 import { stepIndex, type StepDef, type StepProps } from './types';
@@ -80,6 +82,7 @@ export function StepFinish({ form, steps, onJump }: Props) {
   const t = useT();
   const te = useTMaybe();
   const iconColor = useIconColor();
+  const freeform = canStylePinFreeform(useModerationStore((s) => s.role));
   const {
     control,
     setValue,
@@ -235,9 +238,8 @@ export function StepFinish({ form, steps, onJump }: Props) {
               <View
                 className="h-2.5 w-2.5 rounded-full"
                 style={{
-                  backgroundColor: values.pin_color
-                    ? PIN_COLORS[values.pin_color]
-                    : '#8B8880',
+                  backgroundColor:
+                    resolveColorValue(values.pin_color, freeform) ?? '#8B8880',
                 }}
               />
               <Text className="font-mono text-[11px] text-muted-light dark:text-muted-dark">

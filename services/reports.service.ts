@@ -79,7 +79,12 @@ export type StaffMember = {
   role: UserRole;
 };
 
-export type AssignableRole = 'premium' | 'support' | 'admin' | 'user';
+export type AssignableRole =
+  | 'premium'
+  | 'designer'
+  | 'support'
+  | 'admin'
+  | 'user';
 
 /** Assignable tiers — 'owner' is deliberately absent: it can't be handed
  *  out or taken away through the app.
@@ -94,10 +99,24 @@ export const ASSIGNABLE_ROLES: {
   ownerOnly: boolean;
 }[] = [
   { key: 'premium', labelKey: 'role.premium', hintKey: 'role.premiumHint', ownerOnly: false },
+  // Staff-side: it carries moderation access, so the owner hands it out.
+  { key: 'designer', labelKey: 'role.designer', hintKey: 'role.designerHint', ownerOnly: true },
   { key: 'support', labelKey: 'role.support', hintKey: 'role.supportHint', ownerOnly: true },
   { key: 'admin', labelKey: 'role.admin', hintKey: 'role.adminHint', ownerOnly: true },
   { key: 'user', labelKey: 'role.remove', hintKey: 'role.removeHint', ownerOnly: false },
 ];
+
+/** Display label per role, including the ones nobody can assign.
+ *  The panel listed the raw slug before; 'designer' has an actual name
+ *  and printing "designer" at people is worse than printing nothing. */
+export const ROLE_LABEL: Record<UserRole, TranslationKey> = {
+  user: 'role.plain',
+  premium: 'role.premium',
+  designer: 'role.designer',
+  support: 'role.support',
+  admin: 'role.admin',
+  owner: 'role.owner',
+};
 
 export const reportsService = {
   /** File a complaint. `reasons` is one or more REPORT_REASONS keys. */

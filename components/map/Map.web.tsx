@@ -230,7 +230,10 @@ function styleMarkerElement(
         font-size:10px;line-height:1;pointer-events:none;
         animation: mm-pin-fall 1.5s linear ${i * 0.5}s infinite;
       `;
-      star.textContent = '✦';
+      // A designer's own emoji, or the default ✦; fewer than three
+      // cycles. Same 10px either way — confetti, not a second emoji
+      // competing with the one in the pin.
+      star.textContent = style.glyphs[i % style.glyphs.length] ?? '✦';
       wrap.appendChild(star);
     }
   }

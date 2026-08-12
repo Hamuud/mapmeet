@@ -58,14 +58,25 @@ export const eventSchema = z.object({
   // the step to entitled accounts, and the DB trigger drops the values
   // if they arrive from anyone else, so the schema stays permissive and
   // the entitlement lives in exactly one place.
+  // Palette key or a designer's raw #RRGGBB — the same two shapes the
+  // SQL CHECK allows. Which one an account may actually store is the
+  // trigger's business, not the schema's.
   pin_color: z
-    .enum(['rose', 'amber', 'lime', 'teal', 'sky', 'indigo', 'violet', 'magenta'])
+    .union([
+      z.enum(['rose', 'amber', 'lime', 'teal', 'sky', 'indigo', 'violet', 'magenta']),
+      z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'validation.hexColor'),
+    ])
     .nullable()
     .default(null),
   pin_effect: z
     .enum(['none', 'glow', 'stars', 'shine'])
     .nullable()
     .default('none'),
+  pin_effect_emoji: z
+    .array(z.string().min(1).max(16))
+    .max(3)
+    .nullable()
+    .default(null),
   tags: z
     .array(z.string().regex(TAG_REGEX, 'validation.tagFormat'))
     .min(1, 'validation.tagMin')

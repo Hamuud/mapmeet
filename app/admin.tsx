@@ -14,6 +14,7 @@ import { useIconColor } from '@/hooks/useIconColor';
 import {
   ASSIGNABLE_ROLES,
   type AssignableRole,
+  ROLE_LABEL,
   MUTE_OPTIONS,
   reasonLabelKey,
   reportsService,
@@ -614,7 +615,9 @@ function RolesPanel({ isOwner }: { isOwner: boolean }) {
                   ? 'bg-brand-500/15'
                   : m.role === 'premium'
                     ? 'bg-[#D98C00]/15'
-                    : 'bg-elevated-light dark:bg-elevated-dark'
+                    : m.role === 'designer'
+                      ? 'bg-[#7C3AED]/15'
+                      : 'bg-elevated-light dark:bg-elevated-dark'
               }`}
             >
               <Text
@@ -623,10 +626,12 @@ function RolesPanel({ isOwner }: { isOwner: boolean }) {
                     ? 'text-brand-500'
                     : m.role === 'premium'
                       ? 'text-[#D98C00]'
-                      : 'text-muted-light'
+                      : m.role === 'designer'
+                        ? 'text-[#7C3AED]'
+                        : 'text-muted-light'
                 }`}
               >
-                {m.role}
+                {t(ROLE_LABEL[m.role])}
               </Text>
             </View>
           </View>

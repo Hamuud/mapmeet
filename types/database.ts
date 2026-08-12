@@ -18,13 +18,19 @@ export type PollPayload = {
  *  the side of the staff chain (support → admin → owner). Anything that
  *  means "can moderate" must test membership explicitly — see
  *  `isStaffRole` in utils/roles.ts. */
-export type UserRole = 'user' | 'premium' | 'support' | 'admin' | 'owner';
+export type UserRole =
+  | 'user'
+  | 'premium'
+  | 'designer'
+  | 'support'
+  | 'admin'
+  | 'owner';
 
-/** Palette keys for a styled event pin. Stored as keys, not hex, so the
- *  palette can be re-tuned without rewriting rows — and so nobody can
- *  pick a colour that reads as "selected" or "you're hosting this".
- *  Mirrors `events_pin_color_check`. */
-export type PinColor =
+/** The fixed palette offered to premium accounts. Stored as keys, not
+ *  hex, so the palette can be re-tuned without rewriting rows — and so
+ *  nobody can pick a colour that reads as "selected" or "the pin you are
+ *  placing". */
+export type PinPaletteColor =
   | 'rose'
   | 'amber'
   | 'lime'
@@ -33,6 +39,15 @@ export type PinColor =
   | 'indigo'
   | 'violet'
   | 'magenta';
+
+/** What actually sits in events.pin_color: a palette key, or a literal
+ *  '#RRGGBB' from a designer. The `string & {}` keeps autocomplete on
+ *  the eight keys while still accepting free hex. Which of the two an
+ *  account may store is enforced by `enforce_pin_style()`, not by the
+ *  CHECK — the constraint cannot see who is writing.
+ *  Mirrors `events_pin_color_check`. */
+// eslint-disable-next-line @typescript-eslint/ban-types
+export type PinColor = PinPaletteColor | (string & {});
 
 /** Mirrors `events_pin_effect_check`. */
 export type PinEffect = 'none' | 'glow' | 'stars' | 'shine';
@@ -128,6 +143,11 @@ export type Database = {
            *  drops it otherwise. */
           pin_color: PinColor | null;
           pin_effect: PinEffect | null;
+          /** Falling particles for the 'stars' effect, designer-only.
+           *  Up to three; null means the default ✦ sparkle. An array, not
+           *  a packed string — emoji are grapheme clusters and splitting
+           *  them apart in JS mangles ZWJ sequences. */
+          pin_effect_emoji: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -148,6 +168,7 @@ export type Database = {
           tags: string[];
           pin_color?: PinColor | null;
           pin_effect?: PinEffect | null;
+          pin_effect_emoji?: string[] | null;
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
         Relationships: [];

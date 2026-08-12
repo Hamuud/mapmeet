@@ -77,6 +77,7 @@ function makeDefaults(): EventInput {
     visibility: 'public',
     pin_color: null,
     pin_effect: 'none',
+    pin_effect_emoji: null,
     tags: [],
   };
 }
@@ -227,6 +228,7 @@ export function CreateEventSheet({
         visibility: values.visibility,
         pin_color: values.pin_color,
         pin_effect: values.pin_effect,
+        pin_effect_emoji: values.pin_effect_emoji,
         tags: values.tags,
       });
       // Auto-join the creator — they're always attending their own event, and
