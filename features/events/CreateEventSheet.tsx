@@ -21,15 +21,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
+import { useModerationStore } from '@/store/moderation.store';
+import { canStylePin } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { LatLng } from '@/types';
 
 import { StepBasics } from './create/StepBasics';
 import { StepDetails } from './create/StepDetails';
 import { StepFinish } from './create/StepFinish';
+import { StepStyle } from './create/StepStyle';
 import { StepWhen } from './create/StepWhen';
 import { StepWhere } from './create/StepWhere';
-import { STEP_COUNT, STEPS, WHERE_STEP } from './create/types';
+import { buildSteps, stepIndex } from './create/types';
 
 type Props = {
   open: boolean;
@@ -72,6 +75,8 @@ function makeDefaults(): EventInput {
     event_time: roundedHourISO(),
     max_participants: null,
     visibility: 'public',
+    pin_color: null,
+    pin_effect: 'none',
     tags: [],
   };
 }
@@ -82,6 +87,11 @@ function makeDefaults(): EventInput {
  *  a chore; each step now asks one question (what / details / when /
  *  where / who), validates only its own fields, and the last one reads
  *  the whole thing back before it goes live.
+ *
+ *  Premium and staff accounts get a sixth step, Style, right after
+ *  Basics — hence `buildSteps` rather than a module constant. Everyone
+ *  else never sees it, and the DB drops the columns if they arrive from
+ *  an account that isn't entitled.
  *
  *  Two bits of state deserve the explanation:
  *
@@ -105,6 +115,9 @@ export function CreateEventSheet({
   const insets = useSafeAreaInsets();
   const iconColor = useIconColor();
   const upsertEvent = useEventsStore((s) => s.upsertEvent);
+  const role = useModerationStore((s) => s.role);
+  const steps = buildSteps(canStylePin(role));
+  const whereStep = stepIndex(steps, 'where');
 
   const [step, setStep] = useState(0);
   const pickingRef = useRef(false);
@@ -152,27 +165,35 @@ export function CreateEventSheet({
     setStep(0);
   }, [open, reset]);
 
+  // The moderation store refreshes in the background, so the wizard can
+  // lose its Style step mid-flight if an admin revokes premium while the
+  // sheet is open. Rare, but it would otherwise leave `step` pointing
+  // past the end and the header reading "Step 6 of 5".
+  useEffect(() => {
+    setStep((s) => Math.min(s, steps.length - 1));
+  }, [steps.length]);
+
   const goToStep = (next: number) => {
     setStep(next);
     // A step change is a new screen, not a scroll — jump, don't glide.
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const current = STEPS[step] ?? STEPS[0];
+  const current = steps[step] ?? steps[0]!;
 
   const goNext = async () => {
     const ok = await trigger([...current.fields]);
     if (!ok) return;
     // zod can't catch this: (0, 0) is a perfectly valid coordinate, so
     // "never picked a location" has to be checked by hand.
-    if (step === WHERE_STEP) {
+    if (step === whereStep) {
       const { latitude, longitude } = getValues();
       if (!latitude || !longitude) {
         toast.show(t('createEvent.pickLocationFirst'), 'error');
         return;
       }
     }
-    goToStep(Math.min(step + 1, STEP_COUNT - 1));
+    goToStep(Math.min(step + 1, steps.length - 1));
   };
 
   const goBack = () => goToStep(Math.max(step - 1, 0));
@@ -188,7 +209,7 @@ export function CreateEventSheet({
     if (!session) return;
     if (!values.latitude || !values.longitude) {
       toast.show(t('createEvent.pickLocationFirst'), 'error');
-      goToStep(WHERE_STEP);
+      goToStep(whereStep);
       return;
     }
     try {
@@ -204,6 +225,8 @@ export function CreateEventSheet({
         event_time: values.event_time,
         max_participants: values.max_participants ?? null,
         visibility: values.visibility,
+        pin_color: values.pin_color,
+        pin_effect: values.pin_effect,
         tags: values.tags,
       });
       // Auto-join the creator — they're always attending their own event, and
@@ -221,6 +244,10 @@ export function CreateEventSheet({
             'You',
           avatar_url:
             (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
+          // Carry the viewer's own role onto the optimistic stub, or
+          // resolvePinStyle treats the creator as unentitled and the new
+          // pin flashes plain until the realtime row arrives.
+          role,
         },
         participant_count: 1,
         is_joined: true,
@@ -234,7 +261,7 @@ export function CreateEventSheet({
     }
   };
 
-  const isLast = step === STEP_COUNT - 1;
+  const isLast = step === steps.length - 1;
 
   return (
     <BottomSheet open={open} onClose={onClose} heightPct={0.92} desktopRail>
@@ -267,8 +294,8 @@ export function CreateEventSheet({
 
           <StepProgress
             index={step}
-            total={STEP_COUNT}
-            label={t('createEvent.stepOf', { n: step + 1, total: STEP_COUNT })}
+            total={steps.length}
+            label={t('createEvent.stepOf', { n: step + 1, total: steps.length })}
             stepName={t(current.name)}
             onJump={goToStep}
             jumpLabel={(n) => t('createEvent.goToStep', { n })}
@@ -282,17 +309,22 @@ export function CreateEventSheet({
           contentContainerStyle={{ paddingTop: 18, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          {step === 0 ? <StepBasics form={form} /> : null}
-          {step === 1 ? <StepDetails form={form} /> : null}
-          {step === 2 ? <StepWhen form={form} /> : null}
-          {step === 3 ? (
+          {/* Keyed off the step's id, not its index — the Style step
+              shifts every index after it by one. */}
+          {current.id === 'basics' ? <StepBasics form={form} /> : null}
+          {current.id === 'style' ? <StepStyle form={form} /> : null}
+          {current.id === 'details' ? <StepDetails form={form} /> : null}
+          {current.id === 'when' ? <StepWhen form={form} /> : null}
+          {current.id === 'where' ? (
             <StepWhere
               form={form}
               onCoordsChange={onCoordsChange}
               onRequestPickLocation={requestPickLocation}
             />
           ) : null}
-          {step === 4 ? <StepFinish form={form} onJump={goToStep} /> : null}
+          {current.id === 'finish' ? (
+            <StepFinish form={form} steps={steps} onJump={goToStep} />
+          ) : null}
         </ScrollView>
 
         {/* Docked footer — the primary action stays under the thumb no

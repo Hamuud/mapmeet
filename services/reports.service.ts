@@ -1,4 +1,5 @@
 import type { TranslationKey } from '@/i18n';
+import type { UserRole as SchemaUserRole } from '@/types/database';
 import { supabase } from './supabase';
 
 export type ReportTargetType = 'user' | 'review' | 'event' | 'hashtag' | 'message';
@@ -55,7 +56,9 @@ export type AdminReport = {
   target_report_count: number | null;
 };
 
-export type StaffRole = 'user' | 'support' | 'admin' | 'owner';
+/** Re-exported so callers that already import from this service don't
+ *  have to reach into the schema types. */
+export type UserRole = SchemaUserRole;
 
 export type MyModerationState = {
   mutedUntil: string | null;
@@ -63,7 +66,7 @@ export type MyModerationState = {
   warnings: number;
   /** Any staff tier — grants the Complaints & reports screen. */
   isAdmin: boolean;
-  role: StaffRole;
+  role: UserRole;
   /** Only the owner can assign roles. */
   isOwner: boolean;
 };
@@ -73,19 +76,27 @@ export type StaffMember = {
   username: string;
   display_name: string;
   avatar_url: string | null;
-  role: StaffRole;
+  role: UserRole;
 };
 
+export type AssignableRole = 'premium' | 'support' | 'admin' | 'user';
+
 /** Assignable tiers — 'owner' is deliberately absent: it can't be handed
- *  out or taken away through the app. */
+ *  out or taken away through the app.
+ *
+ *  `ownerOnly` mirrors the split inside assign_role: an admin may grant
+ *  and revoke premium, but only the owner touches the staff chain. The
+ *  server re-checks; this flag only decides what the panel offers. */
 export const ASSIGNABLE_ROLES: {
-  key: 'support' | 'admin' | 'user';
+  key: AssignableRole;
   labelKey: TranslationKey;
   hintKey: TranslationKey;
+  ownerOnly: boolean;
 }[] = [
-  { key: 'support', labelKey: 'role.support', hintKey: 'role.supportHint' },
-  { key: 'admin', labelKey: 'role.admin', hintKey: 'role.adminHint' },
-  { key: 'user', labelKey: 'role.remove', hintKey: 'role.removeHint' },
+  { key: 'premium', labelKey: 'role.premium', hintKey: 'role.premiumHint', ownerOnly: false },
+  { key: 'support', labelKey: 'role.support', hintKey: 'role.supportHint', ownerOnly: true },
+  { key: 'admin', labelKey: 'role.admin', hintKey: 'role.adminHint', ownerOnly: true },
+  { key: 'user', labelKey: 'role.remove', hintKey: 'role.removeHint', ownerOnly: false },
 ];
 
 export const reportsService = {
@@ -121,7 +132,7 @@ export const reportsService = {
           banned: boolean;
           warnings: number;
           is_admin: boolean;
-          role: StaffRole;
+          role: UserRole;
           is_owner: boolean;
         }[]
       | null)?.[0];
@@ -176,8 +187,9 @@ export const reportsService = {
     if (error) throw error;
   },
 
-  /** Owner only: grant or revoke staff access by username. */
-  async assignRole(username: string, role: 'support' | 'admin' | 'user'): Promise<void> {
+  /** Grant or revoke a role by username. Admins may only move people
+   *  in and out of 'premium'; assign_role rejects anything else. */
+  async assignRole(username: string, role: AssignableRole): Promise<void> {
     const { error } = await supabase.rpc('assign_role', {
       p_username: username,
       p_role: role,
@@ -185,7 +197,8 @@ export const reportsService = {
     if (error) throw error;
   },
 
-  /** Everyone currently holding a staff role. */
+  /** Everyone holding any role above plain 'user' — staff and premium
+   *  members alike, which is what the Roles panel lists. */
   async listStaff(): Promise<StaffMember[]> {
     const { data, error } = await supabase.rpc('list_staff');
     if (error) throw error;

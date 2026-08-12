@@ -12,6 +12,31 @@ export type PollPayload = {
   options: PollOption[];
 };
 
+/** profiles.role. Mirrors the `profiles_role_check` constraint.
+ *
+ *  Not a hierarchy: 'premium' is a paid cosmetic tier that sits off to
+ *  the side of the staff chain (support → admin → owner). Anything that
+ *  means "can moderate" must test membership explicitly — see
+ *  `isStaffRole` in utils/roles.ts. */
+export type UserRole = 'user' | 'premium' | 'support' | 'admin' | 'owner';
+
+/** Palette keys for a styled event pin. Stored as keys, not hex, so the
+ *  palette can be re-tuned without rewriting rows — and so nobody can
+ *  pick a colour that reads as "selected" or "you're hosting this".
+ *  Mirrors `events_pin_color_check`. */
+export type PinColor =
+  | 'rose'
+  | 'amber'
+  | 'lime'
+  | 'teal'
+  | 'sky'
+  | 'indigo'
+  | 'violet'
+  | 'magenta';
+
+/** Mirrors `events_pin_effect_check`. */
+export type PinEffect = 'none' | 'glow' | 'stars' | 'shine';
+
 export type Database = {
   public: {
     Tables: {
@@ -31,10 +56,14 @@ export type Database = {
           /** Who can see the events this user has joined (not hosted). */
           attending_visibility: 'nobody' | 'friends' | 'everyone';
           /** Grants the Complaints & reports (moderation) screen —
-           *  mirrors `role <> 'user'`. */
+           *  mirrors `role in ('support','admin','owner')`. Deliberately
+           *  NOT `role <> 'user'`: 'premium' is a paid cosmetic tier, not
+           *  a staff one. */
           is_admin: boolean;
-          /** Staff tier. Only 'owner' may assign roles. */
-          role: 'user' | 'support' | 'admin' | 'owner';
+          /** Account tier. Staff are support/admin/owner; 'premium' sits
+           *  outside that chain and only unlocks styled event pins. Only
+           *  the owner may assign staff roles; admins may grant premium. */
+          role: UserRole;
           /** Set while serving a mute; null once it lapses or is lifted. */
           muted_until: string | null;
           banned_at: string | null;
@@ -94,6 +123,11 @@ export type Database = {
           /** How precisely the venue resolved. 'city' events are kept off
            *  the map (a centroid pin would lie) but stay in Nearby. */
           geo_precision: 'venue' | 'city' | null;
+          /** Palette key for a styled pin, or null for the standard one.
+           *  Only creators with `can_style_pin` can set it; the DB trigger
+           *  drops it otherwise. */
+          pin_color: PinColor | null;
+          pin_effect: PinEffect | null;
           created_at: string;
           updated_at: string;
         };
@@ -112,6 +146,8 @@ export type Database = {
           // Required at the type level so the compiler stops us from
           // shipping an event without at least one tag.
           tags: string[];
+          pin_color?: PinColor | null;
+          pin_effect?: PinEffect | null;
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
         Relationships: [];
@@ -384,7 +420,7 @@ export type Database = {
           banned: boolean;
           warnings: number;
           is_admin: boolean;
-          role: 'user' | 'support' | 'admin' | 'owner';
+          role: UserRole;
           is_owner: boolean;
         }[];
       };
@@ -398,7 +434,7 @@ export type Database = {
           username: string;
           display_name: string;
           avatar_url: string | null;
-          role: 'user' | 'support' | 'admin' | 'owner';
+          role: UserRole;
         }[];
       };
       submit_feedback: {

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, useTMaybe } from '@/i18n';
 import { EmojiPicker } from '@/components/events/EmojiPicker';
+import { PinStyleField } from '@/components/events/PinStyleField';
 import { TagsField } from '@/components/events/TagsField';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { DateTimeField } from '@/components/ui/DateTimeField';
@@ -22,8 +23,12 @@ import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
+import { MapMarker } from '@/components/map/MapMarker';
+import { PIN_COLORS } from '@/features/events/pinStyle';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
+import { useModerationStore } from '@/store/moderation.store';
+import { canStylePin } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { EventWithCreator } from '@/types';
 
@@ -40,6 +45,8 @@ export function EditEventSheet({ event, open, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const iconColor = useIconColor();
   const patchEvent = useEventsStore((s) => s.patchEvent);
+  const role = useModerationStore((s) => s.role);
+  const canStyle = canStylePin(role);
 
   const {
     control,
@@ -60,6 +67,8 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       event_time: '',
       max_participants: null,
       visibility: 'public',
+      pin_color: null,
+      pin_effect: 'none',
       tags: [],
     },
   });
@@ -76,6 +85,8 @@ export function EditEventSheet({ event, open, onClose }: Props) {
       event_time: event.event_time.slice(0, 5),
       max_participants: event.max_participants,
       visibility: event.visibility,
+      pin_color: event.pin_color ?? null,
+      pin_effect: event.pin_effect ?? 'none',
       tags: event.tags ?? [],
     });
   }, [event, reset]);
@@ -83,6 +94,8 @@ export function EditEventSheet({ event, open, onClose }: Props) {
   const emoji = watch('emoji');
   const visibility = watch('visibility');
   const tags = watch('tags');
+  const pinColor = watch('pin_color');
+  const pinEffect = watch('pin_effect') ?? 'none';
 
   const onSubmit = async (values: EventInput) => {
     if (!event) return;
@@ -97,6 +110,8 @@ export function EditEventSheet({ event, open, onClose }: Props) {
         event_time: values.event_time,
         max_participants: values.max_participants ?? null,
         visibility: values.visibility,
+        pin_color: values.pin_color,
+        pin_effect: values.pin_effect,
         tags: values.tags,
       });
       patchEvent(event.id, updated);
@@ -176,6 +191,39 @@ export function EditEventSheet({ event, open, onClose }: Props) {
             onChange={(next) => setValue('tags', next, { shouldValidate: true })}
             error={te(errors.tags?.message)}
           />
+
+          {/* Premium pin styling. Edit isn't a wizard, so it gets the
+              same controls as the create flow's Style step in a plain
+              block — otherwise a subscriber could pick a colour once and
+              never change it. Hidden entirely for anyone unentitled, and
+              the DB preserves the stored values if premium has lapsed. */}
+          {canStyle ? (
+            <View className="gap-3 rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="sparkles" size={14} color="#D98C00" />
+                <Text className="text-sm font-semibold text-text-light dark:text-text-dark">
+                  {t('pinStyle.title')}
+                </Text>
+              </View>
+              <View className="items-center py-1">
+                <View style={{ maxWidth: 240 }}>
+                  <MapMarker
+                    emoji={emoji || '❓'}
+                    isPrivate={visibility === 'private'}
+                    pinColor={pinColor ? PIN_COLORS[pinColor] : null}
+                    pinEffect={pinEffect}
+                    compact
+                  />
+                </View>
+              </View>
+              <PinStyleField
+                color={pinColor}
+                effect={pinEffect}
+                onColorChange={(v) => setValue('pin_color', v, { shouldDirty: true })}
+                onEffectChange={(v) => setValue('pin_effect', v, { shouldDirty: true })}
+              />
+            </View>
+          ) : null}
 
           <View className="flex-row gap-3">
             <View className="flex-1">

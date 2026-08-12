@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 
-import { reportsService, type StaffRole } from '@/services/reports.service';
+import { reportsService, type UserRole } from '@/services/reports.service';
 
 type ModerationState = {
   mutedUntil: string | null;
   banned: boolean;
   warnings: number;
-  role: StaffRole;
+  role: UserRole;
   isAdmin: boolean;
   isOwner: boolean;
   loaded: boolean;

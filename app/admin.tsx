@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useIconColor } from '@/hooks/useIconColor';
 import {
   ASSIGNABLE_ROLES,
+  type AssignableRole,
   MUTE_OPTIONS,
   reasonLabelKey,
   reportsService,
@@ -135,8 +136,10 @@ export default function AdminScreen() {
         </Pressable>
       </View>
 
-      {/* Reports / Roles — the Roles tab is owner-only. */}
-      {isOwner ? (
+      {/* Reports / Roles. Any staff member sees the tab: admins need it
+          to grant premium. What the panel offers inside is what differs
+          — staff tiers stay owner-only, and assign_role re-checks. */}
+      {isAdmin ? (
         <View className="flex-row gap-6 border-b border-border-light px-4 dark:border-border-dark">
           {(['reports', 'roles'] as Tab[]).map((t) => (
             <Pressable key={t} onPress={() => setTab(t)} className="pb-2.5 pt-2">
@@ -162,7 +165,7 @@ export default function AdminScreen() {
         </View>
       ) : null}
 
-      {tab === 'roles' && isOwner ? <RolesPanel /> : null}
+      {tab === 'roles' && isAdmin ? <RolesPanel isOwner={!!isOwner} /> : null}
 
       {/* Status filter */}
       {tab === 'reports' ? (
@@ -476,14 +479,20 @@ export default function AdminScreen() {
   );
 }
 
-/** Owner-only: grant Support/Admin by username, and see who holds what.
- *  Staff can open the reports queue; only the owner can reach this panel,
- *  and assign_role re-checks that server-side. */
-function RolesPanel() {
+/** Grant a role by username, and see who holds what.
+ *
+ *  Two audiences: the owner, who can hand out the staff tiers, and
+ *  admins, who can only move people in and out of premium. The list is
+ *  filtered to match, but the split is enforced in assign_role — this is
+ *  presentation, not permission. */
+function RolesPanel({ isOwner }: { isOwner: boolean }) {
   const t = useT();
   const toast = useToast();
+  const options = ASSIGNABLE_ROLES.filter((r) => isOwner || !r.ownerOnly);
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState<'support' | 'admin' | 'user'>('support');
+  const [role, setRole] = useState<AssignableRole>(
+    isOwner ? 'support' : 'premium',
+  );
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -499,6 +508,9 @@ function RolesPanel() {
     void loadStaff();
   }, [loadStaff]);
 
+  const roleLabel =
+    options.find((r) => r.key === role)?.labelKey ?? 'role.premium';
+
   const handleAssign = async () => {
     const handle = username.trim().replace(/^@/, '');
     if (!handle || busy) return;
@@ -506,7 +518,9 @@ function RolesPanel() {
     try {
       await reportsService.assignRole(handle, role);
       toast.show(
-        role === 'user' ? `Removed @${handle}'s access.` : `@${handle} is now ${role}.`,
+        role === 'user'
+          ? t('admin.roleRemoved', { handle })
+          : t('admin.roleGranted', { handle, role: t(roleLabel) }),
         'success',
       );
       setUsername('');
@@ -537,7 +551,7 @@ function RolesPanel() {
         </View>
 
         <View className="gap-2">
-          {ASSIGNABLE_ROLES.map((r) => {
+          {options.map((r) => {
             const on = role === r.key;
             return (
               <Pressable
@@ -580,7 +594,7 @@ function RolesPanel() {
 
       <View className="gap-2">
         <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-          Current staff · {staff.length}
+          {t('admin.currentRoles', { n: staff.length })}
         </Text>
         {staff.map((m) => (
           <View
@@ -596,12 +610,20 @@ function RolesPanel() {
             </View>
             <View
               className={`rounded-full px-2.5 py-1 ${
-                m.role === 'owner' ? 'bg-brand-500/15' : 'bg-elevated-light dark:bg-elevated-dark'
+                m.role === 'owner'
+                  ? 'bg-brand-500/15'
+                  : m.role === 'premium'
+                    ? 'bg-[#D98C00]/15'
+                    : 'bg-elevated-light dark:bg-elevated-dark'
               }`}
             >
               <Text
                 className={`font-mono text-[10px] uppercase ${
-                  m.role === 'owner' ? 'text-brand-500' : 'text-muted-light'
+                  m.role === 'owner'
+                    ? 'text-brand-500'
+                    : m.role === 'premium'
+                      ? 'text-[#D98C00]'
+                      : 'text-muted-light'
                 }`}
               >
                 {m.role}

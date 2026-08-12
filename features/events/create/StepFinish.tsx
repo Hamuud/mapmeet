@@ -7,10 +7,16 @@ import { useT, useTMaybe } from '@/i18n';
 import { useIconColor } from '@/hooks/useIconColor';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 
+import { PIN_COLORS, PIN_EFFECTS } from '@/features/events/pinStyle';
+
 import { StepHeading } from './StepHeading';
-import type { StepProps } from './types';
+import { stepIndex, type StepDef, type StepProps } from './types';
 
 type Props = StepProps & {
+  /** The wizard this summary belongs to — five steps or six, depending
+   *  on whether the account is entitled to a styled pin. Rows resolve
+   *  their jump target by step id so neither layout hard-codes indices. */
+  steps: readonly StepDef[];
   /** Jump back to the step that owns a summary row. */
   onJump: (step: number) => void;
 };
@@ -70,7 +76,7 @@ function SummaryRow({
  *  A wizard hides everything the user typed on the previous screens, so
  *  the last step has to give it back before anything goes live. Each row
  *  jumps to the step that owns it. */
-export function StepFinish({ form, onJump }: Props) {
+export function StepFinish({ form, steps, onJump }: Props) {
   const t = useT();
   const te = useTMaybe();
   const iconColor = useIconColor();
@@ -84,6 +90,17 @@ export function StepFinish({ form, onJump }: Props) {
   const values = watch();
   const isPrivate = values.visibility === 'private';
   const hasPin = !!values.latitude && !!values.longitude;
+  const styleStep = steps.some((s) => s.id === 'style');
+  const jump = (id: Parameters<typeof stepIndex>[1]) =>
+    onJump(stepIndex(steps, id));
+
+  // "Standard" covers both no colour and no effect — the chip reads as
+  // the whole style choice, not just the effect half.
+  const effect = values.pin_effect ?? 'none';
+  const effectLabel =
+    effect === 'none'
+      ? t(values.pin_color ? 'pinStyle.plainColour' : 'pinStyle.standard')
+      : t(PIN_EFFECTS.find((e) => e.key === effect)?.labelKey ?? 'pinStyle.standard');
 
   return (
     <View className="gap-5">
@@ -136,7 +153,7 @@ export function StepFinish({ form, onJump }: Props) {
             icon="pricetag-outline"
             value={`${values.emoji}  ${values.title.trim() || t('createEvent.untitled')}`}
             empty={!values.title.trim()}
-            onPress={() => onJump(0)}
+            onPress={() => jump('basics')}
             editLabel={t('createEvent.editStep', { step: t('createEvent.stepBasics') })}
             iconColor={iconColor}
           />
@@ -145,7 +162,7 @@ export function StepFinish({ form, onJump }: Props) {
             value={values.description?.trim() || t('createEvent.noDescription')}
             empty={!values.description?.trim()}
             divided
-            onPress={() => onJump(1)}
+            onPress={() => jump('details')}
             editLabel={t('createEvent.editStep', { step: t('createEvent.stepDetails') })}
             iconColor={iconColor}
           />
@@ -156,7 +173,7 @@ export function StepFinish({ form, onJump }: Props) {
               time: formatEventTime(values.event_time),
             })}
             divided
-            onPress={() => onJump(2)}
+            onPress={() => jump('when')}
             editLabel={t('createEvent.editStep', { step: t('createEvent.stepWhen') })}
             iconColor={iconColor}
           />
@@ -170,7 +187,7 @@ export function StepFinish({ form, onJump }: Props) {
             }
             empty={!hasPin}
             divided
-            onPress={() => onJump(3)}
+            onPress={() => jump('where')}
             editLabel={t('createEvent.editStep', { step: t('createEvent.stepWhere') })}
             iconColor={iconColor}
           />
@@ -203,6 +220,31 @@ export function StepFinish({ form, onJump }: Props) {
                 : t('createEvent.visibilityPublic')}
             </Text>
           </View>
+
+          {/* Only entitled accounts have a Style step, so only they get a
+              chip for it — for everyone else the values are always the
+              defaults and the chip would be noise. */}
+          {styleStep ? (
+            <Pressable
+              onPress={() => jump('style')}
+              accessibilityLabel={t('createEvent.editStep', {
+                step: t('createEvent.stepStyle'),
+              })}
+              className="flex-row items-center gap-1.5 rounded-full border border-border-light px-2.5 py-1 active:opacity-60 dark:border-border-dark"
+            >
+              <View
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: values.pin_color
+                    ? PIN_COLORS[values.pin_color]
+                    : '#8B8880',
+                }}
+              />
+              <Text className="font-mono text-[11px] text-muted-light dark:text-muted-dark">
+                {effectLabel}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </View>

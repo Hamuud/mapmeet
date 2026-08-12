@@ -54,6 +54,18 @@ export const eventSchema = z.object({
     .optional()
     .nullable(),
   visibility: z.enum(['public', 'private']).default('public'),
+  // Premium pin styling. Optional for everyone — the wizard only offers
+  // the step to entitled accounts, and the DB trigger drops the values
+  // if they arrive from anyone else, so the schema stays permissive and
+  // the entitlement lives in exactly one place.
+  pin_color: z
+    .enum(['rose', 'amber', 'lime', 'teal', 'sky', 'indigo', 'violet', 'magenta'])
+    .nullable()
+    .default(null),
+  pin_effect: z
+    .enum(['none', 'glow', 'stars', 'shine'])
+    .nullable()
+    .default('none'),
   tags: z
     .array(z.string().regex(TAG_REGEX, 'validation.tagFormat'))
     .min(1, 'validation.tagMin')

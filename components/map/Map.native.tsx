@@ -22,7 +22,9 @@ import { clusterEmojis } from './clusterEmojis';
 import { MapMarker, PendingMarker } from './MapMarker';
 import { useCluster } from './useCluster';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
-import type { EventWithCreator } from '@/types';
+import { isAnimatedEffect, resolvePinStyle } from '@/features/events/pinStyle';
+import { useT } from '@/i18n';
+import type { EventWithCreator, LatLng } from '@/types';
 
 const DEFAULT_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
@@ -53,6 +55,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   },
   ref,
 ) {
+  const t = useT();
   const mapRef = useRef<MapView | null>(null);
   const [region, setRegion] = useState<Region>({
     ...initialCenter,
@@ -144,7 +147,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           tracksViewChanges={false}
           zIndex={999}
         >
-          <PendingMarker />
+          <PendingMarker label={t('map.newEventHere')} />
         </Marker>
       ) : null}
 
@@ -165,25 +168,57 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
             <ClusterBubble events={c.leaves()} count={c.count} />
           </Marker>
         ) : (
-          <Marker
+          <EventMarker
             key={c.id}
+            event={c.event}
             coordinate={c.coordinate}
-            anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => onMarkerPress?.(c.event.id)}
-            tracksViewChanges={false}
-          >
-            <MapMarker
-              emoji={c.event.emoji}
-              title={c.event.title}
-              selected={selectedEventId === c.event.id}
-              isPrivate={c.event.visibility === 'private'}
-            />
-          </Marker>
+            selected={selectedEventId === c.event.id}
+            onPress={onMarkerPress}
+          />
         ),
       )}
     </MapView>
   );
 });
+
+/** One event pin.
+ *
+ *  Split out purely for `tracksViewChanges`. Leaving that on turns every
+ *  marker into a live view instead of a one-off bitmap, which is the
+ *  single biggest map perf lever on Android — but an animated premium
+ *  effect draws nothing at all without it. So it is enabled per pin, for
+ *  the few that actually move, and stays off for everything else. */
+function EventMarker({
+  event,
+  coordinate,
+  selected,
+  onPress,
+}: {
+  event: EventWithCreator;
+  coordinate: LatLng;
+  selected: boolean;
+  onPress?: (eventId: string) => void;
+}) {
+  const style = resolvePinStyle(event, event.creator.role);
+  const animated = isAnimatedEffect(style.effect);
+  return (
+    <Marker
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      onPress={() => onPress?.(event.id)}
+      tracksViewChanges={animated}
+    >
+      <MapMarker
+        emoji={event.emoji}
+        title={event.title}
+        selected={selected}
+        isPrivate={event.visibility === 'private'}
+        pinColor={style.color}
+        pinEffect={style.effect}
+      />
+    </Marker>
+  );
+}
 
 /** Brand indigo — the cluster circle's fill (deliberately not ink). */
 const CLUSTER_BG = '#4B5FE0';

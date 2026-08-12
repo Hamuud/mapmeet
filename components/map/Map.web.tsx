@@ -4,6 +4,10 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { clusterEmojis } from './clusterEmojis';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
+import {
+  resolvePinStyle,
+  type ResolvedPinStyle,
+} from '@/features/events/pinStyle';
 import type { EventWithCreator } from '@/types';
 
 const STREETS_STYLE: maplibregl.StyleSpecification = {
@@ -87,6 +91,34 @@ const DS = {
   mutedText: '#8B8880',
 };
 
+/** Keyframes for the premium pin effects. Injected once — the DOM
+ *  markers are built by hand, so there is no stylesheet to put them in.
+ *  Mirrors the RN Animated versions in MapMarker.tsx; keep the two in
+ *  step or a premium pin looks like a different feature per platform. */
+function ensurePinKeyframes() {
+  if (document.getElementById('mm-pin-keyframes')) return;
+  const style = document.createElement('style');
+  style.id = 'mm-pin-keyframes';
+  style.textContent = `
+    @keyframes mm-pin-glow {
+      0%   { transform: scale(1);   opacity: 0.45; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
+    @keyframes mm-pin-fall {
+      0%   { transform: translateY(-10px); opacity: 0; }
+      15%  { opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(48px); opacity: 0; }
+    }
+    @keyframes mm-pin-shine {
+      0%   { transform: translateX(-48px) rotate(22deg); }
+      45%  { transform: translateX(48px)  rotate(22deg); }
+      100% { transform: translateX(48px)  rotate(22deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 /** Style the "tag" body — rounded rect with a pin-corner clip. Kept as
  *  a helper so the reconcile-in-place update path renders identically
  *  to a fresh construction. */
@@ -95,9 +127,16 @@ function styleMarkerBody(
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
+  style: ResolvedPinStyle,
 ) {
   const size = selected ? 48 : 44;
   const rot = selected ? '0deg' : '-4deg';
+  // Selection outranks the premium colour — the user has to be able to
+  // tell which pin they just tapped, whoever owns it.
+  const styled = !!style.color && !selected;
+  const fill = selected ? DS.ink : styled ? style.color! : DS.panel;
+  const stroke = selected ? DS.ink : styled ? style.color! : DS.border;
+  const shine = style.effect === 'shine';
   body.style.cssText = `
     position:relative;
     width:${size}px;height:${size}px;
@@ -105,14 +144,28 @@ function styleMarkerBody(
     border-radius:18px;
     border-bottom-left-radius:4px;
     transform:rotate(${rot});
-    background:${selected ? DS.ink : DS.panel};
-    border:1px solid ${selected ? DS.ink : DS.border};
+    background:${fill};
+    border:1px solid ${stroke};
     box-shadow:0 ${selected ? 12 : 8}px ${selected ? 20 : 16}px rgba(0,0,0,${selected ? 0.4 : 0.2});
     font-size:${selected ? 24 : 22}px;line-height:1;
     cursor:pointer;
+    ${shine ? 'overflow:hidden;' : ''}
     transition:transform 160ms ease, background 160ms ease;
   `;
   body.textContent = emoji;
+
+  if (shine) {
+    const bar = document.createElement('div');
+    bar.style.cssText = `
+      position:absolute;top:${-size}px;left:0;
+      width:${Math.round(size * 0.42)}px;height:${size * 3}px;
+      background:rgba(255,255,255,0.55);
+      pointer-events:none;
+      animation: mm-pin-shine 2.5s ease-in-out infinite;
+    `;
+    body.appendChild(bar);
+  }
+
   if (isPrivate) {
     const lock = document.createElement('div');
     lock.style.cssText = `
@@ -137,20 +190,57 @@ function styleMarkerElement(
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
+  style: ResolvedPinStyle,
 ) {
+  ensurePinKeyframes();
+  const size = selected ? 48 : 44;
+  const styled = !!style.color && !selected;
+
   el.style.cssText = `
     display:flex;flex-direction:column;align-items:center;gap:4px;
   `;
   el.textContent = '';
 
+  // The tag sits in its own stacking context so the glow can go behind
+  // it and the sparkles in front without either affecting the column.
+  const wrap = document.createElement('div');
+  wrap.style.cssText =
+    'position:relative;display:flex;align-items:center;justify-content:center;';
+
+  if (style.effect === 'glow' && style.color) {
+    const ring = document.createElement('div');
+    ring.style.cssText = `
+      position:absolute;width:${size}px;height:${size}px;
+      border-radius:20px;background:${style.color};
+      pointer-events:none;
+      animation: mm-pin-glow 1.8s ease-out infinite;
+    `;
+    wrap.appendChild(ring);
+  }
+
   const body = document.createElement('div');
-  styleMarkerBody(body, emoji, selected, isPrivate);
-  el.appendChild(body);
+  styleMarkerBody(body, emoji, selected, isPrivate, style);
+  wrap.appendChild(body);
+
+  if (style.effect === 'stars') {
+    for (let i = 0; i < 3; i++) {
+      const star = document.createElement('div');
+      star.style.cssText = `
+        position:absolute;top:0;left:${4 + i * (size / 3.2)}px;
+        font-size:10px;line-height:1;pointer-events:none;
+        animation: mm-pin-fall 1.5s linear ${i * 0.5}s infinite;
+      `;
+      star.textContent = '✦';
+      wrap.appendChild(star);
+    }
+  }
+
+  el.appendChild(wrap);
 
   const dot = document.createElement('div');
   dot.style.cssText = `
     width:6px;height:6px;border-radius:9999px;
-    background:${selected ? DS.ink : 'rgba(14,14,16,0.8)'};
+    background:${selected ? DS.ink : styled ? style.color! : 'rgba(14,14,16,0.8)'};
   `;
   el.appendChild(dot);
 }
@@ -159,10 +249,11 @@ function buildMarkerElement(
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
+  style: ResolvedPinStyle,
   onPress: () => void,
 ): HTMLDivElement {
   const el = document.createElement('div');
-  styleMarkerElement(el, emoji, selected, isPrivate);
+  styleMarkerElement(el, emoji, selected, isPrivate, style);
   el.addEventListener('click', (ev) => {
     ev.stopPropagation();
     onPress();
@@ -540,6 +631,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         seen.add(event.id);
         const isSelected = event.id === selectedEventId;
         const existing = markersRef.current.get(event.id);
+        const pinStyle = resolvePinStyle(event, event.creator.role);
         if (existing) {
           // Keep the same DOM node so MapLibre's transform bindings stay
           // valid; just refresh visuals + position.
@@ -548,6 +640,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
             event.emoji,
             isSelected,
             event.visibility === 'private',
+            pinStyle,
           );
           existing.setLngLat([event.longitude, event.latitude]);
           continue;
@@ -556,6 +649,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           event.emoji,
           isSelected,
           event.visibility === 'private',
+          pinStyle,
           () => onMarkerPressRef.current?.(event.id),
         );
         // Center-anchored — the emoji dot IS the coord, not the tip of a pin.
