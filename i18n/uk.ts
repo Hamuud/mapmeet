@@ -298,6 +298,58 @@ export const uk: Record<TranslationKey, Phrase> = {
   'createEvent.pickLocationFirst': 'Спершу оберіть місце на карті.',
   'createEvent.created': 'Подію додано на карту.',
   'createEvent.failed': 'Не вдалося створити подію',
+
+  // ── Майстер створення події ───────────────────────────────────────
+  // A slash, not «з»: the label renders CSS-uppercased, and «КРОК 1 З 5»
+  // reads as "КРОК 1 3 5" — capital Ze is indistinguishable from a
+  // three in the 10px mono face.
+  'createEvent.stepOf': 'Крок {n} / {total}',
+  'createEvent.goToStep': 'Повернутися до кроку {n}',
+  'createEvent.stepBasics': 'Основне',
+  'createEvent.stepDetails': 'Деталі',
+  'createEvent.stepWhen': 'Коли',
+  'createEvent.stepWhere': 'Де',
+  'createEvent.stepFinish': 'Завершення',
+  'createEvent.basicsTitle': 'Що відбувається?',
+  'createEvent.basicsHint':
+    'Назва та емодзі. Саме це бачать на карті — тож нехай воно чіпляє.',
+  'createEvent.detailsTitle': 'Розкажіть більше',
+  'createEvent.detailsHint':
+    'Короткий опис і кілька тегів допоможуть потрібним людям вас знайти.',
+  'createEvent.whenTitle': 'Коли починається?',
+  'createEvent.whenHint': 'Оберіть дату й час. Обидва можна змінити пізніше.',
+  'createEvent.whereTitle': 'Де це буде?',
+  'createEvent.whereHint':
+    'Знайдіть адресу, поставте позначку на карті або скористайтеся своїм місцем.',
+  'createEvent.finishTitle': 'Майже готово',
+  'createEvent.finishHint':
+    'Вирішіть, хто може прийти, перевірте все й додайте подію на карту.',
+  'createEvent.untitled': 'Подія без назви',
+  'createEvent.pinPreview': 'Так це виглядатиме на карті',
+  'createEvent.charsLeft': {
+    one: 'Залишився {count} символ',
+    few: 'Залишилося {count} символи',
+    other: 'Залишилося {count} символів',
+  },
+  'createEvent.today': 'Сьогодні',
+  'createEvent.tomorrow': 'Завтра',
+  'createEvent.startsAt': '{date} о {time}',
+  'createEvent.staysOnMap':
+    'Подія залишиться на карті ще годину після початку.',
+  'createEvent.pastWarning':
+    'Цей час уже минув — подія не з’явиться на карті.',
+  'createEvent.pinDropped': 'Позначку поставлено',
+  'createEvent.summary': 'Підсумок',
+  'createEvent.noDescription': 'Без опису',
+  'createEvent.editStep': 'Змінити — {step}',
+  'createEvent.capacityNone': 'Без обмежень',
+  'createEvent.capacityValue': {
+    one: 'до {count} учасника',
+    few: 'до {count} учасників',
+    other: 'до {count} учасників',
+  },
+  'createEvent.visibilityPublic': 'Публічна',
+  'createEvent.visibilityPrivate': 'Приватна',
   'editEvent.title': 'Редагувати подію',
   'editEvent.saved': 'Подію оновлено.',
   'editEvent.failed': 'Не вдалося оновити подію',

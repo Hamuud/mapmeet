@@ -295,6 +295,52 @@ export const en = {
   'createEvent.pickLocationFirst': 'Pick a location on the map first.',
   'createEvent.created': 'Event pinned to the map.',
   'createEvent.failed': 'Could not create event',
+
+  // ── Create-event wizard ───────────────────────────────────────────
+  'createEvent.stepOf': 'Step {n} of {total}',
+  'createEvent.goToStep': 'Go back to step {n}',
+  'createEvent.stepBasics': 'Basics',
+  'createEvent.stepDetails': 'Details',
+  'createEvent.stepWhen': 'When',
+  'createEvent.stepWhere': 'Where',
+  'createEvent.stepFinish': 'Finish',
+  'createEvent.basicsTitle': "What's happening?",
+  'createEvent.basicsHint':
+    'A name and an emoji. This is all anyone sees on the map, so make it count.',
+  'createEvent.detailsTitle': 'Tell people more',
+  'createEvent.detailsHint':
+    'A short description and a few tags help the right people find you.',
+  'createEvent.whenTitle': 'When does it start?',
+  'createEvent.whenHint': 'Pick a date and a time. You can change both later.',
+  'createEvent.whereTitle': 'Where is it?',
+  'createEvent.whereHint':
+    'Search an address, drop a pin on the map, or use where you are right now.',
+  'createEvent.finishTitle': 'Ready to pin',
+  'createEvent.finishHint':
+    'Decide who can come, check it over, and put it on the map.',
+  'createEvent.untitled': 'Untitled event',
+  'createEvent.pinPreview': 'How it will look on the map',
+  'createEvent.charsLeft': {
+    one: '{count} character left',
+    other: '{count} characters left',
+  },
+  'createEvent.today': 'Today',
+  'createEvent.tomorrow': 'Tomorrow',
+  'createEvent.startsAt': '{date} at {time}',
+  'createEvent.staysOnMap': 'It stays on the map until an hour after it starts.',
+  'createEvent.pastWarning':
+    "That's already past — the event won't show up on the map.",
+  'createEvent.pinDropped': 'Pin dropped',
+  'createEvent.summary': 'Summary',
+  'createEvent.noDescription': 'No description',
+  'createEvent.editStep': 'Edit — {step}',
+  'createEvent.capacityNone': 'No cap',
+  'createEvent.capacityValue': {
+    one: '{count} person max',
+    other: '{count} people max',
+  },
+  'createEvent.visibilityPublic': 'Public',
+  'createEvent.visibilityPrivate': 'Private',
   'editEvent.title': 'Edit event',
   'editEvent.saved': 'Event updated.',
   'editEvent.failed': 'Could not update event',
