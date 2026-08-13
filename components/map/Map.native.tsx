@@ -215,6 +215,8 @@ function EventMarker({
         isPrivate={event.visibility === 'private'}
         pinColor={style.color}
         pinEffect={style.effect}
+        pinGlyphs={style.glyphs}
+        pinSeed={event.id}
       />
     </Marker>
   );

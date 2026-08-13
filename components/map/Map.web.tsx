@@ -4,10 +4,12 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { clusterEmojis } from './clusterEmojis';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
+import { particleLayout } from '@/features/events/pinParticles';
 import {
   resolvePinStyle,
   type ResolvedPinStyle,
 } from '@/features/events/pinStyle';
+import type { PinEffect } from '@/types/database';
 import type { EventWithCreator } from '@/types';
 
 const STREETS_STYLE: maplibregl.StyleSpecification = {
@@ -105,10 +107,10 @@ function ensurePinKeyframes() {
       100% { transform: scale(1.7); opacity: 0; }
     }
     @keyframes mm-pin-fall {
-      0%   { transform: translateY(-10px); opacity: 0; }
+      0%   { transform: translate(0, -10px); opacity: 0; }
       15%  { opacity: 1; }
       80%  { opacity: 1; }
-      100% { transform: translateY(48px); opacity: 0; }
+      100% { transform: translate(var(--mm-drift, 0px), 48px); opacity: 0; }
     }
     @keyframes mm-pin-shine {
       0%   { transform: translateX(-48px) rotate(22deg); }
@@ -119,54 +121,135 @@ function ensurePinKeyframes() {
   document.head.appendChild(style);
 }
 
-/** Style the "tag" body — rounded rect with a pin-corner clip. Kept as
- *  a helper so the reconcile-in-place update path renders identically
- *  to a fresh construction. */
-function styleMarkerBody(
-  body: HTMLDivElement,
+const TAG_SIZE = 44;
+const TAG_SIZE_SELECTED = 48;
+
+/** The pieces of one marker, kept so the reconcile can patch them.
+ *
+ *  This bookkeeping is the whole point. The old code rebuilt every child
+ *  on each pass (`el.textContent = ''`), and since the reconcile runs on
+ *  any change to the events array *and* on every selection change, the
+ *  CSS animations restarted several times a second — the effects looked
+ *  broken rather than cyclical. Now the nodes carrying an `animation`
+ *  are created once and only touched when the effect itself changes;
+ *  colour, emoji, selection and data refreshes patch around them. */
+type MarkerParts = {
+  wrap: HTMLDivElement;
+  body: HTMLDivElement;
+  glyph: HTMLSpanElement;
+  dot: HTMLDivElement;
+  lock: HTMLDivElement | null;
+  ring: HTMLDivElement | null;
+  bar: HTMLDivElement | null;
+  stars: HTMLDivElement[];
+  /** Which effect the layers above were built for. */
+  effect: PinEffect | null;
+  /** Stable per-event scatter for the falling particles. */
+  seed: string;
+};
+
+const MARKER_PARTS = new WeakMap<HTMLElement, MarkerParts>();
+
+/** Tear down whatever effect layers exist and build the ones the new
+ *  effect needs. Called only on an actual effect change, so a running
+ *  animation is never interrupted by anything else. */
+function rebuildEffectLayers(parts: MarkerParts, style: ResolvedPinStyle) {
+  parts.ring?.remove();
+  parts.bar?.remove();
+  parts.stars.forEach((s) => s.remove());
+  parts.ring = null;
+  parts.bar = null;
+  parts.stars = [];
+
+  if (style.effect === 'glow') {
+    const ring = document.createElement('div');
+    ring.style.cssText = `
+      position:absolute;width:${TAG_SIZE}px;height:${TAG_SIZE}px;
+      border-radius:20px;background:${style.color ?? 'transparent'};
+      pointer-events:none;
+      animation: mm-pin-glow 1.8s ease-out infinite;
+    `;
+    // Behind the tag.
+    parts.wrap.insertBefore(ring, parts.body);
+    parts.ring = ring;
+  }
+
+  if (style.effect === 'shine') {
+    const bar = document.createElement('div');
+    bar.style.cssText = `
+      position:absolute;top:${-TAG_SIZE}px;left:0;
+      width:${Math.round(TAG_SIZE * 0.42)}px;height:${TAG_SIZE * 3}px;
+      background:rgba(255,255,255,0.55);
+      pointer-events:none;
+      animation: mm-pin-shine 2.5s ease-in-out infinite;
+    `;
+    parts.body.appendChild(bar);
+    parts.bar = bar;
+  }
+
+  if (style.effect === 'stars') {
+    for (const p of particleLayout(parts.seed)) {
+      const star = document.createElement('div');
+      // `both` matters: without a backwards fill the particle sits
+      // visible at the top of the pin until its delay elapses, which on
+      // a 1.8s stagger is very obvious.
+      star.style.cssText = `
+        position:absolute;top:0;left:${p.left.toFixed(1)}px;
+        font-size:10px;line-height:1;pointer-events:none;
+        --mm-drift:${p.drift}px;
+        animation: mm-pin-fall ${p.duration.toFixed(2)}s linear ${p.delay.toFixed(2)}s infinite both;
+      `;
+      // In front of the tag.
+      parts.wrap.appendChild(star);
+      parts.stars.push(star);
+    }
+  }
+  parts.effect = style.effect;
+}
+
+/** Patch a marker to match the current event state.
+ *
+ *  Everything here is a property assignment on a node that already
+ *  exists. Selecting a pin or recolouring it re-runs this and the
+ *  animations keep their phase. */
+function updateMarkerElement(
+  el: HTMLDivElement,
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
   style: ResolvedPinStyle,
 ) {
-  const size = selected ? 48 : 44;
-  const rot = selected ? '0deg' : '-4deg';
+  const parts = MARKER_PARTS.get(el);
+  if (!parts) return;
+
+  const size = selected ? TAG_SIZE_SELECTED : TAG_SIZE;
   // Selection outranks the premium colour — the user has to be able to
-  // tell which pin they just tapped, whoever owns it.
+  // tell which pin they just tapped, whoever owns it. Note this is the
+  // ONLY thing selection changes: the effect keeps running underneath.
   const styled = !!style.color && !selected;
   const fill = selected ? DS.ink : styled ? style.color! : DS.panel;
   const stroke = selected ? DS.ink : styled ? style.color! : DS.border;
-  const shine = style.effect === 'shine';
-  body.style.cssText = `
+
+  // Safe to replace wholesale: the body itself carries no animation, and
+  // cssText does not touch its children (the shine bar and the lock).
+  parts.body.style.cssText = `
     position:relative;
     width:${size}px;height:${size}px;
     display:flex;align-items:center;justify-content:center;
     border-radius:18px;
     border-bottom-left-radius:4px;
-    transform:rotate(${rot});
+    transform:rotate(${selected ? '0deg' : '-4deg'});
     background:${fill};
     border:1px solid ${stroke};
     box-shadow:0 ${selected ? 12 : 8}px ${selected ? 20 : 16}px rgba(0,0,0,${selected ? 0.4 : 0.2});
     font-size:${selected ? 24 : 22}px;line-height:1;
     cursor:pointer;
-    ${shine ? 'overflow:hidden;' : ''}
+    ${style.effect === 'shine' ? 'overflow:hidden;' : ''}
     transition:transform 160ms ease, background 160ms ease;
   `;
-  body.textContent = emoji;
+  parts.glyph.textContent = emoji;
 
-  if (shine) {
-    const bar = document.createElement('div');
-    bar.style.cssText = `
-      position:absolute;top:${-size}px;left:0;
-      width:${Math.round(size * 0.42)}px;height:${size * 3}px;
-      background:rgba(255,255,255,0.55);
-      pointer-events:none;
-      animation: mm-pin-shine 2.5s ease-in-out infinite;
-    `;
-    body.appendChild(bar);
-  }
-
-  if (isPrivate) {
+  if (isPrivate && !parts.lock) {
     const lock = document.createElement('div');
     lock.style.cssText = `
       position:absolute;top:-4px;right:-4px;
@@ -177,86 +260,77 @@ function styleMarkerBody(
       font-size:8px;line-height:1;
     `;
     lock.textContent = '🔒';
-    body.appendChild(lock);
-  }
-}
-
-/** Rebuild the whole marker element (tag + underdot). Assumes the caller
- *  will attach the returned element to a new maplibregl.Marker — mutating
- *  the tag body in-place is fine, but appending the underdot fresh keeps
- *  the layering trivial. */
-function styleMarkerElement(
-  el: HTMLDivElement,
-  emoji: string,
-  selected: boolean,
-  isPrivate: boolean,
-  style: ResolvedPinStyle,
-) {
-  ensurePinKeyframes();
-  const size = selected ? 48 : 44;
-  const styled = !!style.color && !selected;
-
-  el.style.cssText = `
-    display:flex;flex-direction:column;align-items:center;gap:4px;
-  `;
-  el.textContent = '';
-
-  // The tag sits in its own stacking context so the glow can go behind
-  // it and the sparkles in front without either affecting the column.
-  const wrap = document.createElement('div');
-  wrap.style.cssText =
-    'position:relative;display:flex;align-items:center;justify-content:center;';
-
-  if (style.effect === 'glow' && style.color) {
-    const ring = document.createElement('div');
-    ring.style.cssText = `
-      position:absolute;width:${size}px;height:${size}px;
-      border-radius:20px;background:${style.color};
-      pointer-events:none;
-      animation: mm-pin-glow 1.8s ease-out infinite;
-    `;
-    wrap.appendChild(ring);
+    parts.body.appendChild(lock);
+    parts.lock = lock;
+  } else if (!isPrivate && parts.lock) {
+    parts.lock.remove();
+    parts.lock = null;
   }
 
-  const body = document.createElement('div');
-  styleMarkerBody(body, emoji, selected, isPrivate, style);
-  wrap.appendChild(body);
+  if (parts.effect !== style.effect) rebuildEffectLayers(parts, style);
 
-  if (style.effect === 'stars') {
-    for (let i = 0; i < 3; i++) {
-      const star = document.createElement('div');
-      star.style.cssText = `
-        position:absolute;top:0;left:${4 + i * (size / 3.2)}px;
-        font-size:10px;line-height:1;pointer-events:none;
-        animation: mm-pin-fall 1.5s linear ${i * 0.5}s infinite;
-      `;
-      // A designer's own emoji, or the default ✦; fewer than three
-      // cycles. Same 10px either way — confetti, not a second emoji
-      // competing with the one in the pin.
-      star.textContent = style.glyphs[i % style.glyphs.length] ?? '✦';
-      wrap.appendChild(star);
-    }
-  }
+  // Colour and glyph changes are patched onto the existing nodes, so
+  // recolouring a pin does not restart its glow or its particles.
+  if (parts.ring) parts.ring.style.background = style.color ?? 'transparent';
+  parts.stars.forEach((star, i) => {
+    const next = style.glyphs[i % style.glyphs.length] ?? '✦';
+    if (star.textContent !== next) star.textContent = next;
+  });
 
-  el.appendChild(wrap);
-
-  const dot = document.createElement('div');
-  dot.style.cssText = `
-    width:6px;height:6px;border-radius:9999px;
-    background:${selected ? DS.ink : styled ? style.color! : 'rgba(14,14,16,0.8)'};
-  `;
-  el.appendChild(dot);
+  parts.dot.style.background = selected
+    ? DS.ink
+    : styled
+      ? style.color!
+      : 'rgba(14,14,16,0.8)';
 }
 
 function buildMarkerElement(
+  seed: string,
   emoji: string,
   selected: boolean,
   isPrivate: boolean,
   style: ResolvedPinStyle,
   onPress: () => void,
 ): HTMLDivElement {
+  ensurePinKeyframes();
+
   const el = document.createElement('div');
-  styleMarkerElement(el, emoji, selected, isPrivate, style);
+  el.style.cssText =
+    'display:flex;flex-direction:column;align-items:center;gap:4px;';
+
+  // The tag sits in its own stacking context so the glow can go behind
+  // it and the particles in front without either affecting the column.
+  const wrap = document.createElement('div');
+  wrap.style.cssText =
+    'position:relative;display:flex;align-items:center;justify-content:center;';
+
+  const body = document.createElement('div');
+  // The emoji lives in its own span rather than as the body's text, so
+  // updating it can never clobber the effect layers parented to the body.
+  const glyph = document.createElement('span');
+  body.appendChild(glyph);
+  wrap.appendChild(body);
+  el.appendChild(wrap);
+
+  const dot = document.createElement('div');
+  dot.style.cssText = 'width:6px;height:6px;border-radius:9999px;';
+  el.appendChild(dot);
+
+  MARKER_PARTS.set(el, {
+    wrap,
+    body,
+    glyph,
+    dot,
+    lock: null,
+    ring: null,
+    bar: null,
+    stars: [],
+    effect: null,
+    seed,
+  });
+
+  updateMarkerElement(el, emoji, selected, isPrivate, style);
+
   el.addEventListener('click', (ev) => {
     ev.stopPropagation();
     onPress();
@@ -638,7 +712,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         if (existing) {
           // Keep the same DOM node so MapLibre's transform bindings stay
           // valid; just refresh visuals + position.
-          styleMarkerElement(
+          updateMarkerElement(
             existing.getElement() as HTMLDivElement,
             event.emoji,
             isSelected,
@@ -649,6 +723,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
           continue;
         }
         const el = buildMarkerElement(
+          event.id,
           event.emoji,
           isSelected,
           event.visibility === 'private',

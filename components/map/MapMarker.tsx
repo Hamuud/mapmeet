@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
+import {
+  particleLayout,
+  PARTICLE_COUNT,
+} from '@/features/events/pinParticles';
 import { DEFAULT_STAR_GLYPH } from '@/features/events/pinStyle';
 import type { PinEffect } from '@/types/database';
 
@@ -21,6 +25,10 @@ type Props = {
   /** Falling particles for the 'stars' effect. A designer's own emoji;
    *  defaults to the ✦ sparkle. Fewer than three cycles. */
   pinGlyphs?: string[] | null;
+  /** Scatters the falling particles deterministically — pass the event
+   *  id so a pin keeps its pattern across reloads. Previews can leave it
+   *  out and share the default. */
+  pinSeed?: string;
 };
 
 const TAG_SIZE = 44;
@@ -59,38 +67,55 @@ function GlowRing({ color, size }: { color: string; size: number }) {
   );
 }
 
-/** Three particles drifting down past the tag, staggered. The literal
- *  "falling stars" of the brief — except a designer can swap the ✦ for
- *  their own emoji, which is why the glyph is a parameter. They render
- *  at the same 10px either way: the point is confetti, not a second
- *  emoji competing with the one in the pin. */
-function FallingStars({ size, glyphs }: { size: number; glyphs: string[] }) {
-  // One ref holding three values, not three useRef calls in a loop —
-  // hooks can't run inside `.map`.
-  const drops = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+/** Particles drifting down past the tag. The literal "falling stars" of
+ *  the brief — except a designer can swap the ✦ for their own emoji,
+ *  which is why the glyphs are a parameter. They render at the same 10px
+ *  either way: the point is confetti, not a second emoji competing with
+ *  the one in the pin.
+ *
+ *  Column, phase, speed and sideways drift all come from the event id
+ *  (see pinParticles.ts), so the three particles look scattered rather
+ *  than marching left to right — and look the *same* scatter on every
+ *  reload, because "random" here must not mean "different every render". */
+function FallingStars({
+  size,
+  glyphs,
+  seed,
+}: {
+  size: number;
+  glyphs: string[];
+  seed: string;
+}) {
+  // One ref holding the values, not a useRef call per particle — hooks
+  // can't run inside `.map`.
+  const drops = useRef(
+    Array.from({ length: PARTICLE_COUNT }, () => new Animated.Value(0)),
+  ).current;
+  const layout = useMemo(() => particleLayout(seed), [seed]);
 
   useEffect(() => {
     const loops = drops.map((v, i) =>
       Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 500),
-          Animated.timing(v, {
-            toValue: 1,
-            duration: 1500,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
-          Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }),
-        ]),
+        Animated.timing(v, {
+          toValue: 1,
+          duration: (layout[i]?.duration ?? 1.5) * 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
       ),
     );
-    loops.forEach((l) => l.start());
-    return () => loops.forEach((l) => l.stop());
-  }, [drops]);
+    // The stagger is a one-shot timer, not a `delay` inside the loop:
+    // inside, it would replay every lap and the stream would stutter
+    // instead of falling continuously.
+    const timers = loops.map((loop, i) =>
+      setTimeout(() => loop.start(), (layout[i]?.delay ?? 0) * 1000),
+    );
+    return () => {
+      timers.forEach(clearTimeout);
+      loops.forEach((l) => l.stop());
+    };
+  }, [drops, layout]);
+
   return (
     <View
       pointerEvents="none"
@@ -106,7 +131,7 @@ function FallingStars({ size, glyphs }: { size: number; glyphs: string[] }) {
           key={i}
           style={{
             position: 'absolute',
-            left: 4 + i * (size / 3.2),
+            left: layout[i]?.left ?? 4,
             fontSize: 10,
             opacity: v.interpolate({
               inputRange: [0, 0.15, 0.8, 1],
@@ -117,6 +142,12 @@ function FallingStars({ size, glyphs }: { size: number; glyphs: string[] }) {
                 translateY: v.interpolate({
                   inputRange: [0, 1],
                   outputRange: [-10, size + 4],
+                }),
+              },
+              {
+                translateX: v.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, layout[i]?.drift ?? 0],
                 }),
               },
             ],
@@ -183,6 +214,7 @@ export function MapMarker({
   pinColor,
   pinEffect,
   pinGlyphs,
+  pinSeed = 'preview',
 }: Props) {
   const size = selected ? TAG_SIZE_SELECTED : TAG_SIZE;
   // Selection outranks the premium colour: a user has to be able to tell
@@ -233,7 +265,7 @@ export function MapMarker({
         </View>
 
         {effect === 'stars' ? (
-          <FallingStars size={size} glyphs={glyphs} />
+          <FallingStars size={size} glyphs={glyphs} seed={pinSeed} />
         ) : null}
       </View>
 
