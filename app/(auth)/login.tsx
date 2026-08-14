@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
-import { OAUTH_SIGN_IN } from '@/config/features';
+import { APPLE_SIGN_IN, GOOGLE_SIGN_IN } from '@/config/features';
 import { useIconColor } from '@/hooks/useIconColor';
 import { useT, useTMaybe } from '@/i18n';
 import { authService } from '@/services/auth.service';
@@ -55,6 +55,27 @@ export default function LoginScreen() {
 
   const oauthComingSoon = () =>
     toast.show(t('auth.oauthComingSoon'), 'info');
+
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  const onGoogle = async () => {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    try {
+      const session = await authService.signInWithGoogle();
+      // Web returns null because the page is already navigating away to
+      // Google; native returns null when the user dismisses the sheet.
+      // Neither is an error, and neither should navigate.
+      if (session) {
+        await setSession(session);
+        router.replace('/(tabs)/map');
+      }
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : t('auth.signInFailed'), 'error');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -184,10 +205,11 @@ export default function LoginScreen() {
             size="lg"
           />
 
-          {/* Google / Apple sign-in. Hidden until the providers are really
-              wired up — App Review reads a "coming soon" button as an
-              unfinished app. Flip OAUTH_SIGN_IN in config/features.ts. */}
-          {OAUTH_SIGN_IN ? (
+          {/* Each provider has its own flag: Google is implemented and
+              waiting on dashboard config, Apple is not built yet. App
+              Review reads a "coming soon" button as an unfinished app,
+              so neither ships until it actually works. */}
+          {GOOGLE_SIGN_IN || APPLE_SIGN_IN ? (
             <>
               <View className="flex-row items-center gap-3">
                 <View className="h-px flex-1 bg-border-light dark:bg-border-dark" />
@@ -198,20 +220,25 @@ export default function LoginScreen() {
               </View>
 
               <View className="gap-3">
-                <PrimaryButton
-                  label={t('auth.continueGoogle')}
-                  variant="secondary"
-                  onPress={oauthComingSoon}
-                  leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
-                  fullWidth
-                />
-                <PrimaryButton
-                  label={t('auth.continueApple')}
-                  variant="secondary"
-                  onPress={oauthComingSoon}
-                  leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
-                  fullWidth
-                />
+                {GOOGLE_SIGN_IN ? (
+                  <PrimaryButton
+                    label={t('auth.continueGoogle')}
+                    variant="secondary"
+                    onPress={onGoogle}
+                    loading={googleBusy}
+                    leftIcon={<Ionicons name="logo-google" size={14} color={iconColor} />}
+                    fullWidth
+                  />
+                ) : null}
+                {APPLE_SIGN_IN ? (
+                  <PrimaryButton
+                    label={t('auth.continueApple')}
+                    variant="secondary"
+                    onPress={oauthComingSoon}
+                    leftIcon={<Ionicons name="logo-apple" size={16} color={iconColor} />}
+                    fullWidth
+                  />
+                ) : null}
               </View>
             </>
           ) : null}

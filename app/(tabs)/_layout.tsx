@@ -28,6 +28,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const status = useAuthStore((s) => s.status);
   const session = useAuthStore((s) => s.session);
+  const profile = useAuthStore((s) => s.profile);
   const isDark = scheme === 'dark';
   const unreadTotal = useChatStore((s) => s.unreadTotal);
 
@@ -45,6 +46,14 @@ export default function TabsLayout() {
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   if (!session) return <Redirect href="/(auth)/login" />;
+  // An account created through Google has a handle we invented for it.
+  // Ask once, here rather than at the call site, so every route into the
+  // app goes through it — including a deep link straight to a chat.
+  // `profile === null` means it is still loading, not that it is
+  // unfinished; redirecting then would flash the screen at everyone.
+  if (profile && !profile.onboarding_complete) {
+    return <Redirect href="/(auth)/welcome" />;
+  }
 
   return (
     <>

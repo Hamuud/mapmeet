@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
@@ -76,6 +77,83 @@ export const authService = {
     if (error) throw error;
     if (!data.session) throw new Error('No session returned from sign-in.');
     return data.session;
+  },
+
+  /** Sign in (or sign up — Supabase makes no distinction for OAuth)
+   *  with Google.
+   *
+   *  Two shapes, because the platforms genuinely differ:
+   *
+   *  · Web navigates away to Google and comes back to the same origin
+   *    with `?code=`. supabase-js picks that up itself via
+   *    detectSessionInUrl, so this resolves to null and the page reloads
+   *    signed in — there is nothing for the caller to await.
+   *
+   *  · Native opens an in-app browser tab (SFSafariViewController /
+   *    Custom Tab) and waits for the redirect back into `mapmeet://`.
+   *    `skipBrowserRedirect` stops supabase-js trying to navigate a
+   *    window that doesn't exist. We then trade the code for a session
+   *    ourselves.
+   *
+   *  Returns the session on native, null on web (where the redirect
+   *  ends this JS context), and null if the user dismisses the sheet. */
+  async signInWithGoogle(): Promise<Session | null> {
+    const redirectTo = appRedirect('/auth-callback');
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: Platform.OS !== 'web',
+        queryParams: {
+          // Ask for a refresh token and force the account chooser, so a
+          // shared device doesn't silently sign in as whoever went last.
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+    if (error) throw error;
+    if (Platform.OS === 'web') return null; // the browser is already leaving
+    if (!data?.url) throw new Error('Google sign-in did not return a URL.');
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    // 'cancel' (swiped away) and 'dismiss' (system closed it) are both
+    // the user changing their mind — not an error to shout about.
+    if (result.type !== 'success') return null;
+
+    const code = new URL(result.url).searchParams.get('code');
+    if (!code) {
+      // Supabase puts the reason in the fragment when consent fails.
+      const err = new URL(result.url).searchParams.get('error_description');
+      throw new Error(err ?? 'Google sign-in did not return a code.');
+    }
+
+    const { data: session, error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw exchangeError;
+    if (!session.session) throw new Error('No session returned from Google sign-in.');
+    return session.session;
+  },
+
+  /** Set the handle and name for an account created through OAuth, and
+   *  mark the signup finished. Throws a bare code the screen maps to a
+   *  translated message. */
+  async completeOnboarding(username: string, displayName: string): Promise<void> {
+    const { error } = await supabase.rpc('complete_onboarding', {
+      p_username: username,
+      p_display_name: displayName,
+    });
+    if (error) throw new Error(error.message);
+  },
+
+  /** Live check for the onboarding screen — is this handle free? */
+  async isUsernameAvailable(username: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('username_available', {
+      p_username: username,
+    });
+    if (error) return false;
+    return !!data;
   },
 
   async signOut(): Promise<void> {

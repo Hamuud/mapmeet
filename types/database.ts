@@ -96,6 +96,10 @@ export type Database = {
           digest_lng: number | null;
           digest_radius_km: number;
           digest_last_sent_at: string | null;
+          /** False only while an OAuth account still carries the handle
+           *  the signup trigger invented for it — the app shows the
+           *  finish-setup screen once, then this flips. */
+          onboarding_complete: boolean;
           /** Set while serving a mute; null once it lapses or is lifted. */
           muted_until: string | null;
           banned_at: string | null;
@@ -465,6 +469,11 @@ export type Database = {
         }[];
       };
       is_owner: { Args: { p_user?: string }; Returns: boolean };
+      complete_onboarding: {
+        Args: { p_username: string; p_display_name: string };
+        Returns: undefined;
+      };
+      username_available: { Args: { p_username: string }; Returns: boolean };
       sync_push_settings: {
         Args: {
           p_locale?: string | null;

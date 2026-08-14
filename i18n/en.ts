@@ -72,6 +72,19 @@ export const en = {
   'auth.passwordUpdated': 'Password updated. You are signed in.',
   'auth.passwordUpdateFailed': 'Could not update password',
 
+  // ── Finish an OAuth signup ────────────────────────────────────────
+  'welcome.title': 'Almost there.',
+  'welcome.subtitle':
+    'Google gave us your name and photo. Pick the handle people will see on your profile — you can change it later in Settings.',
+  'welcome.usernameHint': 'Letters, numbers, "_" and "." — 3 to 24 characters.',
+  'welcome.checking': 'Checking…',
+  'welcome.available': '@{username} is free',
+  'welcome.taken': 'That handle is taken.',
+  'welcome.invalid': 'Letters, numbers, "_" and "." only, 3–24 characters.',
+  'welcome.nameInvalid': 'Add a name people will recognise.',
+  'welcome.continue': 'Start exploring',
+  'welcome.skip': 'Keep the one you gave me',
+
   // ── Validation (used as zod messages; translated where rendered) ───
   'validation.email': 'Enter a valid email.',
   'validation.passwordMin': 'Password must be at least 8 characters.',

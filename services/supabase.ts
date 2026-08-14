@@ -35,8 +35,19 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage,
     autoRefreshToken: true,
     persistSession: true,
-    // Deep-link handling is not wired up yet — flipping to true without
-    // configuring the URL callback breaks native sign-in.
+    // PKCE, not the implicit default. An OAuth redirect back into a
+    // custom URL scheme can be intercepted by any other app that
+    // registers `mapmeet://`; PKCE makes the intercepted code useless
+    // without the verifier, which never leaves this device.
+    //
+    // It changes the email links too: confirm-signup and password-reset
+    // now arrive as `?code=` instead of `#access_token=`, and the
+    // verifier lives in this client's storage. Practical consequence —
+    // a reset link must be opened on the device that requested it.
+    // useDeepLinkSession handles both shapes.
+    flowType: 'pkce',
+    // Web parses the `?code=` on load itself; native does it in
+    // useDeepLinkSession, because there is no window.location to read.
     detectSessionInUrl: Platform.OS === 'web',
   },
   realtime: {

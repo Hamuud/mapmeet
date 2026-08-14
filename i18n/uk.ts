@@ -74,6 +74,19 @@ export const uk: Record<TranslationKey, Phrase> = {
   'auth.passwordUpdated': 'Пароль оновлено. Ви увійшли.',
   'auth.passwordUpdateFailed': 'Не вдалося оновити пароль',
 
+  // ── Завершення реєстрації через Google ────────────────────────────
+  'welcome.title': 'Майже готово.',
+  'welcome.subtitle':
+    'Google передав ваше ім’я та фото. Оберіть нікнейм, який бачитимуть у профілі — його можна змінити пізніше в налаштуваннях.',
+  'welcome.usernameHint': 'Латинські літери, цифри, «_» і «.» — від 3 до 24 символів.',
+  'welcome.checking': 'Перевіряємо…',
+  'welcome.available': '@{username} вільний',
+  'welcome.taken': 'Цей нікнейм уже зайнятий.',
+  'welcome.invalid': 'Лише латинські літери, цифри, «_» і «.», від 3 до 24 символів.',
+  'welcome.nameInvalid': 'Додайте ім’я, за яким вас упізнають.',
+  'welcome.continue': 'Почати',
+  'welcome.skip': 'Залишити запропонований',
+
   // ── Validation ────────────────────────────────────────────────────
   'validation.email': 'Введіть коректну адресу пошти.',
   'validation.passwordMin': 'Пароль має містити щонайменше 8 символів.',
