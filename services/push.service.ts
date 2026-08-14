@@ -117,3 +117,46 @@ export function addNotificationResponseListener(
   });
   return () => sub.remove();
 }
+
+/** Mirror the client's notification settings onto the profile row.
+ *
+ *  Everything here is decided while the app is closed — a cron job
+ *  cannot read AsyncStorage — so the server needs its own copy of the
+ *  language to write in, the timezone so it doesn't ping at 04:00, the
+ *  category switches, and an anchor for what "your area" means.
+ *
+ *  Fire-and-forget by design: a failed sync leaves the server on its
+ *  previous (or default) values, which is a slightly stale preference,
+ *  not a broken screen.
+ *
+ *  `coords` is the user's last known position. It is only sent when the
+ *  app actually has location — never guessed — so someone who has never
+ *  granted permission simply gets no area digest. */
+export async function syncPushSettings(input: {
+  locale: string;
+  categories: Record<'chat' | 'joins' | 'events' | 'social' | 'digest', boolean>;
+  radiusKm: number;
+  coords?: { latitude: number; longitude: number } | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc('sync_push_settings', {
+    p_locale: input.locale,
+    // getTimezoneOffset counts the other way round: UTC+3 is -180.
+    p_tz_offset: -new Date().getTimezoneOffset(),
+    p_chat: input.categories.chat,
+    p_joins: input.categories.joins,
+    p_events: input.categories.events,
+    p_social: input.categories.social,
+    p_digest: input.categories.digest,
+    p_lat: input.coords?.latitude ?? null,
+    p_lng: input.coords?.longitude ?? null,
+    p_radius_km: Math.round(input.radiusKm),
+  });
+  if (error) throw error;
+}
+
+/** Drop the stored token so the server stops targeting this device.
+ *  Used when the master switch goes off — clearing the token is what
+ *  actually stops delivery, since every send path filters on it. */
+export async function clearPushToken(userId: string): Promise<void> {
+  await supabase.from('profiles').update({ push_token: null }).eq('id', userId);
+}

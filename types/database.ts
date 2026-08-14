@@ -79,6 +79,23 @@ export type Database = {
            *  outside that chain and only unlocks styled event pins. Only
            *  the owner may assign staff roles; admins may grant premium. */
           role: UserRole;
+          /** Notification settings the server needs while the app is
+           *  closed — a cron job cannot read AsyncStorage. Written only
+           *  through sync_push_settings(). */
+          locale: 'en' | 'uk';
+          /** Minutes east of UTC, as the device reported it. */
+          tz_offset_minutes: number;
+          push_chat: boolean;
+          push_joins: boolean;
+          push_events: boolean;
+          push_social: boolean;
+          push_digest: boolean;
+          /** Anchor for "your area" in the digest — the last position the
+           *  app actually had. Null until location is granted. */
+          digest_lat: number | null;
+          digest_lng: number | null;
+          digest_radius_km: number;
+          digest_last_sent_at: string | null;
           /** Set while serving a mute; null once it lapses or is lifted. */
           muted_until: string | null;
           banned_at: string | null;
@@ -148,6 +165,8 @@ export type Database = {
            *  a packed string — emoji are grapheme clusters and splitting
            *  them apart in JS mangles ZWJ sequences. */
           pin_effect_emoji: string[] | null;
+          /** One-shot flag for the "starts in an hour" push. */
+          reminder_sent: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -446,6 +465,21 @@ export type Database = {
         }[];
       };
       is_owner: { Args: { p_user?: string }; Returns: boolean };
+      sync_push_settings: {
+        Args: {
+          p_locale?: string | null;
+          p_tz_offset?: number | null;
+          p_chat?: boolean | null;
+          p_joins?: boolean | null;
+          p_events?: boolean | null;
+          p_social?: boolean | null;
+          p_digest?: boolean | null;
+          p_lat?: number | null;
+          p_lng?: number | null;
+          p_radius_km?: number | null;
+        };
+        Returns: undefined;
+      };
       send_dm_invite: { Args: { p_recipient: string; p_token: string }; Returns: string };
       assign_role: { Args: { p_username: string; p_role: string }; Returns: undefined };
       list_staff: {

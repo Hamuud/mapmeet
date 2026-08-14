@@ -71,6 +71,7 @@ export default function RootLayout() {
             <Stack.Screen name="reset" />
             <Stack.Screen name="settings" />
             <Stack.Screen name="privacy" />
+            <Stack.Screen name="notifications" />
             <Stack.Screen name="admin" />
             <Stack.Screen name="profile-edit" />
             <Stack.Screen name="user/[id]" />

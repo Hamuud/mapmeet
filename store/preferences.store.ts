@@ -30,8 +30,23 @@ function deviceLocale(): Locale {
 export const VOICE_RATES = [1, 1.5, 2] as const;
 export type VoiceRate = (typeof VOICE_RATES)[number];
 
+/** The categories a push can belong to. Each maps to a `push_*` column
+ *  on profiles — the server is what actually enforces them, since a
+ *  notification is decided while the app is closed. */
+export type PushCategory = 'chat' | 'joins' | 'events' | 'social' | 'digest';
+
+export const PUSH_CATEGORIES: PushCategory[] = [
+  'chat',
+  'joins',
+  'events',
+  'social',
+  'digest',
+];
+
 type PreferencesState = {
   pushNotifications: boolean;
+  /** Per-category switches, mirrored to the server on change. */
+  push: Record<PushCategory, boolean>;
   appearance: Appearance;
   /** UI language. Defaults to the device's on first launch. */
   locale: Locale;
@@ -45,6 +60,7 @@ type PreferencesState = {
   voiceRate: VoiceRate;
 
   setPushNotifications: (v: boolean) => void;
+  setPushCategory: (c: PushCategory, v: boolean) => void;
   setAppearance: (v: Appearance) => void;
   setLocale: (v: Locale) => void;
   setSearchRadiusKm: (v: number) => void;
@@ -62,6 +78,7 @@ export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({
       pushNotifications: true,
+      push: { chat: true, joins: true, events: true, social: true, digest: true },
       appearance: 'auto',
       locale: deviceLocale(),
       searchRadiusKm: 5,
@@ -69,6 +86,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       voiceRate: 1,
 
       setPushNotifications: (pushNotifications) => set({ pushNotifications }),
+      setPushCategory: (c, v) =>
+        set((s) => ({ push: { ...s.push, [c]: v } })),
       setAppearance: (appearance) => set({ appearance }),
       setLocale: (locale) => set({ locale }),
       setSearchRadiusKm: (searchRadiusKm) => set({ searchRadiusKm }),
@@ -88,12 +107,21 @@ export const usePreferencesStore = create<PreferencesState>()(
       // Anyone upgrading had only ever seen English, so map to 'en'
       // rather than re-sniffing the device and changing their UI under
       // them without being asked.
-      version: 2,
+      version: 3,
       migrate: (persisted, from) => {
-        const state = (persisted ?? {}) as Record<string, unknown> & { locale?: Locale };
+        const state = (persisted ?? {}) as Record<string, unknown> & {
+          locale?: Locale;
+          push?: Record<string, boolean>;
+        };
         if (from < 2) {
           delete state.language;
           state.locale = 'en';
+        }
+        // v3 split the single push toggle into categories. Everyone who
+        // had push on keeps everything on; everyone who had it off keeps
+        // the master switch off, which still gates the whole thing.
+        if (from < 3 || !state.push) {
+          state.push = { chat: true, joins: true, events: true, social: true, digest: true };
         }
         return state as unknown as PreferencesState;
       },

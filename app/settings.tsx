@@ -39,7 +39,6 @@ export default function SettingsScreen() {
   const { status: locStatus, request: requestLocation } = useLocation();
 
   const pushNotifications = usePreferencesStore((s) => s.pushNotifications);
-  const setPushNotifications = usePreferencesStore((s) => s.setPushNotifications);
   const appearance = usePreferencesStore((s) => s.appearance);
   const setAppearance = usePreferencesStore((s) => s.setAppearance);
   const locale = usePreferencesStore((s) => s.locale);
@@ -180,13 +179,8 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="notifications-outline"
             label={t('settings.pushNotifications')}
-            rightSlot={
-              <Switch
-                value={pushNotifications}
-                onValueChange={setPushNotifications}
-                trackColor={{ true: '#0E0E10' }}
-              />
-            }
+            hint={t(pushNotifications ? 'settings.pushOn' : 'settings.pushOff')}
+            onPress={() => router.push('/notifications')}
           />
           <SettingsRow
             icon="sunny-outline"
