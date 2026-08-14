@@ -86,7 +86,10 @@ async function runDigest(): Promise<number> {
 }
 
 Deno.serve(async (req) => {
-  if (SECRET && req.headers.get('x-digest-secret') !== SECRET) {
+  // Fail closed, like notify: `SECRET &&` used to make an unset secret
+  // silently open the endpoint to the world, which is the one situation
+  // where you least want it open.
+  if (!SECRET || req.headers.get('x-digest-secret') !== SECRET) {
     return new Response('unauthorized', { status: 401 });
   }
   try {

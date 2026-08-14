@@ -29,83 +29,107 @@ category switches, and the location the digest counts around — through
   and an APNs key uploaded to Expo (`npx eas credentials`). Expo's
   managed push handles the APNs/FCM hop; you don't run a push server.
 
+**This is all deployed and live** on `wpcwjjlaoolnqddeqpce` as of
+2026-08-14. What follows is how it was done, and how to redo it on a
+fresh project.
+
 ## 1. Deploy
 
 ```
 supabase functions deploy notify --no-verify-jwt
 supabase functions deploy digest --no-verify-jwt
-supabase secrets set DIGEST_SECRET=<a long random string>
+supabase secrets set NOTIFY_SECRET=<32 random bytes> DIGEST_SECRET=<32 more>
 ```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected into Edge
 Functions automatically.
 
-## 2. Wire the webhooks
+### Why both functions take a secret
 
-Dashboard → **Database → Webhooks → Create a new hook**. All of them
-point at the `notify` function; the function decides what to do from the
-`table` and `type` in the payload.
+`--no-verify-jwt` means these URLs are open to the internet, and a
+forged webhook payload is four lines of JSON:
 
-| Name                    | Table            | Events          |
-| ----------------------- | ---------------- | --------------- |
-| `notify-event-message`  | `messages`       | Insert          |
-| `notify-group-message`  | `group_messages` | Insert          |
-| `notify-dm`             | `dm_messages`    | Insert          |
-| `notify-event-join`     | `participants`   | Insert          |
-| `notify-group-join`     | `group_members`  | Insert          |
-| `notify-friendship`     | `friendships`    | Insert, Update  |
-| `notify-event-change`   | `events`              | Update  |
-| `notify-event-cancel`   | `event_cancellations` | Insert  |
+```
+{"type":"INSERT","table":"dm_messages",
+ "record":{"sender_id":"…","recipient_id":"<victim>","content":"anything"}}
+```
 
-(If you use a plain HTTP hook instead of the Edge-Function type, the URL
-is `https://<project-ref>.functions.supabase.co/notify` with an
-`Authorization: Bearer <service key>` header.)
+That is push phishing in the app's own voice. Turning JWT verification
+back on does **not** fix it — Supabase accepts any correctly signed
+token, and the anon key is one, published inside the web bundle. So both
+functions require a shared secret header (`x-notify-secret`,
+`x-digest-secret`) and both **fail closed**: an unset secret rejects
+everything rather than opening the door.
 
-⚠ Cancellation is a hook on `event_cancellations`, **not** a Delete hook
-on `events`. Webhooks are AFTER triggers and `participants` cascades, so
-a Delete hook fires with the attendee list already gone and the push
-reaches nobody. A BEFORE DELETE trigger stashes the audience and title
-into `event_cancellations` first (migration `20260817000000`).
+## 2. The webhooks
 
-## 3. Schedule the digest
+Eight triggers, created by migration `20260819000000_push_webhooks.sql`,
+not by the Dashboard's Database Webhooks UI. The Dashboard writes the
+auth header as a literal into the trigger definition, which would put
+the secret into a file in git; instead one `public.notify_push()`
+trigger function reads it from **Vault** at fire time:
 
 ```sql
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
--- Reminders: every 15 minutes. due_event_reminders() only returns
--- events inside the next 75 minutes that haven't fired yet, so the
--- frequency only affects how tight "an hour before" lands.
-select cron.schedule(
-  'mapmeet-reminders',
-  '*/15 * * * *',
-  $$
-  select net.http_post(
-    url     := 'https://<project-ref>.functions.supabase.co/digest?job=reminders',
-    headers := jsonb_build_object('Content-Type','application/json',
-                                  'x-digest-secret','<DIGEST_SECRET>'),
-    body    := '{}'::jsonb
-  );
-  $$
-);
-
--- Area round-up: hourly, NOT daily. digest_audience() only returns
--- people whose own clock reads 10:00–21:00, so the hourly sweep is what
--- lets each timezone come round in its own daytime. Per person it still
--- fires at most once every 20 hours.
-select cron.schedule(
-  'mapmeet-digest',
-  '7 * * * *',
-  $$
-  select net.http_post(
-    url     := 'https://<project-ref>.functions.supabase.co/digest?job=digest',
-    headers := jsonb_build_object('Content-Type','application/json',
-                                  'x-digest-secret','<DIGEST_SECRET>'),
-    body    := '{}'::jsonb
-  );
-  $$
-);
+select vault.create_secret('<NOTIFY_SECRET>', 'notify_secret', '…');
+select vault.create_secret('<DIGEST_SECRET>', 'digest_secret', '…');
 ```
+
+Rotating a secret is then `vault.update_secret()` plus
+`supabase secrets set` — no triggers or jobs to rewrite.
+
+| Trigger                 | Table            | Fires on |
+| ----------------------- | ---------------- | -------- |
+| `notify_event_message`  | `messages`       | Insert, non-system |
+| `notify_group_message`  | `group_messages` | Insert, non-system |
+| `notify_dm`             | `dm_messages`    | Insert   |
+| `notify_event_join`     | `participants`   | Insert   |
+| `notify_group_join`     | `group_members`  | Insert   |
+| `notify_friend_request` | `friendships`    | Insert where status = pending |
+| `notify_friend_accept`  | `friendships`    | Update crossing into accepted |
+| `notify_event_change`   | `events`         | Update of date/time/place/title |
+| `notify_event_cancel`   | `event_cancellations` | Insert |
+
+The `WHEN` clauses are the reason for owning the trigger. `events` is
+updated far more often than it is *changed*: `reminder_sent`,
+`archive_warned` and `coming_poll_created` all flip the same row. The
+function ignores those anyway, but without the `WHEN` every digest run
+would fire one pointless HTTP request per event it just reminded about.
+
+⚠ Cancellation hangs off `event_cancellations`, **not** a Delete hook on
+`events`. These are AFTER triggers and `participants` cascades, so a
+Delete hook fires with the attendee list already gone and the push
+reaches nobody. A BEFORE DELETE trigger stashes the audience and title
+first (migration `20260817000000`).
+
+## 3. The schedule
+
+Migration `20260819000001_push_cron.sql`: `mapmeet-reminders` every 15
+minutes, `mapmeet-digest` hourly at :07. Both read `digest_secret` from
+Vault the same way.
+
+Hourly, not daily, for the round-up: `digest_audience()` only returns
+people whose **own** clock reads 10:00–21:00, so the hourly sweep is
+what lets each timezone come round in its own daytime. Per person the
+20-hour floor still caps it at one a day.
+
+### Checking it works
+
+```sql
+-- what the cron job does, verbatim
+select net.http_post(
+  url     := 'https://wpcwjjlaoolnqddeqpce.supabase.co/functions/v1/digest?job=both',
+  headers := jsonb_build_object('Content-Type','application/json','x-digest-secret',
+              (select decrypted_secret from vault.decrypted_secrets
+                where name = 'digest_secret' limit 1)),
+  body    := '{}'::jsonb);
+
+-- then, a few seconds later
+select status_code, content from net._http_response order by created desc limit 1;
+```
+
+A healthy quiet run is `200 {"reminders":0,"digest":0}`. Webhook
+deliveries land in the same `net._http_response` table, and the Edge
+Function's own logs are under Dashboard → Functions → notify → Logs.
 
 ## 4. What gets sent
 

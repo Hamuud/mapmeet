@@ -20,6 +20,13 @@
 // language. Runs with the service-role key so it can read across RLS.
 //
 // Deploy:  supabase functions deploy notify --no-verify-jwt
+// Secret:  NOTIFY_SECRET, sent by each webhook as x-notify-secret.
+//
+// The secret is the only thing standing between this URL and anyone who
+// wants to push arbitrary text to your users in your app's voice — a
+// forged dm_messages payload is four lines of JSON. JWT verification is
+// NOT a substitute: Supabase would accept any correctly signed token,
+// and the anon key is one, published inside the web bundle.
 
 // deno-lint-ignore-file no-explicit-any
 import {
@@ -29,6 +36,8 @@ import {
   type Recipient,
 } from '../_shared/push.ts';
 import { preview, t } from '../_shared/strings.ts';
+
+const SECRET = Deno.env.get('NOTIFY_SECRET') ?? '';
 
 const ok = () => new Response('ok');
 const skip = (why: string) => new Response(`skip: ${why}`);
@@ -68,6 +77,13 @@ async function groupAudience(
 }
 
 Deno.serve(async (req) => {
+  // Fail closed. A missing NOTIFY_SECRET means the function is
+  // misconfigured, not that the endpoint is public — refusing everything
+  // costs a round of missing notifications; the other way round costs
+  // your users a stranger's push in your app's name.
+  if (!SECRET || req.headers.get('x-notify-secret') !== SECRET) {
+    return new Response('unauthorized', { status: 401 });
+  }
   try {
     const payload = await req.json();
     const { table, type, record, old_record } = payload;
