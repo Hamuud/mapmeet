@@ -25,6 +25,30 @@ export async function rest(path: string): Promise<any[]> {
   return res.json();
 }
 
+/** PATCH a table with the service key. Returns false rather than
+ *  throwing: every caller here is housekeeping, and housekeeping must
+ *  never take down the notification it was tidying up after. */
+export async function patch(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Call a SECURITY DEFINER RPC with the service key. */
 export async function rpc(fn: string, args: Record<string, unknown> = {}): Promise<any> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -88,11 +112,51 @@ export async function sendPush(
     return { to: r.token, title: m.title, body: m.body, data, sound: 'default' };
   });
 
+  const dead = new Set<string>();
   for (let i = 0; i < messages.length; i += EXPO_BATCH) {
-    await fetch(EXPO_PUSH, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(messages.slice(i, i + EXPO_BATCH)),
+    const chunk = messages.slice(i, i + EXPO_BATCH);
+    try {
+      const res = await fetch(EXPO_PUSH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chunk),
+      });
+      if (!res.ok) continue;
+      // One ticket per message, in the order sent. Expo echoes the
+      // offending token back in details.expoPushToken, so prefer that
+      // over the index — it survives Expo ever reordering or collapsing
+      // tickets, which positional matching silently would not.
+      const tickets: any[] = (await res.json())?.data ?? [];
+      tickets.forEach((ticket, j) => {
+        if (ticket?.details?.error !== 'DeviceNotRegistered') return;
+        const token = ticket.details.expoPushToken ?? chunk[j]?.to;
+        if (token) dead.add(token);
+      });
+    } catch {
+      // Expo unreachable. Nothing to learn from this batch; the next
+      // notification will find out the same thing.
+    }
+  }
+  await forgetTokens(dead);
+}
+
+/** Drop tokens Expo has told us are dead.
+ *
+ *  `DeviceNotRegistered` means the app was uninstalled, or the token was
+ *  reissued — the device will never receive on it again. Only that
+ *  error: MessageRateExceeded and MessageTooBig say something about this
+ *  send, not about the device, and clearing on those would silently
+ *  unsubscribe people for being popular.
+ *
+ *  Nulling is safe because it is self-healing — the client re-registers
+ *  on the next launch, so a user who reinstalls gets a fresh token
+ *  rather than a permanently silent account. Matching on the token
+ *  rather than a user id also clears it from every profile that shares
+ *  it, which is what you want when two accounts have used one phone. */
+async function forgetTokens(tokens: Set<string>) {
+  for (const token of tokens) {
+    await patch(`profiles?push_token=eq.${encodeURIComponent(token)}`, {
+      push_token: null,
     });
   }
 }

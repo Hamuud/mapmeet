@@ -154,6 +154,19 @@ Notifications) or no token.
 System messages are never pushed: they are already visible in the chat,
 and the archive warning would otherwise arrive twice.
 
+### Dead tokens clean themselves up
+
+Expo answers every send with one ticket per message. A ticket carrying
+`details.error === 'DeviceNotRegistered'` means the app was uninstalled
+or the token reissued — that device will never receive on it again — so
+`sendPush` nulls the token on every profile holding it. Only that error:
+`MessageRateExceeded` and `MessageTooBig` describe the *send*, not the
+device, and clearing on those would unsubscribe people for being
+popular.
+
+Nulling is safe because the client re-registers on the next launch, so a
+reinstall gets a fresh token rather than a permanently silent account.
+
 ## 5. Tuning the round-up
 
 All of it lives in `digest_audience()` — the Edge Function only renders
