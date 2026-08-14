@@ -15,6 +15,10 @@ import { FeedbackSheet } from '@/features/settings/FeedbackSheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor, useMutedIconColor } from '@/hooks/useIconColor';
 import { useLocation } from '@/hooks/useLocation';
+import {
+  calendarSupported,
+  requestCalendarAccess,
+} from '@/services/calendar.service';
 import { LOCALE_LABEL, LOCALES, useT, type Locale } from '@/i18n';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
 import { goBack } from '@/utils/nav';
@@ -39,6 +43,27 @@ export default function SettingsScreen() {
   const { status: locStatus, request: requestLocation } = useLocation();
 
   const pushNotifications = usePreferencesStore((s) => s.pushNotifications);
+  const calendarSync = usePreferencesStore((s) => s.calendarSync);
+  const setCalendarSync = usePreferencesStore((s) => s.setCalendarSync);
+  // Hidden rather than disabled where the platform can't do it at all:
+  // web, and any native build made before expo-calendar was added.
+  const calendarAvailable = calendarSupported();
+
+  /** Permission is asked for at the moment it becomes true, not on
+   *  mount — a calendar prompt on first launch, before the user has
+   *  joined anything, reads as an app grabbing what it can. */
+  const onCalendarToggle = async (next: boolean) => {
+    if (!next) {
+      setCalendarSync(false);
+      return;
+    }
+    const granted = await requestCalendarAccess();
+    if (!granted) {
+      toast.show(t('settings.calendarDenied'), 'info');
+      return;
+    }
+    setCalendarSync(true);
+  };
   const appearance = usePreferencesStore((s) => s.appearance);
   const setAppearance = usePreferencesStore((s) => s.setAppearance);
   const locale = usePreferencesStore((s) => s.locale);
@@ -182,6 +207,20 @@ export default function SettingsScreen() {
             hint={t(pushNotifications ? 'settings.pushOn' : 'settings.pushOff')}
             onPress={() => router.push('/notifications')}
           />
+          {calendarAvailable ? (
+            <SettingsRow
+              icon="calendar-outline"
+              label={t('settings.calendarSync')}
+              hint={t('settings.calendarSyncHint')}
+              rightSlot={
+                <Switch
+                  value={calendarSync}
+                  onValueChange={onCalendarToggle}
+                  trackColor={{ true: '#0E0E10' }}
+                />
+              }
+            />
+          ) : null}
           <SettingsRow
             icon="sunny-outline"
             label={t('settings.appearance')}

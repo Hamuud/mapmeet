@@ -186,6 +186,14 @@ export const uk: Record<TranslationKey, Phrase> = {
     'Події в межах {km} км від місця, де ви востаннє відкривали карту. Відстань змінюється в «Радіус пошуку» в налаштуваннях.',
   'notif.areaNoLocation':
     'Ми ще не знаємо, де ви — відкрийте карту з увімкненою геолокацією, і добірка запрацює.',
+  'settings.calendarSync': 'Додавати події в календар',
+  'settings.calendarSyncHint':
+    'Події, до яких ви приєдналися, з’являться у вашому календарі — і зміняться чи зникнуть, якщо організатор їх змінить',
+  'settings.calendarDenied':
+    'Доступ до календаря відхилено. Його можна надати в налаштуваннях пристрою.',
+  'event.addToCalendar': 'Додати в календар',
+  'event.addedToCalendar': 'Додано до вашого календаря.',
+  'event.calendarFailed': 'Не вдалося додати до календаря.',
   'settings.appearance': 'Оформлення',
   'settings.appearanceLight': 'Світле',
   'settings.appearanceDark': 'Темне',

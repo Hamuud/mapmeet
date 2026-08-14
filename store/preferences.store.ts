@@ -47,6 +47,10 @@ type PreferencesState = {
   pushNotifications: boolean;
   /** Per-category switches, mirrored to the server on change. */
   push: Record<PushCategory, boolean>;
+  /** Mirror joined events into the device calendar. Off by default:
+   *  writing to someone's calendar unasked is not a default anyone
+   *  should have chosen for them. */
+  calendarSync: boolean;
   appearance: Appearance;
   /** UI language. Defaults to the device's on first launch. */
   locale: Locale;
@@ -61,6 +65,7 @@ type PreferencesState = {
 
   setPushNotifications: (v: boolean) => void;
   setPushCategory: (c: PushCategory, v: boolean) => void;
+  setCalendarSync: (v: boolean) => void;
   setAppearance: (v: Appearance) => void;
   setLocale: (v: Locale) => void;
   setSearchRadiusKm: (v: number) => void;
@@ -79,6 +84,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set) => ({
       pushNotifications: true,
       push: { chat: true, joins: true, events: true, social: true, digest: true },
+      calendarSync: false,
       appearance: 'auto',
       locale: deviceLocale(),
       searchRadiusKm: 5,
@@ -88,6 +94,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setPushNotifications: (pushNotifications) => set({ pushNotifications }),
       setPushCategory: (c, v) =>
         set((s) => ({ push: { ...s.push, [c]: v } })),
+      setCalendarSync: (calendarSync) => set({ calendarSync }),
       setAppearance: (appearance) => set({ appearance }),
       setLocale: (locale) => set({ locale }),
       setSearchRadiusKm: (searchRadiusKm) => set({ searchRadiusKm }),
@@ -107,11 +114,12 @@ export const usePreferencesStore = create<PreferencesState>()(
       // Anyone upgrading had only ever seen English, so map to 'en'
       // rather than re-sniffing the device and changing their UI under
       // them without being asked.
-      version: 3,
+      version: 4,
       migrate: (persisted, from) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
           locale?: Locale;
           push?: Record<string, boolean>;
+          calendarSync?: boolean;
         };
         if (from < 2) {
           delete state.language;
@@ -123,6 +131,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         if (from < 3 || !state.push) {
           state.push = { chat: true, joins: true, events: true, social: true, digest: true };
         }
+        if (typeof state.calendarSync !== 'boolean') state.calendarSync = false;
         return state as unknown as PreferencesState;
       },
     },

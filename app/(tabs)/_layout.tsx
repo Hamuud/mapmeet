@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RestrictionDialog } from '@/features/moderation/RestrictionDialog';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
+import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useChatSync } from '@/hooks/useChatSync';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useT } from '@/i18n';
@@ -34,6 +35,7 @@ export default function TabsLayout() {
 
   useEventsBootstrap();
   useChatSync();
+  useCalendarSync();
   useNotifications();
   usePresence();
 

@@ -183,6 +183,14 @@ export const en = {
     'Events pinned within {km} km of where you last opened the map. Change the distance with Search radius in Settings.',
   'notif.areaNoLocation':
     'We do not know where you are yet — open the map once with location on and the round-up will start.',
+  'settings.calendarSync': 'Add events to my calendar',
+  'settings.calendarSyncHint':
+    'Events you join appear in your calendar, and move or disappear if the host changes them',
+  'settings.calendarDenied':
+    'Calendar access was declined. You can grant it in your device settings.',
+  'event.addToCalendar': 'Add to calendar',
+  'event.addedToCalendar': 'Added to your calendar.',
+  'event.calendarFailed': 'Could not add it to your calendar.',
   'settings.appearance': 'Appearance',
   'settings.appearanceLight': 'Light',
   'settings.appearanceDark': 'Dark',

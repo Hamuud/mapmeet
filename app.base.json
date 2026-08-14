@@ -26,7 +26,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MapMeet uses your location to show nearby events on the map.",
         "NSPhotoLibraryUsageDescription": "MapMeet needs access to your photo library so you can set a profile picture.",
-        "NSCameraUsageDescription": "MapMeet uses the camera so you can take a profile picture."
+        "NSCameraUsageDescription": "MapMeet uses the camera so you can take a profile picture.",
+        "NSCalendarsUsageDescription": "MapMeet adds the events you join to your calendar so they show up in your day.",
+        "NSCalendarsFullAccessUsageDescription": "MapMeet adds the events you join to your calendar so they show up in your day."
       }
     },
     "android": {
@@ -39,7 +41,9 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ],
       "config": {
         "googleMaps": {
@@ -64,6 +68,12 @@
         {
           "photosPermission": "MapMeet needs access to your photo library so you can set a profile picture.",
           "cameraPermission": "MapMeet uses the camera so you can take a profile picture."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "MapMeet adds the events you join to your calendar so they show up in your day."
         }
       ],
       "expo-asset",

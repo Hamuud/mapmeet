@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   Image,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -22,7 +23,9 @@ import { eventsService } from '@/services/events.service';
 import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
+import { addEvent, downloadIcs, requestCalendarAccess } from '@/services/calendar.service';
 import { distanceKm, formatDistance } from '@/utils/distance';
+import { isEventPast } from '@/utils/eventTime';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator, LatLng } from '@/types';
 
@@ -72,6 +75,41 @@ export function EventPreviewBody({
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const moderationGuard = useModerationStore((s) => s.guard);
   const [busy, setBusy] = useState(false);
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
+  // No point offering to diarise something that has already happened.
+  const isPast = isEventPast(event);
+
+  /** One-off add, independent of the Settings toggle.
+   *
+   *  Web has no calendar API, so it gets an .ics download — which opens
+   *  in Google Calendar, Apple Calendar or Outlook and is arguably the
+   *  more useful thing on a desktop anyway. */
+  const handleAddToCalendar = async () => {
+    if (addingToCalendar) return;
+    setAddingToCalendar(true);
+    try {
+      if (Platform.OS === 'web') {
+        downloadIcs(event);
+        toast.show(t('event.addedToCalendar'), 'success');
+        return;
+      }
+      const granted = await requestCalendarAccess();
+      if (!granted) {
+        toast.show(t('settings.calendarDenied'), 'info');
+        return;
+      }
+      const id = await addEvent(event);
+      if (!id) {
+        toast.show(t('event.calendarFailed'), 'error');
+        return;
+      }
+      toast.show(t('event.addedToCalendar'), 'success');
+    } catch {
+      toast.show(t('event.calendarFailed'), 'error');
+    } finally {
+      setAddingToCalendar(false);
+    }
+  };
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -336,6 +374,22 @@ export function EventPreviewBody({
           )}
         </View>
       </View>
+
+      {/* Add to calendar. Present for anyone, joined or not — the
+          automatic sync in Settings covers the joined case, but this is
+          the one-off path, the discoverable one, and the only one that
+          exists on web (where it hands over an .ics instead). */}
+      {!isPast ? (
+        <PrimaryButton
+          label={t('event.addToCalendar')}
+          variant="secondary"
+          size="sm"
+          leftIcon={<Ionicons name="calendar-outline" size={13} color="#4B5FE0" />}
+          loading={addingToCalendar}
+          onPress={handleAddToCalendar}
+          fullWidth
+        />
+      ) : null}
 
       {/* Tickets — imported events link straight back to the source. */}
       {isImported && event.source_url ? (
