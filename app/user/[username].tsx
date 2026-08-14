@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n';
 import { EventCard } from '@/components/events/EventCard';
+import { PastEventSheet } from '@/features/events/PastEventSheet';
 import { ReportSheet } from '@/features/moderation/ReportSheet';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
@@ -294,6 +295,10 @@ export default function UserProfileScreen() {
     router.replace('/(tabs)/map');
   };
 
+  // A finished event has no pin left on the map, so tapping one opens a
+  // recap instead of navigating to a place nobody can go any more.
+  const [pastEvent, setPastEvent] = useState<EventWithCreator | null>(null);
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface-light dark:bg-surface-dark">
@@ -520,7 +525,11 @@ export default function UserProfileScreen() {
           ) : (
             <EventCard
               event={item as EventWithCreator}
-              onPress={() => openOnMap(item as EventWithCreator)}
+              onPress={() =>
+                tab === 'past'
+                  ? setPastEvent(item as EventWithCreator)
+                  : openOnMap(item as EventWithCreator)
+              }
             />
           )
         }
@@ -552,6 +561,8 @@ export default function UserProfileScreen() {
           )
         }
       />
+
+      <PastEventSheet event={pastEvent} onClose={() => setPastEvent(null)} />
 
       <ConfirmationDialog
         open={confirmUnfriend}

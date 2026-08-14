@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useToast } from '@/components/ui/Toast';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
+import { PastEventSheet } from '@/features/events/PastEventSheet';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
@@ -24,13 +25,18 @@ type Tab = 'created' | 'joined' | 'nearby' | 'past';
 const RADII_KM = [1, 5, 10, 25, 50] as const;
 type Radius = (typeof RADII_KM)[number];
 
+/** Switch to the Map tab and fly to a pin.
+ *
+ *  `navigate`, not `push`: pushing a tab route stacks a second copy of
+ *  the whole tab navigator — and with it a second live MapView — on top
+ *  of the one already mounted. */
 function openMapWithEvent(id: string) {
   useEventsStore.getState().focusEvent(id);
-  router.push('/(tabs)/map');
+  router.navigate('/(tabs)/map');
 }
 
 function goToMap() {
-  router.push('/(tabs)/map');
+  router.navigate('/(tabs)/map');
 }
 
 export default function MyEventsScreen() {
@@ -54,6 +60,7 @@ function MyEventsBody() {
   const [tab, setTab] = useState<Tab>('created');
   const [radius, setRadius] = useState<Radius>(5);
   const [editEvent, setEditEvent] = useState<EventWithCreator | null>(null);
+  const [pastEvent, setPastEvent] = useState<EventWithCreator | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EventWithCreator | null>(null);
 
   // Ticks every minute so the "past" bucket re-partitions without
@@ -373,7 +380,17 @@ function MyEventsBody() {
           }
           renderItem={({ item }) => (
             <View className="gap-2">
-              <EventCard event={item} onPress={() => openMapWithEvent(item.id)} />
+              <EventCard
+                event={item}
+                // A finished event has nothing to show on the map — its
+                // pin is gone — so it opens a recap instead of flying
+                // the camera to an empty spot. The trailing glyph says
+                // which of the two a tap will do.
+                onPress={() =>
+                  tab === 'past' ? setPastEvent(item) : openMapWithEvent(item.id)
+                }
+                trailing={tab === 'past' ? <PastAffordance /> : undefined}
+              />
               {tab === 'created' ? (
                 <View className="flex-row items-center gap-2 pl-3">
                   <ActionChip
@@ -424,6 +441,8 @@ function MyEventsBody() {
         open={!!editEvent}
         onClose={() => setEditEvent(null)}
       />
+
+      <PastEventSheet event={pastEvent} onClose={() => setPastEvent(null)} />
 
       <ConfirmationDialog
         open={!!pendingDelete}
@@ -551,6 +570,17 @@ type ActionChipProps = {
   onPress: () => void;
   tone?: 'default' | 'danger';
 };
+
+/** Trailing glyph on a past-event card. The default is a navigate arrow,
+ *  which on a finished event promises a map trip that no longer leads
+ *  anywhere; this promises what actually happens — the recap opens. */
+function PastAffordance() {
+  return (
+    <View className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark">
+      <Ionicons name="chevron-forward" size={14} color="#8B8880" />
+    </View>
+  );
+}
 
 /** Same shape as ActionChip but inert — "Ended" states a fact about the
  *  event, it isn't something you can do. Rendering it as a Pressable

@@ -13,6 +13,7 @@ import {
 } from '@/components/map';
 import { FilterBar } from '@/components/events/FilterBar';
 import { SearchBar } from '@/components/events/SearchBar';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ClusterPickerSheet } from '@/features/events/ClusterPickerSheet';
 import { CreateEventSheet } from '@/features/events/CreateEventSheet';
 import { DirectionsSheet } from '@/features/events/DirectionsSheet';
@@ -47,7 +48,23 @@ function withinBounds(
     : event.longitude >= b.minLng || event.longitude <= b.maxLng;
 }
 
+/** The Map tab.
+ *
+ *  Wrapped in an ErrorBoundary like Events and Chat. It matters more
+ *  here than anywhere else: this screen is where every "view on map"
+ *  path lands, and without a boundary a single render throw unmounts
+ *  the whole tree — which reads to the user as the app going black and
+ *  dying, with nothing on screen to say what happened. */
 export default function MapScreen() {
+  const t = useT();
+  return (
+    <ErrorBoundary where={t('boundary.map')}>
+      <MapScreenBody />
+    </ErrorBoundary>
+  );
+}
+
+function MapScreenBody() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const isDesktop = useIsDesktop();
@@ -98,7 +115,14 @@ export default function MapScreen() {
   useEffect(() => {
     if (!focusedEventId) return;
     const target = events.find((e) => e.id === focusedEventId);
-    if (!target) return;
+    // Nothing to fly to — the event was deleted, or it has aged out of
+    // the map. Drop the focus rather than holding it: a focus that
+    // never clears also suppresses the auto-recenter (below) for the
+    // rest of the session, so the map stops following the user.
+    if (!target) {
+      focusEvent(null);
+      return;
+    }
     const t = setTimeout(() => {
       mapRef.current?.animateTo(
         { latitude: target.latitude, longitude: target.longitude },

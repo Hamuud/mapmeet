@@ -199,7 +199,9 @@ function EventMarker({
   selected: boolean;
   onPress?: (eventId: string) => void;
 }) {
-  const style = resolvePinStyle(event, event.creator.role);
+  // `creator?.` — resolvePinStyle already takes a missing role to mean
+  // "no styling", and a pin is not worth taking the map down for.
+  const style = resolvePinStyle(event, event.creator?.role);
   const animated = isAnimatedEffect(style.effect);
   return (
     <Marker

@@ -270,6 +270,15 @@ export const en = {
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
 
+  // ── Past event recap ──────────────────────────────────────────────
+  'past.noDescription': 'No description was added.',
+  'past.hostedBy': 'Hosted by {name}',
+  'past.went': {
+    one: '{count} went',
+    few: '{count} went',
+    other: '{count} went',
+  },
+
   // ── Chat list ─────────────────────────────────────────────────────
   'chat.title': 'Chats',
   'chat.newGroup': 'New group chat',
@@ -853,6 +862,7 @@ export const en = {
   'friends.message': 'Message',
   'boundary.chat': 'in Chat',
   'boundary.myEvents': 'in My Events',
+  'boundary.map': 'on the Map',
   'a11y.verifiedAccount': 'Verified account',
   'a11y.premiumAccount': 'Premium account',
   'a11y.closeSheet': 'Close sheet',

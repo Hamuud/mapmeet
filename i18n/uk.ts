@@ -273,6 +273,15 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
 
+  // ── Past event recap ──────────────────────────────────────────────
+  'past.noDescription': 'Опис не додали.',
+  'past.hostedBy': 'Організатор — {name}',
+  'past.went': {
+    one: 'прийшов {count}',
+    few: 'прийшли {count}',
+    other: 'прийшло {count}',
+  },
+
   // ── Chat list ─────────────────────────────────────────────────────
   'chat.title': 'Чати',
   'chat.newGroup': 'Нова група',
@@ -863,6 +872,7 @@ export const uk: Record<TranslationKey, Phrase> = {
   'friends.message': 'Написати',
   'boundary.chat': 'у чатах',
   'boundary.myEvents': 'у моїх подіях',
+  'boundary.map': 'на карті',
   'a11y.verifiedAccount': 'Підтверджений акаунт',
   'a11y.premiumAccount': 'Преміум-акаунт',
   'a11y.closeSheet': 'Закрити',

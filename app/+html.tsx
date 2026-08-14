@@ -1,9 +1,15 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
-/** Server-rendered HTML shell that wraps every route. Runs only at build
- *  time (SSG) — nothing here reaches the client bundle. We use it for
- *  meta tags and a data-URL favicon so `/favicon.ico` doesn't 404. */
+/** Server-rendered HTML shell that wraps every route.
+ *
+ *  NOTE: this file only applies to `web.output: "static"`. We export as
+ *  `"single"` (an SPA), and that path builds `index.html` from Expo's
+ *  own template — none of the head tags below reach the deployed site.
+ *  The real favicon comes from `web.favicon` in app.base.json, which the
+ *  exporter turns into a multi-size `/mapmeet/favicon.ico` and links
+ *  from the generated HTML. Kept as-is so a future switch to static
+ *  output still has a shell to start from. */
 const faviconSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='56'>🗺️</text></svg>`;
 const faviconHref = `data:image/svg+xml;utf8,${encodeURIComponent(faviconSvg)}`;
 

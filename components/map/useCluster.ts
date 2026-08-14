@@ -99,7 +99,7 @@ export function useCluster(
     const zoom = zoomFromRegion(region);
     const clusters = index.getClusters(regionBBox(region), zoom);
 
-    return clusters.map<ClusterPoint>((c) => {
+    return clusters.flatMap<ClusterPoint>((c) => {
       const [lng, lat] = c.geometry.coordinates;
       const props = c.properties as {
         cluster?: boolean;
@@ -109,8 +109,8 @@ export function useCluster(
       };
       if (props.cluster && props.cluster_id != null) {
         const clusterId = props.cluster_id;
-        return {
-          kind: 'cluster',
+        return [{
+          kind: 'cluster' as const,
           id: `cluster-${clusterId}`,
           count: props.point_count ?? 0,
           coordinate: { latitude: lat!, longitude: lng! },
@@ -120,30 +120,24 @@ export function useCluster(
               .getLeaves(clusterId, Infinity)
               .map((leaf) => eventsById.get(leaf.properties.eventId)!)
               .filter(Boolean),
-        };
+        }];
       }
       const eventId = props.eventId!;
       const event = eventsById.get(eventId);
-      // Defensive: if the id vanished between index build + cluster fetch
-      // (extremely unlikely, but nice to be safe), silently drop it.
-      if (!event) {
-        return {
-          kind: 'point',
-          id: eventId,
-          event: {
-            id: eventId,
-            latitude: lat!,
-            longitude: lng!,
-          } as unknown as EventWithCreator,
-          coordinate: { latitude: lat!, longitude: lng! },
-        };
-      }
-      return {
-        kind: 'point',
+      // If the id vanished between index build and cluster fetch
+      // (extremely unlikely, but possible), drop the point entirely.
+      // The previous version returned a stub carrying only an id and a
+      // coordinate — and the marker renderer reads `event.creator.role`
+      // to resolve the pin style, so that stub threw on render. A throw
+      // here takes the whole map screen down, which is a steep price for
+      // one missing pin.
+      if (!event) return [];
+      return [{
+        kind: 'point' as const,
         id: eventId,
         event,
         coordinate: { latitude: lat!, longitude: lng! },
-      };
+      }];
     });
   }, [events, region, index, eventsById]);
 }

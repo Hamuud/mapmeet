@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { PastEventSheet } from '@/features/events/PastEventSheet';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -33,6 +34,7 @@ export default function YouScreen() {
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
   const [tab, setTab] = useState<Tab>('hosting');
+  const [pastEvent, setPastEvent] = useState<EventWithCreator | null>(null);
 
   // Taxi-style rating — starts at 5.00, moved by likes/dislikes from
   // other users (they vote on your public profile page).
@@ -101,9 +103,12 @@ export default function YouScreen() {
           ? attending
           : past;
 
+  // `navigate`, not `push`: pushing a tab route stacks a second copy of
+  // the tab navigator — and a second live MapView — over the one that
+  // is already mounted.
   const openOnMap = (event: EventWithCreator) => {
     focusEvent(event.id);
-    router.push('/(tabs)/map');
+    router.navigate('/(tabs)/map');
   };
 
   if (!profile) {
@@ -261,7 +266,13 @@ export default function YouScreen() {
           ) : (
             <EventCard
               event={item as EventWithCreator}
-              onPress={() => openOnMap(item as EventWithCreator)}
+              // Past events have no pin left to fly to, so they open a
+              // recap rather than the map.
+              onPress={() =>
+                tab === 'past'
+                  ? setPastEvent(item as EventWithCreator)
+                  : openOnMap(item as EventWithCreator)
+              }
             />
           )
         }
@@ -293,6 +304,8 @@ export default function YouScreen() {
           )
         }
       />
+
+      <PastEventSheet event={pastEvent} onClose={() => setPastEvent(null)} />
     </SafeAreaView>
   );
 }

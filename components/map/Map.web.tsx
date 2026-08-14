@@ -708,7 +708,7 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         seen.add(event.id);
         const isSelected = event.id === selectedEventId;
         const existing = markersRef.current.get(event.id);
-        const pinStyle = resolvePinStyle(event, event.creator.role);
+        const pinStyle = resolvePinStyle(event, event.creator?.role);
         if (existing) {
           // Keep the same DOM node so MapLibre's transform bindings stay
           // valid; just refresh visuals + position.
