@@ -57,15 +57,35 @@ export function EventCard({ event, distanceLabel, onPress, trailing }: Props) {
           {event.title}
         </Text>
 
+        {/* Host · headcount · distance. Two Texts, not one: the name is
+            the only part that may be arbitrarily long, so it gets the
+            shrink and the numbers keep their space. As one string the
+            ellipsis ate the count first — worst on a Ukrainian device,
+            where "25 учасників" is half again the width of "25 going". */}
         <View className="mt-1 flex-row items-center gap-2">
           <Avatar name={creator.display_name} uri={creator.avatar_url} size="xs" />
-          <Text
-            className="text-xs text-muted-light dark:text-muted-dark"
-            numberOfLines={1}
-          >
-            {creator.display_name} · {event.participant_count} going
-            {distanceLabel ? ` · ${distanceLabel}` : ''}
-          </Text>
+          <View className="flex-1 flex-row items-center">
+            <Text
+              className="shrink text-xs text-muted-light dark:text-muted-dark"
+              numberOfLines={1}
+            >
+              {creator.display_name}
+            </Text>
+            <Text
+              className="text-xs text-muted-light dark:text-muted-dark"
+              // flexShrink 0 so all the shrink lands on the name. Without
+              // it the two Texts shrink in proportion and the count still
+              // ends in an ellipsis. The separator leads with a
+              // non-breaking space — a plain one gets collapsed at the
+              // start of a Text node and the dot ends up glued to the name.
+              style={{ flexShrink: 0 }}
+              numberOfLines={1}
+            >
+              {' · '}
+              {t('preview.going', { count: event.participant_count })}
+              {distanceLabel ? ` · ${distanceLabel}` : ''}
+            </Text>
+          </View>
         </View>
 
         {tags.length > 0 ? (
