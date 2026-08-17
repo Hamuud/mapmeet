@@ -23,6 +23,7 @@ import { eventsService } from '@/services/events.service';
 import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
+import { useSavedStore } from '@/store/saved.store';
 import { addEvent, downloadIcs, requestCalendarAccess } from '@/services/calendar.service';
 import { distanceKm, formatDistance } from '@/utils/distance';
 import { isEventPast } from '@/utils/eventTime';
@@ -74,6 +75,10 @@ export function EventPreviewBody({
   const venue = useVenue(event);
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const moderationGuard = useModerationStore((s) => s.guard);
+  // Subscribe to this event's bookmark only, so saving one doesn't
+  // re-render every other open sheet.
+  const isSaved = useSavedStore((s) => !!s.ids[event.id]);
+  const toggleSaved = useSavedStore((s) => s.toggle);
   const [busy, setBusy] = useState(false);
   const [addingToCalendar, setAddingToCalendar] = useState(false);
   // No point offering to diarise something that has already happened.
@@ -110,6 +115,20 @@ export function EventPreviewBody({
       setAddingToCalendar(false);
     }
   };
+  /** Bookmark. The counterpart to Join, and the reason it sits beside it
+   *  rather than three buttons down: "not yet" is the honest answer to
+   *  most events, and until now the only ways to give it were to commit
+   *  or to close the sheet and forget. */
+  const handleToggleSaved = async () => {
+    if (!session) return;
+    try {
+      const nowSaved = await toggleSaved(event.id, session.user.id);
+      toast.show(nowSaved ? t('saved.added') : t('saved.removed'), 'success');
+    } catch {
+      toast.show(t('saved.failed'), 'error');
+    }
+  };
+
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -283,6 +302,31 @@ export function EventPreviewBody({
             hosted by {event.creator.display_name}
           </Text>
         </View>
+
+        {/* Bookmark, top-right where a bookmark belongs — it costs no
+            vertical space, and the actions below are already three deep.
+            Hidden for the host (it's in their Created list) and for
+            anything already over. */}
+        {session && !isCreator && !isPast ? (
+          <Pressable
+            onPress={() => void handleToggleSaved()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isSaved ? t('saved.remove') : t('saved.add')}
+            className={[
+              'h-10 w-10 items-center justify-center rounded-full border',
+              isSaved
+                ? 'border-brand-500 bg-brand-500/10'
+                : 'border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
+            ].join(' ')}
+          >
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={17}
+              color={isSaved ? '#4B5FE0' : '#8B8880'}
+            />
+          </Pressable>
+        ) : null}
       </View>
 
       {/* Venue — the searched address label, or a reverse-geocoded

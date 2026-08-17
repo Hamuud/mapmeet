@@ -72,6 +72,55 @@ export const eventsService = {
     );
   },
 
+  /** Which events the viewer has bookmarked. Ids only — the rows come
+   *  from `listSaved`, and the map/cards read membership from this set. */
+  async listSavedIds(viewerId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('saved_events')
+      .select('event_id')
+      .eq('user_id', viewerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r) => r.event_id);
+  },
+
+  /** Full rows for the saved list.
+   *
+   *  Loaded into the store's sticky set alongside joined events, for the
+   *  same reason: a bookmarked event has to survive panning the map away
+   *  from it, and an imported one would otherwise fall out of the
+   *  viewport fetch and vanish from the Saved tab. */
+  async listSaved(viewerId: string): Promise<EventWithCreator[]> {
+    const ids = await this.listSavedIds(viewerId);
+    if (ids.length === 0) return [];
+    const { data, error } = await supabase
+      .from('events')
+      .select(SELECT_EVENT)
+      .in('id', ids);
+    if (error) throw error;
+    return (data as unknown as RawEventRow[]).map((row) =>
+      toEventWithCreator(row, viewerId),
+    );
+  },
+
+  async save(eventId: string, viewerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('saved_events')
+      .insert({ event_id: eventId, user_id: viewerId });
+    // Saving twice is not an error worth surfacing — the button is
+    // already showing the state the user wanted.
+    if (error && error.code !== '23505') throw error;
+  },
+
+  async unsave(eventId: string, viewerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('saved_events')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('user_id', viewerId);
+    if (error) throw error;
+  },
+
   /** Imported events the viewer joined. These must stay loaded wherever
    *  the map happens to be pointing — otherwise panning away from Lviv
    *  would empty the chat you're in and hide it from My Events. */

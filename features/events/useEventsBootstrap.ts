@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useEventsStore } from '@/store/events.store';
+import { useSavedStore } from '@/store/saved.store';
 
 /** Fetches the events feed and opens a realtime subscription whenever
  *  the authenticated user changes. Also refetches on app foreground —
@@ -16,14 +17,20 @@ export function useEventsBootstrap() {
   const fetch = useEventsStore((s) => s.fetch);
   const subscribe = useEventsStore((s) => s.subscribe);
   const reset = useEventsStore((s) => s.reset);
+  const loadSaved = useSavedStore((s) => s.load);
+  const resetSaved = useSavedStore((s) => s.reset);
 
   // Initial fetch + realtime subscription.
   useEffect(() => {
     if (!viewerId) {
       reset();
+      resetSaved();
       return;
     }
     void fetch(viewerId);
+    // Bookmarks are ids only and load in one round trip; the rows they
+    // point at arrive with the fetch above.
+    void loadSaved(viewerId);
     const unsubscribe = subscribe(viewerId);
     return () => {
       unsubscribe();

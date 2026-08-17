@@ -214,6 +214,36 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      /** Private bookmarks. Owner-only in both directions — see
+       *  20260821000000_saved_events.sql. */
+      saved_events: {
+        Row: {
+          user_id: string;
+          event_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          event_id: string;
+        };
+        /** Nothing in a row to change: unsave and save again. */
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      /** Dates of birth, owner-readable only and written solely through
+       *  set_date_of_birth(). No Insert/Update shape on purpose — a
+       *  client that tries a direct write should fail to compile before
+       *  it fails at the policy. */
+      user_ages: {
+        Row: {
+          user_id: string;
+          date_of_birth: string;
+          updated_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       messages: {
         Row: {
           id: string;

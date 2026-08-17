@@ -16,11 +16,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
+import { useSavedStore } from '@/store/saved.store';
 import { distanceKm, formatDistance } from '@/utils/distance';
 import { isEventPast } from '@/utils/eventTime';
 import type { EventWithCreator } from '@/types';
 
-type Tab = 'created' | 'joined' | 'nearby' | 'past';
+type Tab = 'created' | 'joined' | 'saved' | 'nearby' | 'past';
 
 const RADII_KM = [1, 5, 10, 25, 50] as const;
 type Radius = (typeof RADII_KM)[number];
@@ -54,6 +55,8 @@ function MyEventsBody() {
   const { profile } = useAuth();
   const { coords, status: locStatus, request: requestLocation } = useLocation();
   const events = useEventsStore((s) => s.events);
+  const savedIds = useSavedStore((s) => s.ids);
+  const toggleSaved = useSavedStore((s) => s.toggle);
   const removeEvent = useEventsStore((s) => s.removeEvent);
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const syncViewport = useEventsStore((s) => s.syncViewport);
@@ -128,6 +131,20 @@ function MyEventsBody() {
       .filter((e) => !isEventPast(e, now));
   }, [valid, now]);
 
+  /** Bookmarks. Past ones drop out on their own — a saved event that has
+   *  already happened is a missed one, and leaving it at the top of the
+   *  list to be scrolled past every day is a small daily reproach. */
+  const saved = useMemo(() => {
+    return valid
+      .filter((e) => !!savedIds[e.id])
+      .filter((e) => !isEventPast(e, now))
+      .sort((a, b) =>
+        `${a.event_date}T${a.event_time}`.localeCompare(
+          `${b.event_date}T${b.event_time}`,
+        ),
+      );
+  }, [valid, savedIds, now]);
+
   /** Past bucket = anything the viewer created OR joined that's now
    *  past the 1h grace. `valid` is already unique by id, so filtering
    *  on the OR predicate can't produce duplicates — earlier versions
@@ -190,6 +207,20 @@ function MyEventsBody() {
     [profile, patchEvent, toast],
   );
 
+  /** Un-bookmark from the Saved list. No confirmation: it is one tap to
+   *  put back, and a dialog for "never mind" is heavier than the act. */
+  const handleUnsave = useCallback(
+    async (event: EventWithCreator) => {
+      if (!profile) return;
+      try {
+        await toggleSaved(event.id, profile.id);
+      } catch {
+        toast.show(t('saved.failed'), 'error');
+      }
+    },
+    [profile, toggleSaved, toast, t],
+  );
+
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     const target = pendingDelete;
@@ -226,6 +257,12 @@ function MyEventsBody() {
             count={tab === 'joined' ? joined.length : null}
             active={tab === 'joined'}
             onPress={() => setTab('joined')}
+          />
+          <SegmentButton
+            label={t('events.tabSaved')}
+            count={tab === 'saved' ? saved.length : null}
+            active={tab === 'saved'}
+            onPress={() => setTab('saved')}
           />
           <SegmentButton
             label={t('events.tabNearby')}
@@ -350,7 +387,13 @@ function MyEventsBody() {
       ) : (
         <FlatList
           data={
-            tab === 'created' ? created : tab === 'joined' ? joined : past
+            tab === 'created'
+              ? created
+              : tab === 'joined'
+                ? joined
+                : tab === 'saved'
+                  ? saved
+                  : past
           }
           keyExtractor={(e) => e.id}
           showsVerticalScrollIndicator={false}
@@ -358,21 +401,31 @@ function MyEventsBody() {
           ListEmptyComponent={
             <EmptyState
               emoji={
-                tab === 'created' ? '📍' : tab === 'joined' ? '🙋' : '🕰️'
+                tab === 'created'
+                  ? '📍'
+                  : tab === 'joined'
+                    ? '🙋'
+                    : tab === 'saved'
+                      ? '🔖'
+                      : '🕰️'
               }
               title={
                 tab === 'created'
                   ? t('events.emptyCreated')
                   : tab === 'joined'
                     ? t('events.emptyJoined')
-                    : t('events.emptyPast')
+                    : tab === 'saved'
+                      ? t('events.emptySaved')
+                      : t('events.emptyPast')
               }
               description={
                 tab === 'created'
                   ? t('events.emptyCreatedHint')
                   : tab === 'joined'
                     ? t('events.emptyJoinedHint')
-                    : t('events.emptyPastHint')
+                    : tab === 'saved'
+                      ? t('events.emptySavedHint')
+                      : t('events.emptyPastHint')
               }
               actionLabel={tab === 'past' ? undefined : t('events.openMap')}
               onAction={tab === 'past' ? undefined : goToMap}
@@ -421,6 +474,21 @@ function MyEventsBody() {
                       onPress={() => setPendingDelete(item)}
                     />
                   ) : null}
+                </View>
+              ) : tab === 'saved' ? (
+                // The saved list is where someone finally decides, so the
+                // Join button belongs here rather than a map trip away.
+                <View className="flex-row items-center gap-2 pl-3">
+                  <JoinButton
+                    event={item}
+                    viewerId={profile?.id ?? null}
+                    onToggle={() => void handleJoinToggle(item)}
+                  />
+                  <ActionChip
+                    icon="bookmark"
+                    label={t('saved.remove')}
+                    onPress={() => void handleUnsave(item)}
+                  />
                 </View>
               ) : (
                 <View className="flex-row items-center pl-3">

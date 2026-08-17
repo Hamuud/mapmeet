@@ -272,6 +272,10 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.emptyCreatedHint': 'Поставте першу позначку на вкладці «Карта».',
   'events.emptyJoined': 'Ви ще не приєдналися до жодної події',
   'events.emptyJoinedHint': 'Торкніться позначки на карті, щоб приєднатися.',
+  'events.tabSaved': 'Збережені',
+  'events.emptySaved': 'Ще нічого не збережено',
+  'events.emptySavedHint':
+    'Натисніть закладку на події, щоб зберегти її тут і не приєднуватися одразу.',
   'events.emptyPast': 'Минулих подій поки немає',
   'events.emptyPastHint': 'Події, які ви створили або відвідали, з’являться тут за годину після завершення.',
   'events.viewOnMap': 'Показати на карті',
@@ -289,6 +293,13 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.hosting': 'Ви організатор',
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
+
+  // ── Saved events ──────────────────────────────────────────────────
+  'saved.add': 'Зберегти на потім',
+  'saved.remove': 'Збережено',
+  'saved.added': 'Збережено — подія у списку «Збережені».',
+  'saved.removed': 'Видалено зі збережених.',
+  'saved.failed': 'Не вдалося оновити збережені.',
 
   // ── Past event recap ──────────────────────────────────────────────
   'past.noDescription': 'Опис не додали.',

@@ -269,6 +269,10 @@ export const en = {
   'events.emptyCreatedHint': 'Drop your first pin from the map tab.',
   'events.emptyJoined': "You haven't joined any events",
   'events.emptyJoinedHint': 'Tap a marker on the map to join.',
+  'events.tabSaved': 'Saved',
+  'events.emptySaved': 'Nothing saved yet',
+  'events.emptySavedHint':
+    'Tap the bookmark on an event to keep it here without joining.',
   'events.emptyPast': 'No past events yet',
   'events.emptyPastHint': 'Events you host or join land here an hour after they wrap.',
   'events.viewOnMap': 'View on map',
@@ -286,6 +290,13 @@ export const en = {
   'events.hosting': 'Hosting',
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
+
+  // ── Saved events ──────────────────────────────────────────────────
+  'saved.add': 'Save for later',
+  'saved.remove': 'Saved',
+  'saved.added': 'Saved. It’s in your Saved list.',
+  'saved.removed': 'Removed from Saved.',
+  'saved.failed': 'Could not update your saved list.',
 
   // ── Past event recap ──────────────────────────────────────────────
   'past.noDescription': 'No description was added.',

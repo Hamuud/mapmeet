@@ -69,11 +69,16 @@ export const useEventsStore = create<EventsState>((set, get) => ({
   fetch: async (viewerId) => {
     set({ status: 'loading', error: null, _viewerId: viewerId });
     try {
-      const [mine, joinedExternal] = await Promise.all([
+      // Saved events join the sticky set for the same reason joined ones
+      // do: a bookmark has to survive panning the map somewhere else, and
+      // an imported one would otherwise drop out of the viewport fetch
+      // and disappear from the Saved list.
+      const [mine, joinedExternal, saved] = await Promise.all([
         eventsService.list(viewerId),
         viewerId ? eventsService.listJoinedExternal(viewerId) : Promise.resolve([]),
+        viewerId ? eventsService.listSaved(viewerId) : Promise.resolve([]),
       ]);
-      const base = merge(mine, joinedExternal);
+      const base = merge(merge(mine, joinedExternal), saved);
       set({ _base: base, events: merge(base, get()._viewport), status: 'ready' });
     } catch (e) {
       set({
