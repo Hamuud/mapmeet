@@ -32,6 +32,15 @@ function zoomFromRegion(region: Region): number {
   return Math.max(1, Math.min(20, zoom));
 }
 
+/** Everything, for callers that must not let the camera decide which
+ *  events exist at all. */
+const WORLD_BBOX: [number, number, number, number] = [-180, -85, 180, 85];
+
+/** Zoom to assume before the camera has reported a region. Matches the
+ *  initial zoom both maps open at, so the first frame clusters the same
+ *  way the second one will. */
+const DEFAULT_ZOOM = 13;
+
 function regionBBox(region: Region): [number, number, number, number] {
   const minLng = region.longitude - region.longitudeDelta;
   const maxLng = region.longitude + region.longitudeDelta;
@@ -59,6 +68,21 @@ type EventFeature = {
 export function useCluster(
   events: EventWithCreator[],
   region: Region | null,
+  options?: {
+    /** Cluster the whole set rather than only what the camera can see.
+     *
+     *  The web map needs this. Its markers are DOM nodes it owns, and
+     *  before clustering moved here it built one for every event, full
+     *  stop — so an event in Ternopil stayed in the document while you
+     *  looked at Kyiv and reappeared when you zoomed out. Filtering by
+     *  the camera box took that away: events outside it were rendered on
+     *  the first frame (no region yet), then deleted the moment the
+     *  region arrived. They flashed once on open and vanished.
+     *
+     *  Native leaves this off: it mounts a real <Marker> per point, and
+     *  there the viewport filter is what keeps that number sane. */
+    worldBounds?: boolean;
+  },
 ): ClusterPoint[] {
   const index = useMemo(() => {
     const idx = new Supercluster<EventFeature['properties']>({
@@ -92,18 +116,17 @@ export function useCluster(
     return m;
   }, [events]);
 
-  return useMemo(() => {
-    if (!region) {
-      return events.map<ClusterPoint>((event) => ({
-        kind: 'point',
-        id: event.id,
-        event,
-        coordinate: { latitude: event.latitude, longitude: event.longitude },
-      }));
-    }
+  const worldBounds = options?.worldBounds ?? false;
 
-    const zoom = zoomFromRegion(region);
-    const clusters = index.getClusters(regionBBox(region), zoom);
+  return useMemo(() => {
+    // No region yet means the camera has not reported in — not that
+    // clustering should be skipped. Returning loose points here was what
+    // made coincident pins overlap for the one frame before the region
+    // landed, and on web it also meant the next frame deleted whatever
+    // fell outside the box.
+    const zoom = region ? zoomFromRegion(region) : DEFAULT_ZOOM;
+    const bbox = !region || worldBounds ? WORLD_BBOX : regionBBox(region);
+    const clusters = index.getClusters(bbox, zoom);
 
     return clusters.flatMap<ClusterPoint>((c) => {
       const [lng, lat] = c.geometry.coordinates;
@@ -145,5 +168,5 @@ export function useCluster(
         coordinate: { latitude: lat!, longitude: lng! },
       }];
     });
-  }, [events, region, index, eventsById]);
+  }, [events, region, index, eventsById, worldBounds]);
 }

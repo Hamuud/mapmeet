@@ -485,7 +485,9 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   >(new globalThis.Map());
   /** Camera as a region, so the clusterer sees what the user sees. */
   const [region, setRegion] = useState<Region | null>(null);
-  const clusters = useCluster(events, region);
+  // worldBounds: the camera decides how things are grouped, never
+  // whether they exist. See the option's note in useCluster.
+  const clusters = useCluster(events, region, { worldBounds: true });
   // Read inside a click handler, where the captured value would be stale.
   const clustersRef = useRef(clusters);
   clustersRef.current = clusters;
