@@ -1,8 +1,9 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { clusterEmojis } from './clusterEmojis';
+import { useCluster, type Region } from './useCluster';
 import type { MapProps, MapRef, MapStyle } from './Map.types';
 import { particleLayout } from '@/features/events/pinParticles';
 import {
@@ -64,20 +65,8 @@ const STYLE_FOR: Record<MapStyle, maplibregl.StyleSpecification> = {
   terrain: TERRAIN_STYLE,
 };
 
-const SOURCE_ID = 'mapmeet-events';
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_TOLERANCE_PX = 8;
-
-function eventsToGeoJson(events: EventWithCreator[]): GeoJSON.FeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: events.map((e) => ({
-      type: 'Feature',
-      properties: { eventId: e.id, emoji: e.emoji, title: e.title },
-      geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
-    })),
-  };
-}
 
 // ── Design system tokens (mirror of tailwind.config.js) ────────────────
 // The web map builds its markers as raw DOM so it can't lean on
@@ -388,32 +377,6 @@ function buildPendingElement(): HTMLDivElement {
   return el;
 }
 
-/** The clustered GeoJSON source is the clustering ENGINE only — no
- *  MapLibre layers render it. Clusters draw as DOM markers (emoji
- *  chips, see styleClusterElement) synced from the source's cluster
- *  features, same as individual event markers. The old circle+count
- *  layers were anonymous black dots — and the count never rendered
- *  anyway because the raster styles ship no glyph fonts. */
-function installCustomLayers(map: maplibregl.Map, events: EventWithCreator[]) {
-  if (!map.getSource(SOURCE_ID)) {
-    map.addSource(SOURCE_ID, {
-      type: 'geojson',
-      data: eventsToGeoJson(events),
-      cluster: true,
-      // Match the native useCluster tuning: radius 80 + a 2-point
-      // minimum so even a pair of nearby events merges into the
-      // rotating-emoji circle rather than stacking as two pins.
-      clusterRadius: 80,
-      clusterMinPoints: 2,
-      clusterMaxZoom: 18,
-    });
-  } else {
-    (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(
-      eventsToGeoJson(events),
-    );
-  }
-}
-
 /** Brand indigo — the cluster circle's fill (deliberately not ink:
  *  "the circle shouldn't be black"). */
 const CLUSTER_BG = '#4B5FE0';
@@ -520,10 +483,12 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   const clusterMarkersRef = useRef<
     globalThis.Map<number, { marker: maplibregl.Marker; key: string }>
   >(new globalThis.Map());
-  /** Monotonic token: getClusterLeaves is async, so a pan can start a
-   *  newer sync pass while an older one is mid-await — the older pass
-   *  must not mutate the DOM with stale geometry. */
-  const clusterSyncTokenRef = useRef(0);
+  /** Camera as a region, so the clusterer sees what the user sees. */
+  const [region, setRegion] = useState<Region | null>(null);
+  const clusters = useCluster(events, region);
+  // Read inside a click handler, where the captured value would be stale.
+  const clustersRef = useRef(clusters);
+  clustersRef.current = clusters;
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const pendingMarkerRef = useRef<maplibregl.Marker | null>(null);
   const onMarkerPressRef = useRef(onMarkerPress);
@@ -570,21 +535,19 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     // top-right — duplicating our custom MapZoomStack. Ours is fed by
     // MapRef.zoomIn/zoomOut, so no library control is needed.
 
-    map.on('load', () => {
-      installCustomLayers(map, eventsRef.current);
-    });
-
-    map.on('styledata', () => {
-      if (map.isStyleLoaded()) {
-        installCustomLayers(map, eventsRef.current);
-      }
-    });
-
     // Viewport → imported-event fetch. `moveend` covers pan, zoom and
     // flyTo alike; `load` seeds the first region so events show without
     // the user having to touch the map.
     const emitBounds = () => {
       const b = map.getBounds();
+      // The clusterer needs the camera as a region, the same shape the
+      // native map reports.
+      setRegion({
+        latitude: map.getCenter().lat,
+        longitude: map.getCenter().lng,
+        latitudeDelta: Math.abs(b.getNorth() - b.getSouth()),
+        longitudeDelta: Math.abs(b.getEast() - b.getWest()),
+      });
       onRegionChangeRef.current?.({
         minLat: b.getSouth(),
         maxLat: b.getNorth(),
@@ -691,126 +654,47 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
     map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
   }, [pickMode]);
 
-  // Marker set sync — the important part. Markers persist across pan/zoom;
-  // they're only added when a new event arrives, removed when an event
-  // goes away, and mutated in place when their content changes. The old
-  // "rebuild on every moveend" was what made them appear to drift.
+  // Marker + cluster reconcile, over the SAME supercluster output the
+  // native map uses.
+  //
+  // This used to lean on MapLibre's own GeoJSON clustering, read back
+  // through querySourceFeatures. That could never have worked: MapLibre
+  // clusters inside its tile pipeline, and it only builds tiles for a
+  // source that some layer draws — this source deliberately had none. So
+  // the query returned an empty array on every pass, no cluster ever
+  // formed, and every event rendered as its own marker. Events pinned at
+  // one coordinate stacked into a pile with only the top one clickable,
+  // which is exactly the bug, and exactly why web behaved unlike native.
+  //
+  // Sharing useCluster removes the whole question. Both platforms now run
+  // one clusterer with one set of tuning, so "same as the app" is a fact
+  // about the code rather than two implementations kept in sync by hand.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const applyEvents = () => {
-      const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-      if (src) src.setData(eventsToGeoJson(events));
+    const liveEventIds = new Set<string>();
+    const liveClusterIds = new Set<number>();
 
-      const seen = new Set<string>();
-      for (const event of events) {
-        seen.add(event.id);
-        const isSelected = event.id === selectedEventId;
-        const existing = markersRef.current.get(event.id);
-        const pinStyle = resolvePinStyle(event, event.creator?.role);
-        if (existing) {
-          // Keep the same DOM node so MapLibre's transform bindings stay
-          // valid; just refresh visuals + position.
-          updateMarkerElement(
-            existing.getElement() as HTMLDivElement,
-            event.emoji,
-            isSelected,
-            event.visibility === 'private',
-            pinStyle,
-          );
-          existing.setLngLat([event.longitude, event.latitude]);
-          continue;
-        }
-        const el = buildMarkerElement(
-          event.id,
-          event.emoji,
-          isSelected,
-          event.visibility === 'private',
-          pinStyle,
-          () => onMarkerPressRef.current?.(event.id),
-        );
-        // Center-anchored — the emoji dot IS the coord, not the tip of a pin.
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([event.longitude, event.latitude])
-          .addTo(map);
-        markersRef.current.set(event.id, marker);
-      }
-      for (const [id, marker] of markersRef.current) {
-        if (!seen.has(id)) {
-          marker.remove();
-          markersRef.current.delete(id);
-        }
-      }
-    };
-
-    if (!map.isStyleLoaded()) {
-      map.once('load', applyEvents);
-    } else {
-      applyEvents();
-    }
-  }, [events, selectedEventId]);
-
-  // Cluster sync — replaces the old circle/count layers. Enumerates the
-  // source's cluster features (dedup by cluster_id: tiles overlap),
-  // renders each as an emoji-chip DOM marker, hides the individual
-  // markers it swallows, and prunes chips whose cluster dissolved.
-  // Runs on every moveend/sourcedata; markers mutate in place so
-  // there's no flicker.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const syncClusters = async () => {
-      const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-      if (!src) return;
-      const token = ++clusterSyncTokenRef.current;
-
-      const clusterFeats = new globalThis.Map<
-        number,
-        maplibregl.MapGeoJSONFeature
-      >();
-      for (const f of map.querySourceFeatures(SOURCE_ID)) {
-        const cid = f.properties?.cluster_id as number | undefined;
-        if (typeof cid === 'number' && !clusterFeats.has(cid)) {
-          clusterFeats.set(cid, f);
-        }
-      }
-
-      const clusteredIds = new Set<string>();
-      const alive = new Set<number>();
-      for (const [cid, feature] of clusterFeats) {
-        let leaves;
-        try {
-          leaves = await src.getClusterLeaves(cid, Infinity, 0);
-        } catch {
-          continue; // cluster dissolved mid-flight (zoom changed)
-        }
-        // A newer pass superseded this one — bail before mutating DOM
-        // with stale cluster geometry.
-        if (token !== clusterSyncTokenRef.current) return;
-
-        const members = leaves
-          .map((leaf) => leaf.properties?.eventId as string | undefined)
-          .map((id) => (id ? eventsRef.current.find((ev) => ev.id === id) : undefined))
-          .filter((ev): ev is EventWithCreator => !!ev);
-        if (members.length === 0) continue;
-
-        for (const m of members) clusteredIds.add(m.id);
-        alive.add(cid);
-
+    for (const point of clusters) {
+      if (point.kind === 'cluster') {
+        const cid = Number(point.id.replace('cluster-', ''));
+        liveClusterIds.add(cid);
+        const members = point.leaves();
         const emojis = clusterEmojis(members);
-        const key = `${emojis.join('')}|${members.length}`;
-        const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
-
+        const key = `${emojis.join('')}|${point.count}`;
         const existing = clusterMarkersRef.current.get(cid);
+
         if (existing) {
-          existing.marker.setLngLat([lng!, lat!]);
+          existing.marker.setLngLat([
+            point.coordinate.longitude,
+            point.coordinate.latitude,
+          ]);
           if (existing.key !== key) {
             styleClusterElement(
               existing.marker.getElement() as HTMLDivElement,
               emojis,
-              members.length,
+              point.count,
             );
             existing.key = key;
           }
@@ -818,48 +702,73 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         }
 
         const el = document.createElement('div');
-        styleClusterElement(el, emojis, members.length);
+        styleClusterElement(el, emojis, point.count);
         el.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          // Resolve membership at CLICK time — the closure's snapshot
-          // would go stale as events churn under a live cluster.
-          void src.getClusterLeaves(cid, Infinity, 0).then((fresh) => {
-            const evs = fresh
-              .map((leaf) => leaf.properties?.eventId as string | undefined)
-              .map((id) =>
-                id ? eventsRef.current.find((e2) => e2.id === id) : undefined,
-              )
-              .filter((e2): e2 is EventWithCreator => !!e2);
-            if (evs.length > 0) onClusterTapRef.current?.(evs);
-          });
+          // Membership resolved at click time, not captured: events churn
+          // under a live cluster as the viewport fetch lands.
+          const fresh = clustersRef.current.find((c) => c.id === point.id);
+          const list = fresh && fresh.kind === 'cluster' ? fresh.leaves() : members;
+          if (list.length > 0) onClusterTapRef.current?.(list);
         });
         const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([lng!, lat!])
+          .setLngLat([point.coordinate.longitude, point.coordinate.latitude])
           .addTo(map);
         clusterMarkersRef.current.set(cid, { marker, key });
+        continue;
       }
 
-      for (const [cid, entry] of clusterMarkersRef.current) {
-        if (!alive.has(cid)) {
-          entry.marker.remove();
-          clusterMarkersRef.current.delete(cid);
-        }
-      }
-      for (const [id, marker] of markersRef.current) {
-        marker.getElement().style.display = clusteredIds.has(id) ? 'none' : 'flex';
-      }
-    };
+      const event = point.event;
+      liveEventIds.add(event.id);
+      const isSelected = event.id === selectedEventId;
+      const pinStyle = resolvePinStyle(event, event.creator?.role);
+      const existing = markersRef.current.get(event.id);
 
-    const handler = () => void syncClusters();
-    if (map.isStyleLoaded()) void syncClusters();
-    else map.once('load', handler);
-    map.on('moveend', handler);
-    map.on('sourcedata', handler);
-    return () => {
-      map.off('moveend', handler);
-      map.off('sourcedata', handler);
-    };
-  }, [events]);
+      if (existing) {
+        // Same DOM node, patched in place: MapLibre's transform bindings
+        // stay valid and the pin effects keep their animation phase.
+        updateMarkerElement(
+          existing.getElement() as HTMLDivElement,
+          event.emoji,
+          isSelected,
+          event.visibility === 'private',
+          pinStyle,
+        );
+        existing.setLngLat([event.longitude, event.latitude]);
+        existing.getElement().style.display = 'flex';
+        continue;
+      }
+
+      const el = buildMarkerElement(
+        event.id,
+        event.emoji,
+        isSelected,
+        event.visibility === 'private',
+        pinStyle,
+        () => onMarkerPressRef.current?.(event.id),
+      );
+      // Center-anchored — the emoji dot IS the coord, not a pin tip.
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([event.longitude, event.latitude])
+        .addTo(map);
+      markersRef.current.set(event.id, marker);
+    }
+
+    // Anything the clusterer no longer emits: either gone from the feed,
+    // or swallowed by a cluster this pass.
+    for (const [id, marker] of markersRef.current) {
+      if (!liveEventIds.has(id)) {
+        marker.remove();
+        markersRef.current.delete(id);
+      }
+    }
+    for (const [cid, entry] of clusterMarkersRef.current) {
+      if (!liveClusterIds.has(cid)) {
+        entry.marker.remove();
+        clusterMarkersRef.current.delete(cid);
+      }
+    }
+  }, [clusters, selectedEventId]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -68,7 +68,13 @@ export function useCluster(
       // Brovary" was). The rotating-emoji circle is the whole point of a
       // cluster, so we want it to kick in as early as a pair.
       radius: 80,
-      maxZoom: 18,
+      // Above this supercluster hands back loose points, and events at
+      // an identical coordinate then stack into one unreachable pile.
+      // zoomFromRegion clamps the query to 20, so 22 means clustering
+      // never switches off at any zoom this map can reach — matching
+      // the web source, which had the same ceiling and showed the bug
+      // first because its camera goes further in.
+      maxZoom: 22,
       minPoints: 2,
     });
     const features: EventFeature[] = events.map((e) => ({
