@@ -37,6 +37,16 @@ export type EventWithCreator = Event & {
   is_joined: boolean;
 };
 
+/** One person going to an event, as returned by the `event_attendees`
+ *  RPC. `is_friend` is relative to the viewer and drives both the "two
+ *  friends are going" line and the ordering (friends first).
+ *
+ *  The list can be shorter than `participant_count`: anyone who set
+ *  `attending_visibility` to 'nobody', or to 'friends' without being one,
+ *  is filtered out server-side. That gap is somebody's privacy choice
+ *  being honoured, not a miscount. */
+export type EventAttendee = ProfileRef & { is_friend: boolean };
+
 export type Message = Database['public']['Tables']['messages']['Row'];
 export type MessageInsert = Database['public']['Tables']['messages']['Insert'];
 

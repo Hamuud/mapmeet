@@ -689,6 +689,19 @@ export type Database = {
       set_date_of_birth: { Args: { p_dob: string }; Returns: undefined };
       /** The viewer's own age in whole years, or null if never given. */
       viewer_age: { Args: Record<string, never>; Returns: number | null };
+      /** Attendees of an event, already filtered by each person's
+       *  attending_visibility and by blocks, friends first. */
+      event_attendees: {
+        Args: { p_event_id: string; p_limit?: number };
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          role: string;
+          is_friend: boolean;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

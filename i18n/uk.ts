@@ -294,6 +294,27 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
 
+  // ── Who's going ───────────────────────────────────────────────────
+  'attendees.title': {
+    one: '{count} учасник',
+    few: '{count} учасники',
+    other: '{count} учасників',
+  },
+  'attendees.open': 'Подивитися, хто йде',
+  'attendees.friend': 'Друг',
+  'attendees.friendsGoing': {
+    one: 'Іде {count} друг',
+    few: 'Ідуть {count} друзі',
+    other: 'Ідуть {count} друзів',
+  },
+  'attendees.none': 'Ще ніхто не приєднався. Будьте першим.',
+  'attendees.failed': 'Не вдалося завантажити список. Спробуйте оновити.',
+  'attendees.hidden': {
+    one: '{count} учасник не хоче бути у списку.',
+    few: '{count} учасники не хочуть бути у списку.',
+    other: '{count} учасників не хочуть бути у списку.',
+  },
+
   // ── Saved events ──────────────────────────────────────────────────
   'saved.add': 'Зберегти на потім',
   'saved.remove': 'Збережено',

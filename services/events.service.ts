@@ -247,6 +247,36 @@ export const eventsService = {
     if (error) throw error;
   },
 
+  /** Who's going, for the preview's avatar row and the full list behind
+   *  it — one call feeds both.
+   *
+   *  Goes through an RPC rather than selecting `participants` because the
+   *  filtering cannot be done here: each attendee's own
+   *  `attending_visibility` decides whether they appear, and a client
+   *  cannot be trusted with that. See 20260822000000_event_attendees.sql.
+   *
+   *  The result is therefore sometimes shorter than `participant_count`.
+   *  Show the count as the truth and this list as who is willing to be
+   *  named. */
+  async listEventAttendees(
+    eventId: string,
+    limit = 50,
+  ): Promise<import('@/types').EventAttendee[]> {
+    const { data, error } = await supabase.rpc('event_attendees', {
+      p_event_id: eventId,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      username: row.username,
+      display_name: row.display_name,
+      avatar_url: row.avatar_url,
+      role: row.role as import('@/types').Profile['role'],
+      is_friend: row.is_friend,
+    }));
+  },
+
   /** Fetch attendee profiles for the preview sheet's avatar row. Limits
    *  to the first N so we don't pay for a giant list on popular events —
    *  the +N overflow chip in the UI covers the rest. */

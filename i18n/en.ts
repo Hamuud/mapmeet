@@ -291,6 +291,27 @@ export const en = {
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
 
+  // ── Who's going ───────────────────────────────────────────────────
+  'attendees.title': {
+    one: '{count} going',
+    few: '{count} going',
+    other: '{count} going',
+  },
+  'attendees.open': "See who's going",
+  'attendees.friend': 'Friend',
+  'attendees.friendsGoing': {
+    one: '{count} friend is going',
+    few: '{count} friends are going',
+    other: '{count} friends are going',
+  },
+  'attendees.none': 'Nobody has joined yet. Be first.',
+  'attendees.failed': 'Could not load the list. Pull to refresh.',
+  'attendees.hidden': {
+    one: '{count} person chose not to be listed.',
+    few: '{count} people chose not to be listed.',
+    other: '{count} people chose not to be listed.',
+  },
+
   // ── Saved events ──────────────────────────────────────────────────
   'saved.add': 'Save for later',
   'saved.remove': 'Saved',

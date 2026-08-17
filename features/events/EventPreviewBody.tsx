@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Image,
@@ -30,12 +31,8 @@ import { isEventPast } from '@/utils/eventTime';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator, LatLng } from '@/types';
 
-type Attendee = {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-};
+import { AttendeesSheet } from './AttendeesSheet';
+import type { EventAttendee } from '@/types';
 
 type Props = {
   event: EventWithCreator;
@@ -129,13 +126,15 @@ export function EventPreviewBody({
     }
   };
 
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [attendees, setAttendees] = useState<EventAttendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [attendeesFailed, setAttendeesFailed] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   // Kept alongside the URL: sending to a friend posts the token itself,
   // not the link.
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [attendeesOpen, setAttendeesOpen] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
   // Imported from a ticketing site (karabas.com etc.) rather than pinned
@@ -153,13 +152,23 @@ export function EventPreviewBody({
   useEffect(() => {
     let cancelled = false;
     setLoadingAttendees(true);
+    setAttendeesFailed(false);
+    // One call for both the avatar row and the full list behind it, so
+    // opening "who's going" costs nothing. 50 is plenty: past that the
+    // sheet is a scroll and nobody is counting.
     eventsService
-      .listAttendees(event.id, AVATAR_LIMIT + 1)
+      .listEventAttendees(event.id, 50)
       .then((rows) => {
         if (!cancelled) setAttendees(rows);
       })
       .catch(() => {
-        if (!cancelled) setAttendees([]);
+        // Keep the failure distinguishable from "everyone opted out of
+        // being listed" — an empty list means very different things in
+        // those two cases and the sheet says so.
+        if (!cancelled) {
+          setAttendees([]);
+          setAttendeesFailed(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingAttendees(false);
@@ -207,7 +216,7 @@ export function EventPreviewBody({
     try {
       if (wasJoined) await eventsService.leave(event.id, session.user.id);
       else await eventsService.join(event.id, session.user.id);
-      const me: Attendee = {
+      const me: EventAttendee = {
         id: session.user.id,
         username:
           (session.user.user_metadata?.username as string | undefined) ?? 'you',
@@ -217,6 +226,9 @@ export function EventPreviewBody({
         avatar_url:
           (session.user.user_metadata?.avatar_url as string | undefined) ??
           null,
+        // Not your own friend. The flag only drives the "friends are
+        // going" line, and counting yourself in it would be absurd.
+        is_friend: false,
       };
       setAttendees((prev) =>
         wasJoined
@@ -356,6 +368,7 @@ export function EventPreviewBody({
         total={event.participant_count}
         loading={loadingAttendees}
         maxParticipants={event.max_participants}
+        onPress={() => setAttendeesOpen(true)}
       />
 
       {/* Primary actions */}
@@ -530,6 +543,24 @@ export function EventPreviewBody({
 
       {/* Share: friends in-app (invite lands as an acceptable DM card),
           or out via Telegram / WhatsApp / Viber / Copy. */}
+      {/* Who's going, in full. Uses the list already fetched above, so
+          opening it is instant and costs no request. */}
+      <AttendeesSheet
+        open={attendeesOpen}
+        attendees={attendees}
+        total={event.participant_count}
+        failed={attendeesFailed}
+        viewerId={session?.user.id ?? null}
+        onClose={() => setAttendeesOpen(false)}
+        onViewProfile={(a) => {
+          setAttendeesOpen(false);
+          router.navigate({
+            pathname: '/user/[username]',
+            params: { username: a.username },
+          });
+        }}
+      />
+
       <ShareSheet
         open={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -608,22 +639,39 @@ function DescriptionBlock({ text }: { text: string }) {
   );
 }
 
+/** The avatar row — now a button.
+ *
+ *  Who else is coming is the main thing anyone weighs about an event, so
+ *  it opens the full list instead of being a decorative stack of faces
+ *  you can't interrogate. The friends line sits underneath because "two
+ *  friends are going" outperforms every other sentence on a page like
+ *  this, and we can answer it without a single extra request. */
 function AttendeesRow({
   attendees,
   total,
   loading,
   maxParticipants,
+  onPress,
 }: {
-  attendees: Attendee[];
+  attendees: EventAttendee[];
   total: number;
   loading: boolean;
   maxParticipants: number | null;
+  onPress: () => void;
 }) {
   const t = useT();
   const shown = attendees.slice(0, AVATAR_LIMIT);
   const overflow = Math.max(0, total - shown.length);
+  const friends = attendees.filter((a) => a.is_friend).length;
+
   return (
-    <View className="flex-row items-center gap-2">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t('attendees.open')}
+      className="gap-1.5 active:opacity-70"
+    >
+      <View className="flex-row items-center gap-2">
       {shown.length > 0 ? (
         <View className="flex-row">
           {shown.map((p, idx) => (
@@ -645,17 +693,25 @@ function AttendeesRow({
           <Ionicons name="people" size={14} color="#8B8880" />
         </View>
       )}
-      <Text className="text-xs font-medium text-ink2-light dark:text-ink2-dark">
-        {loading && attendees.length === 0
-          ? t('common.loading')
-          : t('preview.going', { count: total })}
-        {maxParticipants ? t('preview.cap', { n: maxParticipants }) : ''}
-      </Text>
-    </View>
+        <Text className="text-xs font-medium text-ink2-light dark:text-ink2-dark">
+          {loading && attendees.length === 0
+            ? t('common.loading')
+            : t('preview.going', { count: total })}
+          {maxParticipants ? t('preview.cap', { n: maxParticipants }) : ''}
+        </Text>
+        <Ionicons name="chevron-forward" size={12} color="#8B8880" />
+      </View>
+
+      {friends > 0 ? (
+        <Text className="text-xs font-semibold text-brand-500">
+          {t('attendees.friendsGoing', { count: friends })}
+        </Text>
+      ) : null}
+    </Pressable>
   );
 }
 
-function AttendeeAvatar({ attendee, index }: { attendee: Attendee; index: number }) {
+function AttendeeAvatar({ attendee, index }: { attendee: EventAttendee; index: number }) {
   const initial = (attendee.display_name || attendee.username || '?')
     .trim()
     .charAt(0)
