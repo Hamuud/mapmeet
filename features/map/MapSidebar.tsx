@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { PlaceResults } from './PlaceResults';
 import { useT, type TranslationKey } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -15,10 +14,6 @@ type Props = {
   onQuery: (q: string) => void;
   filter: EventFilter;
   onFilter: (f: EventFilter) => void;
-  /** Places matching the query, offered under the search box — same as
-   *  mobile. The desktop rail is a full search surface, not a lesser one. */
-  places?: { label: string; coords: import('@/types').LatLng }[];
-  onPickPlace?: (place: { label: string; coords: import('@/types').LatLng }) => void;
   /** Label for the Dates chip once a range is set, and the opener. */
   dateLabel?: string | null;
   onPickDates?: () => void;
@@ -45,8 +40,6 @@ export function MapSidebar({
   onQuery,
   filter,
   onFilter,
-  places = [],
-  onPickPlace,
   dateLabel,
   onPickDates,
   events,
@@ -106,9 +99,6 @@ export function MapSidebar({
             <Text className="font-mono text-[9px] uppercase text-muted-light">⌘K</Text>
           </View>
         </View>
-        {onPickPlace ? (
-          <PlaceResults places={places} onPick={onPickPlace} />
-        ) : null}
       </View>
 
       {/* Filter chips (wrapping, matches the design's two-row look) */}

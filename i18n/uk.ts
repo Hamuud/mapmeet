@@ -313,7 +313,7 @@ export const uk: Record<TranslationKey, Phrase> = {
 
   // ── Place + date search ───────────────────────────────────────────
   'filter.dates': 'Дати',
-  'search.places': 'Перейти до місця',
+  'search.events': 'Схожі події',
   'dates.title': 'Які дні?',
   'dates.subtitle': 'Показати події між двома датами — вихідні або тиждень вашої поїздки.',
   'dates.from': 'Від',

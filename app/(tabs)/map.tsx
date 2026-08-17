@@ -21,8 +21,8 @@ import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
 import { DateRangeSheet } from '@/features/events/DateRangeSheet';
 import { filterEvents } from '@/features/events/filterEvents';
-import { PlaceResults } from '@/features/map/PlaceResults';
-import { usePlaceSearch } from '@/features/map/usePlaceSearch';
+import { EventSuggestions } from '@/features/map/EventSuggestions';
+import { suggestEvents } from '@/features/map/matchEvents';
 import { DEMO_CENTER } from '@/features/map/demo-events';
 import { MapEventPanel } from '@/features/map/MapEventPanel';
 import { MapSidebar } from '@/features/map/MapSidebar';
@@ -147,20 +147,31 @@ function MapScreenBody() {
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
   const [datesOpen, setDatesOpen] = useState(false);
 
-  // Place search runs beside the text filter: "coffee" still matches an
-  // event called coffee, and "Lviv" now offers to take you to Lviv.
-  const { places, dismiss: dismissPlaces } = usePlaceSearch(query);
+  /** Events whose name looks like what's being typed.
+   *
+   *  Ranked over everything loaded rather than over `visibleEvents`, so a
+   *  filter chip set to Today can't hide the thing you are explicitly
+   *  searching for by name. Suppressed once a suggestion is taken, so the
+   *  list doesn't hang around over the pin it just flew you to. */
+  const [pickedSuggestion, setPickedSuggestion] = useState(false);
+  const suggestions = useMemo(
+    () => (pickedSuggestion ? [] : suggestEvents(events, query)),
+    [events, query, pickedSuggestion],
+  );
+  useEffect(() => setPickedSuggestion(false), [query]);
 
-  /** Fly to a searched place and load what is there. The region change
-   *  the camera fires triggers the viewport fetch, so imported events for
-   *  the new area arrive without a special case here. */
-  const handlePickPlace = useCallback(
-    (place: { label: string; coords: LatLng }) => {
-      dismissPlaces();
-      selectEvent(null);
-      mapRef.current?.animateTo(place.coords, 13);
+  /** Go to the event they meant: fly the camera there and open its peek,
+   *  which is the whole point of having searched for it by name. */
+  const handlePickSuggestion = useCallback(
+    (event: EventWithCreator) => {
+      setPickedSuggestion(true);
+      mapRef.current?.animateTo(
+        { latitude: event.latitude, longitude: event.longitude },
+        15,
+      );
+      selectEvent(event.id);
     },
-    [dismissPlaces, selectEvent],
+    [selectEvent],
   );
 
   /** "20 Aug – 23 Aug", in the viewer's locale, for the filter chip. */
@@ -345,8 +356,6 @@ function MapScreenBody() {
           events={sidebarEvents}
           selectedEventId={selectedEventId}
           onEventPress={selectEvent}
-          places={places}
-          onPickPlace={handlePickPlace}
           dateLabel={dateChipLabel}
           onPickDates={() => setDatesOpen(true)}
         />
@@ -356,12 +365,19 @@ function MapScreenBody() {
       {!isDesktop && !pickMode ? (
         <View
           pointerEvents="box-none"
-          style={{ paddingTop: insets.top + 8 }}
+          // Above the style switcher: the suggestions drop down over the
+          // same strip, and paint order alone put the Streets button
+          // through the middle of the first result.
+          style={{ paddingTop: insets.top + 8, zIndex: 20 }}
           className="absolute inset-x-0 top-0"
         >
           <View className="px-4">
             <SearchBar value={query} onChangeText={setQuery} />
-            <PlaceResults places={places} onPick={handlePickPlace} />
+            <EventSuggestions
+              events={suggestions}
+              viewerLocation={coords}
+              onPick={handlePickSuggestion}
+            />
           </View>
           <View className="mt-2.5 px-2">
             <FilterBar
@@ -404,7 +420,10 @@ function MapScreenBody() {
       {/* Map style switcher */}
       <View
         pointerEvents="box-none"
-        style={{ top: isDesktop ? 20 : insets.top + (pickMode ? 68 : 104) }}
+        style={{
+          top: isDesktop ? 20 : insets.top + (pickMode ? 68 : 104),
+          zIndex: 10,
+        }}
         className={isDesktop ? 'absolute right-5' : 'absolute right-4'}
       >
         <MapStyleSwitcher value={mapStyle} onChange={setMapStyle} />

@@ -310,7 +310,7 @@ export const en = {
 
   // ── Place + date search ───────────────────────────────────────────
   'filter.dates': 'Dates',
-  'search.places': 'Go to a place',
+  'search.events': 'Matching events',
   'dates.title': 'Which days?',
   'dates.subtitle': 'Show events between two dates — a weekend, or a week you are visiting.',
   'dates.from': 'From',
