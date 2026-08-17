@@ -109,6 +109,7 @@ export const en = {
   'age.signOut': 'Sign out instead',
   'age.invalid': 'That date of birth is not valid.',
   'age.tooYoung': 'MapMeet is for people aged {n} and over.',
+  'age.sessionLost': 'Your session expired. Sign in again and we will pick up where you left off.',
   'age.failed': 'Could not save your date of birth. Try again.',
   'age.privacy':
     'Stored separately from your profile and readable only by you. We keep it to check your age and nothing else.',

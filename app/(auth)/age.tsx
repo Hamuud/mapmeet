@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,15 +54,36 @@ export default function AgeScreen() {
     setBusy(true);
     setError(null);
     try {
+      // Ask the auth client for a *live* session rather than trusting the
+      // copy in the store. This screen can sit open for a long time — it
+      // is the first thing a returning user sees — and if the access
+      // token lapsed while it was open, the RPC would go out with the
+      // anon key and come back with the database's own "not signed in",
+      // which is both alarming and a dead end. One refresh attempt, then
+      // an honest way out.
+      const live = await authService.getSession();
+      if (!live) {
+        setError(t('age.sessionLost'));
+        setBusy(false);
+        router.replace('/(auth)/login');
+        return false;
+      }
+
       await profilesService.setDateOfBirth(value);
       // The gate keys off profiles.age_confirmed, which the function just
       // flipped. Refetch rather than patching locally — the function is
       // the authority on what landed, and the redirect won't let go until
       // the store agrees.
-      if (profile) {
-        const fresh = await profilesService.getById(profile.id);
-        if (fresh) setProfile(fresh);
-      }
+      const id = profile?.id ?? live.user.id;
+      const fresh = await profilesService.getById(id);
+      if (fresh) setProfile(fresh);
+
+      // And then actually leave. Without this the answer saves, the gate
+      // opens, and the user is left staring at the same screen with no
+      // sign anything happened — which reads as "it didn't work", so they
+      // press it again. (welcome.tsx has always done this; this screen
+      // was missing it.)
+      router.replace('/(tabs)/map');
       return true;
     } catch (e) {
       // The function's message is written for a person; show it.
