@@ -70,6 +70,9 @@ export type EventFilter =
   | 'today'
   | 'tomorrow'
   | 'week'
+  /** A range the viewer picked. The dates live in the filters store,
+   *  not here — this is only the mode. */
+  | 'dates'
   | 'nearby'
   | 'joined'
   | 'created';

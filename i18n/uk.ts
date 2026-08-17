@@ -294,6 +294,16 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
 
+  // ── Place + date search ───────────────────────────────────────────
+  'filter.dates': 'Дати',
+  'search.places': 'Перейти до місця',
+  'dates.title': 'Які дні?',
+  'dates.subtitle': 'Показати події між двома датами — вихідні або тиждень вашої поїздки.',
+  'dates.from': 'Від',
+  'dates.to': 'До',
+  'dates.apply': 'Показати ці дні',
+  'dates.clear': 'Очистити дати',
+
   // ── Who's going ───────────────────────────────────────────────────
   'attendees.title': {
     one: '{count} учасник',

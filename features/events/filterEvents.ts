@@ -40,6 +40,10 @@ type FilterInput = {
    *  preferences store when the map calls in; falls back to a sane
    *  default so unit-test callers don't have to plumb it through. */
   nearbyRadiusKm?: number;
+  /** Inclusive day range, used only when `filter === 'dates'`. Both
+   *  'YYYY-MM-DD', which sorts lexicographically — so the comparison is
+   *  string arithmetic and no timezone gets a say. */
+  dateRange?: { from: string; to: string } | null;
 };
 
 export function filterEvents({
@@ -49,6 +53,7 @@ export function filterEvents({
   query,
   coords,
   nearbyRadiusKm = DEFAULT_NEARBY_KM,
+  dateRange = null,
 }: FilterInput): EventWithCreator[] {
   const t = today();
   const tm = tomorrow();
@@ -68,6 +73,15 @@ export function filterEvents({
       break;
     case 'week':
       out = out.filter((e) => e.event_date >= t && e.event_date <= eow);
+      break;
+    case 'dates':
+      // No range picked yet: show everything rather than an empty map,
+      // which would look broken while the picker is still open.
+      if (dateRange) {
+        const from = dateRange.from <= dateRange.to ? dateRange.from : dateRange.to;
+        const to = dateRange.from <= dateRange.to ? dateRange.to : dateRange.from;
+        out = out.filter((e) => e.event_date >= from && e.event_date <= to);
+      }
       break;
     case 'nearby':
       if (!coords) return [];

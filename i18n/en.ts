@@ -291,6 +291,16 @@ export const en = {
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
 
+  // ── Place + date search ───────────────────────────────────────────
+  'filter.dates': 'Dates',
+  'search.places': 'Go to a place',
+  'dates.title': 'Which days?',
+  'dates.subtitle': 'Show events between two dates — a weekend, or a week you are visiting.',
+  'dates.from': 'From',
+  'dates.to': 'To',
+  'dates.apply': 'Show these days',
+  'dates.clear': 'Clear dates',
+
   // ── Who's going ───────────────────────────────────────────────────
   'attendees.title': {
     one: '{count} going',

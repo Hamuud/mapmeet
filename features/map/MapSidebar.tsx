@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { PlaceResults } from './PlaceResults';
 import { useT, type TranslationKey } from '@/i18n';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -14,6 +15,13 @@ type Props = {
   onQuery: (q: string) => void;
   filter: EventFilter;
   onFilter: (f: EventFilter) => void;
+  /** Places matching the query, offered under the search box — same as
+   *  mobile. The desktop rail is a full search surface, not a lesser one. */
+  places?: { label: string; coords: import('@/types').LatLng }[];
+  onPickPlace?: (place: { label: string; coords: import('@/types').LatLng }) => void;
+  /** Label for the Dates chip once a range is set, and the opener. */
+  dateLabel?: string | null;
+  onPickDates?: () => void;
   events: EventWithCreator[];
   selectedEventId: string | null;
   onEventPress: (id: string) => void;
@@ -37,6 +45,10 @@ export function MapSidebar({
   onQuery,
   filter,
   onFilter,
+  places = [],
+  onPickPlace,
+  dateLabel,
+  onPickDates,
   events,
   selectedEventId,
   onEventPress,
@@ -94,6 +106,9 @@ export function MapSidebar({
             <Text className="font-mono text-[9px] uppercase text-muted-light">⌘K</Text>
           </View>
         </View>
+        {onPickPlace ? (
+          <PlaceResults places={places} onPick={onPickPlace} />
+        ) : null}
       </View>
 
       {/* Filter chips (wrapping, matches the design's two-row look) */}
@@ -104,7 +119,11 @@ export function MapSidebar({
             return (
               <Pressable
                 key={f.key}
-                onPress={() => onFilter(f.key)}
+                onPress={() =>
+                  f.key === 'dates' && onPickDates
+                    ? onPickDates()
+                    : onFilter(f.key)
+                }
                 className={[
                   'h-8 flex-row items-center rounded-full px-3',
                   active
@@ -123,7 +142,7 @@ export function MapSidebar({
                       : 'text-text-light/85 dark:text-text-dark/85',
                   ].join(' ')}
                 >
-                  {t(f.labelKey)}
+                  {f.key === 'dates' && dateLabel ? dateLabel : t(f.labelKey)}
                 </Text>
               </Pressable>
             );

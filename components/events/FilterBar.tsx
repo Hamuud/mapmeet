@@ -8,6 +8,10 @@ const FILTERS: { key: EventFilter; labelKey: TranslationKey }[] = [
   { key: 'today',    labelKey: 'filter.today' },
   { key: 'tomorrow', labelKey: 'filter.tomorrow' },
   { key: 'week',     labelKey: 'filter.week' },
+  // Today / tomorrow / this week and then nothing: anyone looking at next
+  // Saturday, or planning a trip, had no way to ask. This one opens a
+  // picker rather than filtering on tap.
+  { key: 'dates',    labelKey: 'filter.dates' },
   { key: 'nearby',   labelKey: 'filter.nearby' },
   { key: 'joined',   labelKey: 'filter.joined' },
   { key: 'created',  labelKey: 'filter.created' },
@@ -16,9 +20,16 @@ const FILTERS: { key: EventFilter; labelKey: TranslationKey }[] = [
 type Props = {
   value: EventFilter;
   onChange: (filter: EventFilter) => void;
+  /** Label for the Dates chip once a range is chosen — "20–23 Aug"
+   *  rather than the generic word, so the bar shows what is being asked
+   *  without opening the picker again. */
+  dateLabel?: string | null;
+  /** Tapping the Dates chip opens the picker instead of just switching
+   *  the filter; the map screen owns the sheet. */
+  onPickDates?: () => void;
 };
 
-export function FilterBar({ value, onChange }: Props) {
+export function FilterBar({ value, onChange, dateLabel, onPickDates }: Props) {
   const t = useT();
   return (
     <ScrollView
@@ -31,7 +42,9 @@ export function FilterBar({ value, onChange }: Props) {
         return (
           <Pressable
             key={f.key}
-            onPress={() => onChange(f.key)}
+            onPress={() =>
+              f.key === 'dates' && onPickDates ? onPickDates() : onChange(f.key)
+            }
             className={[
               'h-8 flex-row items-center justify-center rounded-full px-3.5',
               active
@@ -50,7 +63,7 @@ export function FilterBar({ value, onChange }: Props) {
                   : 'text-text-light/85 dark:text-text-dark/85',
               ].join(' ')}
             >
-              {t(f.labelKey)}
+              {f.key === 'dates' && dateLabel ? dateLabel : t(f.labelKey)}
             </Text>
           </Pressable>
         );

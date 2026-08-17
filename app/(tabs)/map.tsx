@@ -19,7 +19,10 @@ import { CreateEventSheet } from '@/features/events/CreateEventSheet';
 import { DirectionsSheet } from '@/features/events/DirectionsSheet';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { EventPreviewSheet } from '@/features/events/EventPreviewSheet';
+import { DateRangeSheet } from '@/features/events/DateRangeSheet';
 import { filterEvents } from '@/features/events/filterEvents';
+import { PlaceResults } from '@/features/map/PlaceResults';
+import { usePlaceSearch } from '@/features/map/usePlaceSearch';
 import { DEMO_CENTER } from '@/features/map/demo-events';
 import { MapEventPanel } from '@/features/map/MapEventPanel';
 import { MapSidebar } from '@/features/map/MapSidebar';
@@ -82,6 +85,8 @@ function MapScreenBody() {
   const setQuery = useFiltersStore((s) => s.setQuery);
   const filter = useFiltersStore((s) => s.filter);
   const setFilter = useFiltersStore((s) => s.setFilter);
+  const dateRange = useFiltersStore((s) => s.dateRange);
+  const setDateRange = useFiltersStore((s) => s.setDateRange);
   const nearbyRadiusKm = usePreferencesStore((s) => s.searchRadiusKm);
 
   const { coords } = useLocation();
@@ -140,6 +145,39 @@ function MapScreenBody() {
   const [mapStyle, setMapStyle] = useState<MapStyle>('streets');
   const [clusterEvents, setClusterEvents] = useState<EventWithCreator[] | null>(null);
   const [directionsTarget, setDirectionsTarget] = useState<EventWithCreator | null>(null);
+  const [datesOpen, setDatesOpen] = useState(false);
+
+  // Place search runs beside the text filter: "coffee" still matches an
+  // event called coffee, and "Lviv" now offers to take you to Lviv.
+  const { places, dismiss: dismissPlaces } = usePlaceSearch(query);
+
+  /** Fly to a searched place and load what is there. The region change
+   *  the camera fires triggers the viewport fetch, so imported events for
+   *  the new area arrive without a special case here. */
+  const handlePickPlace = useCallback(
+    (place: { label: string; coords: LatLng }) => {
+      dismissPlaces();
+      selectEvent(null);
+      mapRef.current?.animateTo(place.coords, 13);
+    },
+    [dismissPlaces, selectEvent],
+  );
+
+  /** "20 Aug – 23 Aug", in the viewer's locale, for the filter chip. */
+  const dateChipLabel = useMemo(() => {
+    if (!dateRange) return null;
+    const short = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number);
+      if (!y || !m || !d) return iso;
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+      });
+    };
+    return dateRange.from === dateRange.to
+      ? short(dateRange.from)
+      : `${short(dateRange.from)} – ${short(dateRange.to)}`;
+  }, [dateRange]);
 
   const visibleEvents = useMemo(
     // Events whose exact venue never resolved only carry their city's
@@ -147,8 +185,17 @@ function MapScreenBody() {
     // city center — so there's a marker to tap and join; the peek shows
     // the venue text and swaps Directions for "See venue above" so no one
     // is routed to a town square. Co-located city pins cluster together.
-    () => filterEvents({ events, viewerId, filter, query, coords, nearbyRadiusKm }),
-    [events, viewerId, filter, query, coords, nearbyRadiusKm],
+    () =>
+      filterEvents({
+        events,
+        viewerId,
+        filter,
+        query,
+        coords,
+        nearbyRadiusKm,
+        dateRange,
+      }),
+    [events, viewerId, filter, query, coords, nearbyRadiusKm, dateRange],
   );
 
   // Current camera box, tracked so the rail can say "this area" and mean
@@ -298,6 +345,10 @@ function MapScreenBody() {
           events={sidebarEvents}
           selectedEventId={selectedEventId}
           onEventPress={selectEvent}
+          places={places}
+          onPickPlace={handlePickPlace}
+          dateLabel={dateChipLabel}
+          onPickDates={() => setDatesOpen(true)}
         />
       ) : null}
 
@@ -310,9 +361,15 @@ function MapScreenBody() {
         >
           <View className="px-4">
             <SearchBar value={query} onChangeText={setQuery} />
+            <PlaceResults places={places} onPick={handlePickPlace} />
           </View>
           <View className="mt-2.5 px-2">
-            <FilterBar value={filter} onChange={setFilter} />
+            <FilterBar
+              value={filter}
+              onChange={setFilter}
+              dateLabel={dateChipLabel}
+              onPickDates={() => setDatesOpen(true)}
+            />
           </View>
         </View>
       ) : null}
@@ -495,6 +552,19 @@ function MapScreenBody() {
       <DirectionsSheet
         event={directionsTarget}
         onClose={() => setDirectionsTarget(null)}
+      />
+
+      {/* Pick a span of days. Applying switches the filter to 'dates';
+          clearing it drops back to All, so the map is never left in a
+          mode with nothing to filter by. */}
+      <DateRangeSheet
+        open={datesOpen}
+        value={dateRange}
+        onClose={() => setDatesOpen(false)}
+        onApply={(range) => {
+          setDateRange(range);
+          setFilter(range ? 'dates' : 'all');
+        }}
       />
     </View>
   );
