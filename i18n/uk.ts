@@ -295,6 +295,14 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
 
+  // ── Compact action row on the event sheet ─────────────────────────
+  'sheet.calendar': 'Календар',
+  'sheet.tellFriend': 'Сказати другу',
+  'sheet.share': 'Поділитися',
+  'sheet.chat': 'Чат',
+  'sheet.tickets': 'Квитки',
+  'sheet.host': 'Організатор',
+
   // ── Arriving, and telling someone ─────────────────────────────────
   'checkin.action': 'Я на місці',
   'checkin.arrived': 'Ви відмітилися',

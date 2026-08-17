@@ -292,6 +292,14 @@ export const en = {
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
 
+  // ── Compact action row on the event sheet ─────────────────────────
+  'sheet.calendar': 'Calendar',
+  'sheet.tellFriend': 'Tell a friend',
+  'sheet.share': 'Share',
+  'sheet.chat': 'Chat',
+  'sheet.tickets': 'Tickets',
+  'sheet.host': 'Host',
+
   // ── Arriving, and telling someone ─────────────────────────────────
   'checkin.action': "I'm here",
   'checkin.arrived': 'You checked in',

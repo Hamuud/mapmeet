@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Platform,
@@ -471,31 +472,9 @@ export function EventPreviewBody({
         </View>
       </View>
 
-      {/* Add to calendar. Present for anyone, joined or not — the
-          automatic sync in Settings covers the joined case, but this is
-          the one-off path, the discoverable one, and the only one that
-          exists on web (where it hands over an .ics instead). */}
-      {!isPast ? (
-        <PrimaryButton
-          label={t('event.addToCalendar')}
-          variant="secondary"
-          size="sm"
-          leftIcon={<Ionicons name="calendar-outline" size={13} color="#4B5FE0" />}
-          loading={addingToCalendar}
-          onPress={handleAddToCalendar}
-          fullWidth
-        />
-      ) : null}
-
-      {/* ── Going somewhere to meet strangers ──────────────────────────
-          Three things that belong together: tell someone where you are,
-          say you got there, and report the event if it turns out to be
-          something else. All three used to be missing, two taps away, or
-          buried on the host's profile. */}
-
-      {/* "I'm here" — only while the event is actually close, and only
-          for people going. Reads as a state once tapped, not a button
-          that can be pressed again. */}
+      {/* "I'm here" — the one secondary action that stays full width,
+          because it only exists inside the three-hour window around the
+          event and is the thing you came to the screen to do. */}
       {event.is_joined && isEventLive(event) ? (
         arrivedAt ? (
           <View className="h-10 flex-row items-center justify-center gap-2 rounded-xl bg-brand-500/10">
@@ -517,112 +496,72 @@ export function EventPreviewBody({
         )
       ) : null}
 
-      {/* Tell a friend where you're going. Offered for anything still
-          ahead that you're going to — the reassurance is the point, and
-          it is worth least after the fact. */}
-      {session && event.is_joined && !isPast ? (
-        <PrimaryButton
-          label={t('tellFriend.action')}
-          variant="secondary"
-          size="sm"
-          leftIcon={<Ionicons name="shield-checkmark-outline" size={13} color="#4B5FE0" />}
-          onPress={() => setTellFriendOpen(true)}
-          fullWidth
-        />
-      ) : null}
+      {/* ── Everything else, as icons ──────────────────────────────────
+          These were six full-width buttons stacked down the sheet, which
+          pushed the description and the attendee row off a phone screen
+          and made every one of them look equally important. None of them
+          is: they are the things you do *after* deciding, and a row of
+          icons says that. Captions stay, because a shield glyph on its
+          own does not tell anyone it means "tell a friend where I am". */}
+      <View className="flex-row items-start justify-around gap-1 border-t border-border-light pt-3 dark:border-border-dark">
+        {!isPast ? (
+          <SheetAction
+            icon="calendar-outline"
+            label={t('sheet.calendar')}
+            busy={addingToCalendar}
+            onPress={handleAddToCalendar}
+          />
+        ) : null}
 
-      {/* Tickets — imported events link straight back to the source. */}
-      {isImported && event.source_url ? (
-        <PrimaryButton
-          label={t('preview.getTickets')}
-          variant="secondary"
-          size="sm"
-          leftIcon={<Ionicons name="ticket-outline" size={13} color="#4B5FE0" />}
-          onPress={() => {
-            const url = event.source_url;
-            if (!url) return;
-            void Linking.openURL(url).catch(() =>
-              toast.show(t('preview.ticketPageFailed'), 'error'),
-            );
-          }}
-          fullWidth
-        />
-      ) : null}
+        {session && event.is_joined && !isPast ? (
+          <SheetAction
+            icon="shield-checkmark-outline"
+            label={t('sheet.tellFriend')}
+            onPress={() => setTellFriendOpen(true)}
+          />
+        ) : null}
 
-      {/* Share — mint a 24h link and open the Telegram / WhatsApp / Viber
-          / Copy sheet. Public events: anyone signed in. Private events:
-          host or someone who's joined (the RPC enforces the same rule). */}
-      {canShare ? (
-        <PrimaryButton
-          label={t('preview.share')}
-          variant="secondary"
-          size="sm"
-          leftIcon={
-            <Ionicons name="share-social-outline" size={13} color="#4B5FE0" />
-          }
-          onPress={handleShare}
-          fullWidth
-        />
-      ) : null}
+        {canShare ? (
+          <SheetAction
+            icon="share-social-outline"
+            label={t('sheet.share')}
+            onPress={handleShare}
+          />
+        ) : null}
 
-      {/* Open chat — members (host or joined) get a straight path into
-          the event's group chat from the pin itself. */}
-      {onOpenChat && (isCreator || event.is_joined) ? (
-        <PrimaryButton
-          label={t('preview.chat')}
-          variant="secondary"
-          size="sm"
-          leftIcon={
-            <Ionicons name="chatbubbles-outline" size={13} color="#4B5FE0" />
-          }
-          onPress={() => onOpenChat(event)}
-          fullWidth
-        />
-      ) : null}
+        {onOpenChat && (isCreator || event.is_joined) ? (
+          <SheetAction
+            icon="chatbubbles-outline"
+            label={t('sheet.chat')}
+            onPress={() => onOpenChat(event)}
+          />
+        ) : null}
 
-      {/* View host — hidden when this IS the host to avoid pointing
-          users at their own profile from their own event, and for
-          imported events (the "host" is an import bot). */}
-      {onViewHost && !isCreator && !isImported ? (
-        <PrimaryButton
-          label={t('preview.viewProfile', {
-            name: event.creator.display_name.split(/\s+/)[0] ?? event.creator.display_name,
-          })}
-          variant="secondary"
-          size="sm"
-          leftIcon={
-            <Ionicons name="person-outline" size={13} color="#4B5FE0" />
-          }
-          onPress={() => onViewHost(event)}
-          fullWidth
-        />
-      ) : null}
+        {/* Imported events link back to where you actually buy a ticket. */}
+        {isImported && event.source_url ? (
+          <SheetAction
+            icon="ticket-outline"
+            label={t('sheet.tickets')}
+            onPress={() => {
+              const url = event.source_url;
+              if (!url) return;
+              void Linking.openURL(url).catch(() =>
+                toast.show(t('preview.ticketPageFailed'), 'error'),
+              );
+            }}
+          />
+        ) : null}
 
-      {/* Creator-only row */}
-      {isCreator ? (
-        <View className="flex-row gap-2">
-          <View className="flex-1">
-            <PrimaryButton
-              label={t('events.edit')}
-              variant="secondary"
-              size="sm"
-              leftIcon={<Ionicons name="create-outline" size={13} color="#4B5FE0" />}
-              onPress={() => onEdit?.(event)}
-              fullWidth
-            />
-          </View>
-          <View className="flex-1">
-            <PrimaryButton
-              label={t('common.delete')}
-              variant="destructive-outline"
-              size="sm"
-              leftIcon={<Ionicons name="trash-outline" size={13} color="#B91C1C" />}
-              onPress={() => onDelete?.(event)}
-              fullWidth
-            />
-          </View>
-        </View>
-      ) : null}
+        {/* Not for your own event, and not for imports — their "host" is
+            a scraper. */}
+        {onViewHost && !isCreator && !isImported ? (
+          <SheetAction
+            icon="person-outline"
+            label={t('sheet.host')}
+            onPress={() => onViewHost(event)}
+          />
+        ) : null}
+      </View>
 
       {/* Reporting the event itself, not its host. One tap from the
           thing that is wrong, rather than a detour through the profile of
@@ -690,6 +629,48 @@ export function EventPreviewBody({
         }}
       />
     </View>
+  );
+}
+
+/** One action in the icon row: a tappable glyph with a caption under it.
+ *
+ *  Sized so five fit across a 375pt phone without the captions
+ *  truncating — they wrap to two lines instead, which is why the row
+ *  aligns to the top rather than the centre. */
+function SheetAction({
+  icon,
+  label,
+  onPress,
+  busy = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      className="flex-1 items-center gap-1 active:opacity-60"
+      style={{ maxWidth: 76 }}
+    >
+      <View className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark">
+        {busy ? (
+          <ActivityIndicator size="small" color="#4B5FE0" />
+        ) : (
+          <Ionicons name={icon} size={18} color="#4B5FE0" />
+        )}
+      </View>
+      <Text
+        className="text-center text-[9.5px] font-medium leading-tight text-ink2-light dark:text-ink2-dark"
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
