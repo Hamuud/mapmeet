@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DateTimeField } from '@/components/ui/DateTimeField';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
@@ -161,6 +162,25 @@ export default function SignUpScreen() {
                       />
                     </Pressable>
                   }
+                />
+              )}
+            />
+            {/* Date of birth. Asked here so someone too young is turned
+                away before an account exists — but the form is not the
+                enforcement: set_date_of_birth() is, and the answer
+                reaches it through the one-time age screen, because
+                signup returns no session when email confirmation is
+                on. */}
+            <Controller
+              control={control}
+              name="dateOfBirth"
+              render={({ field: { value, onChange } }) => (
+                <DateTimeField
+                  mode="date"
+                  label={t('auth.dateOfBirth')}
+                  value={value ?? ''}
+                  onChange={onChange}
+                  error={te(errors.dateOfBirth?.message)}
                 />
               )}
             />

@@ -46,7 +46,9 @@ export function DateTimeField({ mode, label, value, onChange, error }: DateTimeF
 
   return (
     <View className="w-full">
-      <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
+      {/* Matches Input's label — mono, uppercase, 10px. See the note in
+          the web twin. */}
+      <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
         {label}
       </Text>
       <Pressable

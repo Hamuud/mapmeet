@@ -36,6 +36,9 @@ export type SignUpInput = {
   password: string;
   username: string;
   displayName: string;
+  /** 'YYYY-MM-DD'. Carried into user metadata so the age screen can
+   *  submit it instead of asking again — see the comment in signUp. */
+  dateOfBirth: string;
 };
 
 export type SignInInput = {
@@ -51,6 +54,7 @@ export const authService = {
     password,
     username,
     displayName,
+    dateOfBirth,
   }: SignUpInput): Promise<{ user: User | null; session: Session | null }> {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -58,7 +62,14 @@ export const authService = {
       options: {
         // Values here flow into raw_user_meta_data and are picked up by the
         // handle_new_user() trigger to seed the profiles row.
-        data: { username, display_name: displayName },
+        //
+        // date_of_birth rides along but is NOT trusted: it is only a
+        // convenience so the age screen can submit itself instead of
+        // asking a question the person just answered. The real record is
+        // written by set_date_of_birth(), which enforces the floor —
+        // signup returns no session when email confirmation is on, so
+        // this is the only way to carry the answer across.
+        data: { username, display_name: displayName, date_of_birth: dateOfBirth },
         // After the user clicks the confirm-email link, Supabase sends them
         // here — the login screen, which shows a "confirmed, you can sign
         // in" banner when it sees `?confirmed=1`.

@@ -56,6 +56,12 @@ export default function TabsLayout() {
   if (profile && !profile.onboarding_complete) {
     return <Redirect href="/(auth)/welcome" />;
   }
+  // Then: how old are they? Asked once, of everybody — accounts made
+  // before this shipped have never been asked, and Google never asks.
+  // Unlike the handle above, this one has no skip.
+  if (profile && !profile.age_confirmed) {
+    return <Redirect href="/(auth)/age" />;
+  }
 
   return (
     <>

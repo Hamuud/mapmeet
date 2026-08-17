@@ -21,7 +21,11 @@ export function DateTimeField({ mode, label, value, onChange, error }: DateTimeF
 
   return (
     <View className="w-full">
-      <Text className="mb-1.5 text-sm font-medium text-text-light dark:text-text-dark">
+      {/* Same label treatment as Input — mono, uppercase, 10px. These two
+          sit next to each other on the signup form and in the create
+          wizard, and a sentence-case bold label beside "EMAIL" reads as
+          a field someone bolted on afterwards. */}
+      <Text className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-text-light/70 dark:text-text-dark/70">
         {label}
       </Text>
       <View

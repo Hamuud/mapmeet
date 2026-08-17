@@ -69,6 +69,20 @@ export const profilesService = {
       : this.getByUsername(handle);
   },
 
+  /** Record the viewer's date of birth ('YYYY-MM-DD').
+   *
+   *  Goes through an RPC rather than a table write for two reasons: the
+   *  date lands in `user_ages`, which has no INSERT policy at all, and the
+   *  minimum age is enforced there so the form's own check can't be the
+   *  only thing standing in the way. The error message from the function
+   *  is written for a person and is shown as-is. */
+  async setDateOfBirth(dateOfBirth: string): Promise<void> {
+    const { error } = await supabase.rpc('set_date_of_birth', {
+      p_dob: dateOfBirth,
+    });
+    if (error) throw new Error(error.message);
+  },
+
   async update(
     id: string,
     patch: Partial<

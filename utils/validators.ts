@@ -5,9 +5,46 @@ export const signInSchema = z.object({
   password: z.string().min(8, 'validation.passwordMin'),
 });
 
+/** The youngest MapMeet accepts. Mirror of `min_signup_age()` in
+ *  20260820000000_age_signal.sql — this copy exists so the form can say
+ *  no before a round trip, but the SQL one is what actually decides. */
+export const MIN_SIGNUP_AGE = 16;
+
+/** Whole years between a 'YYYY-MM-DD' date and today, or null if the
+ *  string isn't a date. Counts the birthday itself, so someone turning
+ *  16 today is 16. */
+export function ageFrom(dob: string, now: Date = new Date()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob.trim());
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const born = new Date(y, mo - 1, d);
+  if (
+    born.getFullYear() !== y ||
+    born.getMonth() !== mo - 1 ||
+    born.getDate() !== d
+  ) {
+    return null; // 31 February and friends
+  }
+  if (born.getTime() > now.getTime()) return null;
+  let age = now.getFullYear() - y;
+  const hadBirthday =
+    now.getMonth() > mo - 1 ||
+    (now.getMonth() === mo - 1 && now.getDate() >= d);
+  if (!hadBirthday) age -= 1;
+  return age;
+}
+
+export const dateOfBirthSchema = z
+  .string()
+  .min(1, 'validation.dobRequired')
+  .refine((v) => ageFrom(v) !== null, 'validation.dobInvalid')
+  .refine((v) => (ageFrom(v) ?? 0) >= MIN_SIGNUP_AGE, 'validation.tooYoung')
+  .refine((v) => (ageFrom(v) ?? 0) <= 120, 'validation.dobInvalid');
+
 export const signUpSchema = z.object({
   email: z.string().email('validation.email'),
   password: z.string().min(8, 'validation.passwordMin'),
+  dateOfBirth: dateOfBirthSchema,
   username: z
     .string()
     .min(3, 'validation.usernameMin')

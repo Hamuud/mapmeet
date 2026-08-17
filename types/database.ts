@@ -100,6 +100,10 @@ export type Database = {
            *  the signup trigger invented for it — the app shows the
            *  finish-setup screen once, then this flips. */
           onboarding_complete: boolean;
+          /** True once the viewer has given a date of birth. The date
+           *  itself lives in `user_ages`, which only its owner can read —
+           *  this table is world-readable, so a birthday can't sit here. */
+          age_confirmed: boolean;
           /** Set while serving a mute; null once it lapses or is lifted. */
           muted_until: string | null;
           banned_at: string | null;
@@ -649,6 +653,12 @@ export type Database = {
         Args: { p_reason: string; p_details?: string | null };
         Returns: undefined;
       };
+      /** Writes the viewer's date of birth into `user_ages` and flips
+       *  `profiles.age_confirmed`. Raises, with a message meant for the
+       *  person reading it, on anyone under `min_signup_age()`. */
+      set_date_of_birth: { Args: { p_dob: string }; Returns: undefined };
+      /** The viewer's own age in whole years, or null if never given. */
+      viewer_age: { Args: Record<string, never>; Returns: number | null };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

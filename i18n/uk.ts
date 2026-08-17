@@ -39,6 +39,7 @@ export const uk: Record<TranslationKey, Phrase> = {
   'auth.email': 'Пошта',
   'auth.emailPlaceholder': 'you@example.com',
   'auth.password': 'Пароль',
+  'auth.dateOfBirth': 'Дата народження',
   'auth.forgot': 'Забули?',
   'auth.signIn': 'Увійти',
   'auth.signInFailed': 'Не вдалося увійти',
@@ -97,6 +98,22 @@ export const uk: Record<TranslationKey, Phrase> = {
   'validation.usernameChars': 'Лише латинські літери, цифри, «_» і «.».',
   'validation.displayNameRequired': 'Вкажіть ім’я.',
   'validation.displayNameMax': 'Ім’я має бути не довшим за 40 символів.',
+  'validation.dobRequired': 'Вкажіть дату народження.',
+  'validation.dobInvalid': 'Ця дата народження некоректна.',
+  'validation.tooYoung': 'MapMeet доступний із 16 років.',
+
+  // ── Age gate ──────────────────────────────────────────────────────
+  'age.title': 'Скільки вам років?',
+  'age.why':
+    'MapMeet зводить людей разом, тому ми питаємо один раз. Потрібно мати {n} років або більше. Вашу дату народження не побачить ніхто — ані інші учасники, ані ті, з кими ви зустрічаєтесь.',
+  'age.label': 'Дата народження',
+  'age.submit': 'Продовжити',
+  'age.signOut': 'Краще вийти',
+  'age.invalid': 'Ця дата народження некоректна.',
+  'age.tooYoung': 'MapMeet доступний людям від {n} років.',
+  'age.failed': 'Не вдалося зберегти дату народження. Спробуйте ще раз.',
+  'age.privacy':
+    'Зберігається окремо від профілю, і прочитати її можете лише ви. Ми використовуємо її винятково для перевірки віку.',
   'validation.titleRequired': 'Вкажіть назву.',
   'validation.emojiRequired': 'Оберіть емодзі.',
   'validation.emojiTooLong': 'Забагато емодзі — оберіть одне.',

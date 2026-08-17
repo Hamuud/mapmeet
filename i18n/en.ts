@@ -37,6 +37,7 @@ export const en = {
   'auth.email': 'Email',
   'auth.emailPlaceholder': 'you@example.com',
   'auth.password': 'Password',
+  'auth.dateOfBirth': 'Date of birth',
   'auth.forgot': 'Forgot?',
   'auth.signIn': 'Sign in',
   'auth.signInFailed': 'Sign in failed',
@@ -95,6 +96,22 @@ export const en = {
   'validation.usernameChars': 'Letters, numbers, "_" and "." only.',
   'validation.displayNameRequired': 'Display name is required.',
   'validation.displayNameMax': 'Display name must be 40 characters or fewer.',
+  'validation.dobRequired': 'Please give your date of birth.',
+  'validation.dobInvalid': 'That date of birth is not valid.',
+  'validation.tooYoung': 'You need to be at least 16 to use MapMeet.',
+
+  // ── Age gate ──────────────────────────────────────────────────────
+  'age.title': 'How old are you?',
+  'age.why':
+    'MapMeet puts people in the same room, so we ask once. You need to be {n} or over. Nobody else sees your birthday — not other members, not the people you meet.',
+  'age.label': 'Date of birth',
+  'age.submit': 'Continue',
+  'age.signOut': 'Sign out instead',
+  'age.invalid': 'That date of birth is not valid.',
+  'age.tooYoung': 'MapMeet is for people aged {n} and over.',
+  'age.failed': 'Could not save your date of birth. Try again.',
+  'age.privacy':
+    'Stored separately from your profile and readable only by you. We keep it to check your age and nothing else.',
   'validation.titleRequired': 'Title is required.',
   'validation.emojiRequired': 'Pick an emoji.',
   'validation.emojiTooLong': 'Emoji is too long — pick a single one.',
