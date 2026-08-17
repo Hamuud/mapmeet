@@ -36,6 +36,20 @@ export function isEventPast(
   return now.getTime() > cutoff;
 }
 
+/** True while an event is close enough to be happening: from two hours
+ *  before it starts until three after. The window the check-in button
+ *  appears in, and the same one `check_in()` enforces in SQL — keep the
+ *  two in step or the button will offer something the server refuses. */
+export function isEventLive(
+  event: { event_date: string; event_time: string },
+  now: Date = new Date(),
+): boolean {
+  const start = eventStart(event);
+  if (!start) return false;
+  const t = now.getTime();
+  return t >= start.getTime() - 2 * 3600_000 && t <= start.getTime() + 3 * 3600_000;
+}
+
 /** Minutes before the archive cutoff at which we warn the chat. */
 export const ARCHIVE_WARNING_MINUTES = 30;
 

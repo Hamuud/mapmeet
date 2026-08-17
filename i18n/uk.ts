@@ -294,6 +294,22 @@ export const uk: Record<TranslationKey, Phrase> = {
   'events.joined': 'Ви йдете',
   'events.fullShort': 'Немає місць',
 
+  // ── Arriving, and telling someone ─────────────────────────────────
+  'checkin.action': 'Я на місці',
+  'checkin.arrived': 'Ви відмітилися',
+  'checkin.done': 'Готово — у чаті знають, що ви на місці.',
+  'checkin.failed': 'Не вдалося відмітитися. Спробуйте ще раз.',
+  'tellFriend.action': 'Сказати другові, де я',
+  'tellFriend.title': 'Повідомити друга',
+  'tellFriend.subtitle': 'Надішліть комусь деталі та час, коли плануєте повернутися. Це звичайне повідомлення — більше ніхто його не побачить.',
+  'tellFriend.backBy': 'Повернуся до',
+  'tellFriend.send': 'Надіслати деталі',
+  'tellFriend.sent': 'Надіслано. Деталі у друга.',
+  'tellFriend.failed': 'Не вдалося надіслати повідомлення.',
+  'tellFriend.noFriends': 'Спершу додайте друга — і він з’явиться тут.',
+  'tellFriend.message': 'Привіт! Я йду на {title} {date} о {time}, місце — {place}. Планую повернутися до {back}.',
+  'report.event': 'Поскаржитися на подію',
+
   // ── Place + date search ───────────────────────────────────────────
   'filter.dates': 'Дати',
   'search.places': 'Перейти до місця',

@@ -291,6 +291,22 @@ export const en = {
   'events.joined': 'Joined',
   'events.fullShort': 'Full',
 
+  // ── Arriving, and telling someone ─────────────────────────────────
+  'checkin.action': "I'm here",
+  'checkin.arrived': 'You checked in',
+  'checkin.done': 'Checked in — the chat knows you arrived.',
+  'checkin.failed': 'Could not check in. Try again.',
+  'tellFriend.action': 'Tell a friend where I am',
+  'tellFriend.title': 'Tell a friend',
+  'tellFriend.subtitle': 'Send someone the details and when you expect to be back. They get an ordinary message — nothing is shared with anyone else.',
+  'tellFriend.backBy': 'Back by',
+  'tellFriend.send': 'Send the details',
+  'tellFriend.sent': 'Sent. They have the details.',
+  'tellFriend.failed': 'Could not send that message.',
+  'tellFriend.noFriends': 'Add a friend first and they will show up here.',
+  'tellFriend.message': 'Heads up — I am going to {title} on {date} at {time}, at {place}. I expect to be back by {back}.',
+  'report.event': 'Report this event',
+
   // ── Place + date search ───────────────────────────────────────────
   'filter.dates': 'Dates',
   'search.places': 'Go to a place',

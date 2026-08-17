@@ -689,6 +689,10 @@ export type Database = {
       set_date_of_birth: { Args: { p_dob: string }; Returns: undefined };
       /** The viewer's own age in whole years, or null if never given. */
       viewer_age: { Args: Record<string, never>; Returns: number | null };
+      /** Mark the caller arrived; returns the arrival time. Idempotent. */
+      check_in: { Args: { p_event_id: string }; Returns: string };
+      /** The caller's own arrival time at an event, or null. */
+      my_arrival: { Args: { p_event_id: string }; Returns: string | null };
       /** Attendees of an event, already filtered by each person's
        *  attending_visibility and by blocks, friends first. */
       event_attendees: {

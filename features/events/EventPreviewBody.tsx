@@ -31,7 +31,10 @@ import { isEventPast } from '@/utils/eventTime';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import type { EventWithCreator, LatLng } from '@/types';
 
+import { ReportSheet } from '@/features/moderation/ReportSheet';
+import { isEventLive } from '@/utils/eventTime';
 import { AttendeesSheet } from './AttendeesSheet';
+import { TellFriendSheet } from './TellFriendSheet';
 import type { EventAttendee } from '@/types';
 
 type Props = {
@@ -135,6 +138,10 @@ export function EventPreviewBody({
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [attendeesOpen, setAttendeesOpen] = useState(false);
+  const [tellFriendOpen, setTellFriendOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [arrivedAt, setArrivedAt] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
   // Imported from a ticketing site (karabas.com etc.) rather than pinned
@@ -177,6 +184,38 @@ export function EventPreviewBody({
       cancelled = true;
     };
   }, [event.id]);
+
+  // Have I said I'm here? Only worth asking for events I'm going to.
+  useEffect(() => {
+    if (!event.is_joined) {
+      setArrivedAt(null);
+      return;
+    }
+    let cancelled = false;
+    void eventsService.myArrival(event.id).then((at) => {
+      if (!cancelled) setArrivedAt(at);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [event.id, event.is_joined]);
+
+  /** "I'm here." Announces once in the chat, which is the point — the
+   *  other people circling the same café are the audience. */
+  const handleCheckIn = async () => {
+    if (checkingIn) return;
+    setCheckingIn(true);
+    try {
+      const at = await eventsService.checkIn(event.id);
+      setArrivedAt(at);
+      toast.show(t('checkin.done'), 'success');
+    } catch (e) {
+      // The function's refusals are written for a person to read.
+      toast.show(e instanceof Error ? e.message : t('checkin.failed'), 'error');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
 
   const distanceLabel = viewerLocation
     ? formatDistance(
@@ -448,6 +487,50 @@ export function EventPreviewBody({
         />
       ) : null}
 
+      {/* ── Going somewhere to meet strangers ──────────────────────────
+          Three things that belong together: tell someone where you are,
+          say you got there, and report the event if it turns out to be
+          something else. All three used to be missing, two taps away, or
+          buried on the host's profile. */}
+
+      {/* "I'm here" — only while the event is actually close, and only
+          for people going. Reads as a state once tapped, not a button
+          that can be pressed again. */}
+      {event.is_joined && isEventLive(event) ? (
+        arrivedAt ? (
+          <View className="h-10 flex-row items-center justify-center gap-2 rounded-xl bg-brand-500/10">
+            <Ionicons name="checkmark-done" size={14} color="#4B5FE0" />
+            <Text className="text-sm font-semibold text-brand-500">
+              {t('checkin.arrived')}
+            </Text>
+          </View>
+        ) : (
+          <PrimaryButton
+            label={t('checkin.action')}
+            variant="secondary"
+            size="sm"
+            leftIcon={<Ionicons name="location" size={13} color="#4B5FE0" />}
+            loading={checkingIn}
+            onPress={() => void handleCheckIn()}
+            fullWidth
+          />
+        )
+      ) : null}
+
+      {/* Tell a friend where you're going. Offered for anything still
+          ahead that you're going to — the reassurance is the point, and
+          it is worth least after the fact. */}
+      {session && event.is_joined && !isPast ? (
+        <PrimaryButton
+          label={t('tellFriend.action')}
+          variant="secondary"
+          size="sm"
+          leftIcon={<Ionicons name="shield-checkmark-outline" size={13} color="#4B5FE0" />}
+          onPress={() => setTellFriendOpen(true)}
+          fullWidth
+        />
+      ) : null}
+
       {/* Tickets — imported events link straight back to the source. */}
       {isImported && event.source_url ? (
         <PrimaryButton
@@ -540,6 +623,39 @@ export function EventPreviewBody({
           </View>
         </View>
       ) : null}
+
+      {/* Reporting the event itself, not its host. One tap from the
+          thing that is wrong, rather than a detour through the profile of
+          whoever posted it. Deliberately the quietest control here. */}
+      {session && !isCreator ? (
+        <Pressable
+          onPress={() => setReportOpen(true)}
+          hitSlop={6}
+          className="flex-row items-center justify-center gap-1.5 py-1"
+        >
+          <Ionicons name="flag-outline" size={12} color="#8B8880" />
+          <Text className="text-[11px] font-medium text-muted-light dark:text-muted-dark">
+            {t('report.event')}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <TellFriendSheet
+        open={tellFriendOpen}
+        event={event}
+        viewerId={session?.user.id ?? null}
+        onClose={() => setTellFriendOpen(false)}
+      />
+
+      <ReportSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="event"
+        targetId={event.id}
+        targetUserId={event.creator_id}
+        targetText={event.title}
+        targetLabel={event.title}
+      />
 
       {/* Share: friends in-app (invite lands as an acceptable DM card),
           or out via Telegram / WhatsApp / Viber / Copy. */}

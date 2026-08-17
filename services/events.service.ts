@@ -103,6 +103,26 @@ export const eventsService = {
     );
   },
 
+  /** "I'm here." Idempotent — a second tap returns the first timestamp
+   *  and posts nothing more, so a double tap can't spam the chat. The
+   *  window (2h before to 3h after) is enforced in SQL. */
+  async checkIn(eventId: string): Promise<string> {
+    const { data, error } = await supabase.rpc('check_in', {
+      p_event_id: eventId,
+    });
+    if (error) throw new Error(error.message);
+    return data as string;
+  },
+
+  /** When the viewer checked in, or null. */
+  async myArrival(eventId: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc('my_arrival', {
+      p_event_id: eventId,
+    });
+    if (error) return null;
+    return (data as string | null) ?? null;
+  },
+
   async save(eventId: string, viewerId: string): Promise<void> {
     const { error } = await supabase
       .from('saved_events')
