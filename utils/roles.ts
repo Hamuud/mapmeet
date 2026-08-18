@@ -48,3 +48,18 @@ export function canStylePinFreeform(role: UserRole | null | undefined): boolean 
 export function isPremiumRole(role: UserRole | null | undefined): boolean {
   return role === 'premium';
 }
+
+/** How many markers a role may pin per rolling 24 hours; null =
+ *  unlimited. Mirror of `daily_event_limit()` in SQL — change both, and
+ *  remember the SQL one is what actually enforces it. This copy exists
+ *  so the wizard can show "2 of 5 left" without a round trip when the
+ *  quota call hasn't landed yet.
+ *
+ *  Unknown roles fall through to the plain-user number rather than to
+ *  unlimited, same as the SQL: a stale bundle that hasn't heard of a new
+ *  tier should under-promise, not over-promise. */
+export function dailyEventLimit(role: UserRole | null | undefined): number | null {
+  if (role && STAFF_ROLES.includes(role)) return null;
+  if (role === 'premium') return 25;
+  return 5;
+}

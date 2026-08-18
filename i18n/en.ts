@@ -433,6 +433,23 @@ export const en = {
   'createEvent.created': 'Event pinned to the map.',
   'createEvent.failed': 'Could not create event',
 
+  // ── Daily marker cap ──────────────────────────────────────────────
+  'createEvent.quotaLeft': {
+    one: '{count} of {total} pins left today',
+    other: '{count} of {total} pins left today',
+  },
+  'createEvent.limitTitle': 'Daily pin limit reached',
+  'createEvent.limitBody': {
+    one: 'Your account can pin {count} event every 24 hours.',
+    other: 'Your account can pin {count} events every 24 hours.',
+  },
+  'createEvent.limitAgainAt': 'You can pin again at',
+  'createEvent.limitPremium': {
+    one: 'Premium raises it to {count} a day.',
+    other: 'Premium raises it to {count} a day.',
+  },
+  'createEvent.limitToast': 'Daily pin limit reached. You can pin again at {when}.',
+
   // ── Create-event wizard ───────────────────────────────────────────
   'createEvent.stepOf': 'Step {n} of {total}',
   'createEvent.goToStep': 'Go back to step {n}',

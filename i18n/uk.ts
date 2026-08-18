@@ -436,6 +436,28 @@ export const uk: Record<TranslationKey, Phrase> = {
   'createEvent.created': 'Подію додано на карту.',
   'createEvent.failed': 'Не вдалося створити подію',
 
+  // ── Денний ліміт позначок ─────────────────────────────────────────
+  // «Залишилась 1», «Залишилось 2» — форма дієслова змінюється разом із
+  // числівником, тому кожен варіант написано повністю.
+  'createEvent.quotaLeft': {
+    one: 'Залишилась {count} позначка з {total}',
+    few: 'Залишилось {count} позначки з {total}',
+    other: 'Залишилось {count} позначок з {total}',
+  },
+  'createEvent.limitTitle': 'Денний ліміт вичерпано',
+  'createEvent.limitBody': {
+    one: 'Ваш акаунт може створити {count} подію за 24 години.',
+    few: 'Ваш акаунт може створити {count} події за 24 години.',
+    other: 'Ваш акаунт може створити {count} подій за 24 години.',
+  },
+  'createEvent.limitAgainAt': 'Наступна позначка буде доступна',
+  'createEvent.limitPremium': {
+    one: 'Преміум збільшує ліміт до {count} події на день.',
+    few: 'Преміум збільшує ліміт до {count} подій на день.',
+    other: 'Преміум збільшує ліміт до {count} подій на день.',
+  },
+  'createEvent.limitToast': 'Денний ліміт вичерпано. Наступна позначка — о {when}.',
+
   // ── Майстер створення події ───────────────────────────────────────
   // A slash, not «з»: the label renders CSS-uppercased, and «КРОК 1 З 5»
   // reads as "КРОК 1 3 5" — capital Ze is indistinguishable from a

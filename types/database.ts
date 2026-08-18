@@ -706,6 +706,17 @@ export type Database = {
           is_friend: boolean;
         }[];
       };
+      /** How many markers the caller may still pin. `max_per_day` null
+       *  means unlimited; `resets_at` is when the oldest marker in the
+       *  rolling 24h window ages out. No rows when signed out. */
+      my_event_quota: {
+        Args: Record<string, never>;
+        Returns: {
+          used: number;
+          max_per_day: number | null;
+          resets_at: string | null;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

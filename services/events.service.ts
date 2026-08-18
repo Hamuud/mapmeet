@@ -40,6 +40,30 @@ export type Bbox = {
   maxLng: number;
 };
 
+/** The viewer's marker allowance for the current rolling 24 hours.
+ *  `max` null means unlimited. `resetsAt` is when the oldest marker in
+ *  the window ages out — i.e. the first moment a slot frees up — and is
+ *  null when nothing has been pinned yet. */
+export type EventQuota = {
+  used: number;
+  max: number | null;
+  resetsAt: string | null;
+};
+
+/** The daily cap rejects an INSERT with `DAILY_EVENT_LIMIT <n> <iso>`.
+ *  Postgres hands that back as prose in `error.message`, so the two
+ *  numbers the UI wants have to be picked back out of the string —
+ *  PostgREST has nowhere else to put them.
+ *
+ *  Returns null for anything that isn't that error, so a caller can fall
+ *  through to its normal failure path. */
+export function parseDailyLimitError(e: unknown): { limit: number; resetsAt: string } | null {
+  const message = e instanceof Error ? e.message : String(e ?? '');
+  const m = /DAILY_EVENT_LIMIT (\d+) (\S+)/.exec(message);
+  if (!m) return null;
+  return { limit: Number(m[1]), resetsAt: m[2]! };
+}
+
 /** Hard cap on imported events pulled for one viewport. Zoomed out over
  *  a whole country the box can cover hundreds; we'd rather show a dense
  *  sample fast than stall the map. */
@@ -223,6 +247,21 @@ export const eventsService = {
     return ((data ?? []) as unknown as RawEventRow[]).map((row) =>
       toEventWithCreator(row, viewerId),
     );
+  },
+
+  /** How many markers the viewer may still pin in the current rolling
+   *  24 hours. `max` null = unlimited (staff).
+   *
+   *  Returns null rather than throwing when the call fails: this only
+   *  drives a counter and a pre-emptive block, and the DB trigger is the
+   *  real cap. An offline device should reach the wizard and be refused
+   *  by the server, not be refused by a failed fetch. */
+  async myQuota(): Promise<EventQuota | null> {
+    const { data, error } = await supabase.rpc('my_event_quota');
+    if (error) return null;
+    const row = (data as { used: number; max_per_day: number | null; resets_at: string | null }[] | null)?.[0];
+    if (!row) return null;
+    return { used: row.used, max: row.max_per_day, resetsAt: row.resets_at };
   },
 
   async create(input: EventInsert): Promise<Event> {
