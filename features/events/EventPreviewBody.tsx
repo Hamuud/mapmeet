@@ -561,6 +561,29 @@ export function EventPreviewBody({
             onPress={() => onViewHost(event)}
           />
         ) : null}
+
+        {/* Host controls, last and destructive-last within that.
+            They live in this row rather than in the pair of full-width
+            buttons they used to be: they are things you do *to* an event
+            you already own, not the reason you opened the sheet. Delete
+            raises the parent's confirmation dialog — an icon this small
+            must never be one tap from gone. */}
+        {isCreator && onEdit ? (
+          <SheetAction
+            icon="create-outline"
+            label={t('events.edit')}
+            onPress={() => onEdit(event)}
+          />
+        ) : null}
+
+        {isCreator && onDelete ? (
+          <SheetAction
+            icon="trash-outline"
+            label={t('common.delete')}
+            tone="danger"
+            onPress={() => onDelete(event)}
+          />
+        ) : null}
       </View>
 
       {/* Reporting the event itself, not its host. One tap from the
@@ -632,22 +655,33 @@ export function EventPreviewBody({
   );
 }
 
+const DANGER = '#B91C1C';
+const BRAND = '#4B5FE0';
+
 /** One action in the icon row: a tappable glyph with a caption under it.
  *
- *  Sized so five fit across a 375pt phone without the captions
+ *  Sized so six fit across a 375pt phone without the captions
  *  truncating — they wrap to two lines instead, which is why the row
- *  aligns to the top rather than the centre. */
+ *  aligns to the top rather than the centre. Six is the worst case: a
+ *  host looking at their own event gets Calendar, Tell a friend, Share,
+ *  Chat, Edit and Delete.
+ *
+ *  `tone` exists for exactly one caller. Delete sitting in a row of
+ *  identical blue glyphs would read as just another thing to try. */
 function SheetAction({
   icon,
   label,
   onPress,
   busy = false,
+  tone = 'brand',
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   busy?: boolean;
+  tone?: 'brand' | 'danger';
 }) {
+  const danger = tone === 'danger';
   return (
     <Pressable
       onPress={onPress}
@@ -657,15 +691,25 @@ function SheetAction({
       className="flex-1 items-center gap-1 active:opacity-60"
       style={{ maxWidth: 76 }}
     >
-      <View className="h-11 w-11 items-center justify-center rounded-full border border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark">
+      <View
+        className={[
+          'h-11 w-11 items-center justify-center rounded-full border',
+          danger
+            ? 'border-red-500/30 bg-red-500/10'
+            : 'border-border-light bg-elevated-light dark:border-border-dark dark:bg-elevated-dark',
+        ].join(' ')}
+      >
         {busy ? (
-          <ActivityIndicator size="small" color="#4B5FE0" />
+          <ActivityIndicator size="small" color={danger ? DANGER : BRAND} />
         ) : (
-          <Ionicons name={icon} size={18} color="#4B5FE0" />
+          <Ionicons name={icon} size={18} color={danger ? DANGER : BRAND} />
         )}
       </View>
       <Text
-        className="text-center text-[9.5px] font-medium leading-tight text-ink2-light dark:text-ink2-dark"
+        className={[
+          'text-center text-[9.5px] font-medium leading-tight',
+          danger ? 'text-red-700' : 'text-ink2-light dark:text-ink2-dark',
+        ].join(' ')}
         numberOfLines={2}
       >
         {label}
