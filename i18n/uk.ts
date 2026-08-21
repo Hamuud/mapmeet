@@ -873,6 +873,11 @@ export const uk: Record<TranslationKey, Phrase> = {
   'admin.resolved': 'Скаргу вирішено.',
   'admin.deleteReview': 'Видалити цей відгук',
   'admin.reviewDeleted': 'Відгук видалено.',
+  'admin.eventTags': 'Теги цієї події',
+  'admin.removeTag': 'Прибрати тег {tag}',
+  'admin.tagRemoved': 'Тег #{tag} прибрано.',
+  'admin.tagsHint':
+    'Торкніться тега, щоб прибрати його з події. Решта події лишається без змін. У події має бути хоча б один тег, тож після видалення останнього залишиться «general».',
   'admin.actOnAccount': 'Дії з акаунтом',
   'admin.issueWarning': 'Винести попередження',
   'admin.warningIssued': 'Попередження винесено.',

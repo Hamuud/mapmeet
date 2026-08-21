@@ -859,6 +859,11 @@ export const en = {
   'admin.resolved': 'Report resolved.',
   'admin.deleteReview': 'Delete this review',
   'admin.reviewDeleted': 'Review deleted.',
+  'admin.eventTags': 'Tags on this event',
+  'admin.removeTag': 'Remove the tag {tag}',
+  'admin.tagRemoved': 'Removed #{tag}.',
+  'admin.tagsHint':
+    'Tap a tag to take it off the event. Everything else about the event is left alone. An event has to keep one tag, so removing the last one leaves “general”.',
   'admin.actOnAccount': 'Act on the account',
   'admin.issueWarning': 'Issue warning',
   'admin.warningIssued': 'Warning issued.',

@@ -474,7 +474,18 @@ export type Database = {
           target_muted_until: string | null;
           target_warnings: number | null;
           target_report_count: number | null;
+          /** The reported event's current tags. Null for every other
+           *  kind of report — which is how the queue tells "not an
+           *  event" apart from "an event with no tags". */
+          target_event_tags: string[] | null;
         }[];
+      };
+      /** Strip rule-breaking tags off an event. Returns what remains;
+       *  an event always keeps at least one, so removing the last
+       *  leaves 'general'. */
+      admin_remove_event_tags: {
+        Args: { p_event: string; p_tags: string[]; p_report?: string | null };
+        Returns: string[];
       };
       admin_resolve_report: {
         Args: { p_report: string; p_status: string; p_note?: string | null };

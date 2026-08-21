@@ -54,6 +54,10 @@ export type AdminReport = {
   target_muted_until: string | null;
   target_warnings: number | null;
   target_report_count: number | null;
+  /** Present only on reports about an event: the tags it carries right
+   *  now. Null everywhere else, which is a different thing from an
+   *  empty list — an event always has at least one tag. */
+  target_event_tags: string[] | null;
 };
 
 /** Re-exported so callers that already import from this service don't
@@ -222,6 +226,28 @@ export const reportsService = {
     const { data, error } = await supabase.rpc('list_staff');
     if (error) throw error;
     return (data as StaffMember[] | null) ?? [];
+  },
+
+  /** Strip rule-breaking tags off a reported event, leaving the event
+   *  itself alone. The middle ground the queue was missing: a complaint
+   *  about one bad hashtag shouldn't have to be answered with a mute.
+   *
+   *  Returns the tags that remain, so the panel can repaint from the
+   *  server's answer instead of guessing — which matters because an
+   *  event must keep at least one tag, and removing the last one leaves
+   *  'general' rather than nothing. */
+  async removeEventTags(
+    eventId: string,
+    tags: string[],
+    reportId?: string | null,
+  ): Promise<string[]> {
+    const { data, error } = await supabase.rpc('admin_remove_event_tags', {
+      p_event: eventId,
+      p_tags: tags,
+      p_report: reportId ?? null,
+    });
+    if (error) throw error;
+    return (data as string[] | null) ?? [];
   },
 
   /** Remove a review judged false or abusive. */

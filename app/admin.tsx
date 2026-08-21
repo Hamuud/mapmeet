@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { currentBcp47, useT, type TranslationKey } from '@/i18n';
@@ -56,6 +64,8 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [target, setTarget] = useState<AdminReport | null>(null);
   const [confirmBan, setConfirmBan] = useState<AdminReport | null>(null);
+  /** Which tag is mid-flight, so only that chip shows a spinner. */
+  const [removingTag, setRemovingTag] = useState<string | null>(null);
 
   useEffect(() => {
     reportsService
@@ -94,6 +104,44 @@ export default function AdminScreen() {
       }
     },
     [load, toast],
+  );
+
+  /** Strip one tag off the reported event.
+   *
+   *  Deliberately NOT routed through `act`: that closes the sheet and
+   *  re-fetches the whole queue, and a report with three bad tags on it
+   *  would mean reopening the sheet twice. This repaints from the tags
+   *  the RPC returns — which is also the only honest source, since the
+   *  server substitutes 'general' when the last one goes. */
+  const removeTag = useCallback(
+    async (report: AdminReport, tag: string) => {
+      if (!report.target_id) return;
+      setRemovingTag(tag);
+      try {
+        const left = await reportsService.removeEventTags(
+          report.target_id,
+          [tag],
+          report.id,
+        );
+        setTarget((cur) =>
+          cur && cur.id === report.id ? { ...cur, target_event_tags: left } : cur,
+        );
+        // Every open report about the same event shows the same tags.
+        setReports((rs) =>
+          rs.map((r) =>
+            r.target_type === 'event' && r.target_id === report.target_id
+              ? { ...r, target_event_tags: left }
+              : r,
+          ),
+        );
+        toast.show(t('admin.tagRemoved', { tag }), 'success');
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : t('admin.actionFailed'), 'error');
+      } finally {
+        setRemovingTag(null);
+      }
+    },
+    [toast],
   );
 
   if (isAdmin === false) {
@@ -349,6 +397,44 @@ export default function AdminScreen() {
                 }
                 fullWidth
               />
+            ) : null}
+
+            {/* Act on the content, not the account. A complaint about a
+                hashtag is usually answered by taking the hashtag off —
+                muting the host for it is the wrong size of hammer, and
+                until now it was the only one in the queue. */}
+            {target.target_type === 'event' &&
+            target.target_id &&
+            target.target_event_tags ? (
+              <>
+                <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
+                  {t('admin.eventTags')}
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {target.target_event_tags.map((tag) => (
+                    <Pressable
+                      key={tag}
+                      disabled={removingTag !== null}
+                      onPress={() => void removeTag(target, tag)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('admin.removeTag', { tag })}
+                      className="flex-row items-center gap-1.5 rounded-xl border border-red-300 bg-panel-light px-3 py-2 active:opacity-70 dark:bg-panel-dark"
+                    >
+                      <Text className="text-[13px] font-semibold text-text-light dark:text-text-dark">
+                        #{tag}
+                      </Text>
+                      {removingTag === tag ? (
+                        <ActivityIndicator size="small" color="#B91C1C" />
+                      ) : (
+                        <Ionicons name="close-circle" size={14} color="#B91C1C" />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+                <Text className="text-[11px] leading-snug text-muted-light dark:text-muted-dark">
+                  {t('admin.tagsHint')}
+                </Text>
+              </>
             ) : null}
 
             {target.target_user_id ? (
