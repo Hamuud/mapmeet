@@ -122,6 +122,30 @@ export const ROLE_LABEL: Record<UserRole, TranslationKey> = {
   owner: 'role.owner',
 };
 
+/** How many complaints the viewer may still file in the current rolling
+ *  24 hours. `max` null means unlimited — staff, who work the queue. */
+export type ReportQuota = {
+  used: number;
+  max: number | null;
+  resetsAt: string | null;
+};
+
+/** submit_report rejects an over-cap complaint with
+ *  `REPORT_LIMIT <n> <iso>`. PostgREST hands that back as prose in
+ *  `error.message`, so the cap and the reset time have to be picked back
+ *  out of the string — there is nowhere else to put them.
+ *
+ *  Returns null for anything that isn't that error, so a caller can fall
+ *  through to its normal failure path. */
+export function parseReportLimitError(
+  e: unknown,
+): { limit: number; resetsAt: string } | null {
+  const message = e instanceof Error ? e.message : String(e ?? '');
+  const m = /REPORT_LIMIT (\d+) (\S+)/.exec(message);
+  if (!m) return null;
+  return { limit: Number(m[1]), resetsAt: m[2]! };
+}
+
 export const reportsService = {
   /** File a complaint. `reasons` is one or more REPORT_REASONS keys. */
   async submit(input: {
@@ -248,6 +272,38 @@ export const reportsService = {
     });
     if (error) throw error;
     return (data as string[] | null) ?? [];
+  },
+
+  /** Take a reported event off the map entirely.
+   *
+   *  Resolves every open report about that event, not just the one the
+   *  moderator acted from — three people reporting the same event is the
+   *  normal case, and the other two shouldn't be left pointing at a row
+   *  that no longer exists. Returns how many it closed.
+   *
+   *  Attendees get the same "it's cancelled" push a host deletion sends;
+   *  that is `capture_event_cancellation`, which runs regardless of who
+   *  did the deleting. */
+  async deleteEvent(eventId: string, reportId?: string | null): Promise<number> {
+    const { data, error } = await supabase.rpc('admin_delete_event', {
+      p_event: eventId,
+      p_report: reportId ?? null,
+      p_note: null,
+    });
+    if (error) throw error;
+    return (data as number | null) ?? 0;
+  },
+
+  /** The viewer's own report allowance. Null when the call fails — this
+   *  only drives a counter, and submit_report is the real cap. */
+  async myReportQuota(): Promise<ReportQuota | null> {
+    const { data, error } = await supabase.rpc('my_report_quota');
+    if (error) return null;
+    const row = (data as
+      | { used: number; max_per_day: number | null; resets_at: string | null }[]
+      | null)?.[0];
+    if (!row) return null;
+    return { used: row.used, max: row.max_per_day, resetsAt: row.resets_at };
   },
 
   /** Remove a review judged false or abusive. */

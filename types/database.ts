@@ -453,6 +453,16 @@ export type Database = {
         };
         Returns: string;
       };
+      /** How many complaints the caller may still file in the current
+       *  rolling 24h. `max_per_day` null means unlimited (staff). */
+      my_report_quota: {
+        Args: Record<string, never>;
+        Returns: {
+          used: number;
+          max_per_day: number | null;
+          resets_at: string | null;
+        }[];
+      };
       admin_list_reports: {
         Args: { p_status?: string };
         Returns: {
@@ -486,6 +496,12 @@ export type Database = {
       admin_remove_event_tags: {
         Args: { p_event: string; p_tags: string[]; p_report?: string | null };
         Returns: string[];
+      };
+      /** Remove a reported event outright. Resolves every open report
+       *  about it and returns how many that was. */
+      admin_delete_event: {
+        Args: { p_event: string; p_report?: string | null; p_note?: string | null };
+        Returns: number;
       };
       admin_resolve_report: {
         Args: { p_report: string; p_status: string; p_note?: string | null };

@@ -833,6 +833,10 @@ export const en = {
   'report.sendN': 'Send report ({n} reasons)',
   'report.sent': 'Report sent. Our moderators will review it.',
   'report.failed': 'Could not send report',
+  'report.limitReached': {
+    one: "You've used your {count} report for today. You can report again on {when}.",
+    other: "You've used all {count} reports for today. You can report again on {when}.",
+  },
   'restriction.blockedTitle': 'Account blocked',
   'restriction.mutedTitle': 'Action temporarily blocked',
   'restriction.blockedBody': 'This action is unavailable because your account has been blocked following multiple complaints. Contact support if you think this is a mistake.',
@@ -864,6 +868,15 @@ export const en = {
   'admin.tagRemoved': 'Removed #{tag}.',
   'admin.tagsHint':
     'Tap a tag to take it off the event. Everything else about the event is left alone. An event has to keep one tag, so removing the last one leaves “general”.',
+  'admin.deleteEvent': 'Delete this event',
+  'admin.thisEvent': 'this event',
+  'admin.deleteEventTitle': 'Delete “{title}”?',
+  'admin.deleteEventMessage':
+    "The event comes off the map and everyone who joined is told it was cancelled. Every open report about it is marked resolved. This can't be undone.",
+  'admin.eventDeleted': {
+    one: 'Event deleted. {count} report resolved.',
+    other: 'Event deleted. {count} reports resolved.',
+  },
   'admin.actOnAccount': 'Act on the account',
   'admin.issueWarning': 'Issue warning',
   'admin.warningIssued': 'Warning issued.',

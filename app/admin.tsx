@@ -64,6 +64,9 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [target, setTarget] = useState<AdminReport | null>(null);
   const [confirmBan, setConfirmBan] = useState<AdminReport | null>(null);
+  const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<AdminReport | null>(
+    null,
+  );
   /** Which tag is mid-flight, so only that chip shows a spinner. */
   const [removingTag, setRemovingTag] = useState<string | null>(null);
 
@@ -98,6 +101,28 @@ export default function AdminScreen() {
         await fn();
         setTarget(null);
         toast.show(okMessage, 'success');
+        await load();
+      } catch (e) {
+        toast.show(e instanceof Error ? e.message : t('admin.actionFailed'), 'error');
+      }
+    },
+    [load, toast],
+  );
+
+  /** Take the reported event down.
+   *
+   *  Not routed through `act` for one reason: how many complaints this
+   *  closed is only known once the RPC answers, and `act` takes its
+   *  success message up front. Three people reporting the same event is
+   *  the normal case and "3 reports resolved" is the part a moderator
+   *  wants to read. */
+  const deleteEvent = useCallback(
+    async (report: AdminReport) => {
+      if (!report.target_id) return;
+      try {
+        const closed = await reportsService.deleteEvent(report.target_id, report.id);
+        setTarget(null);
+        toast.show(t('admin.eventDeleted', { count: closed }), 'success');
         await load();
       } catch (e) {
         toast.show(e instanceof Error ? e.message : t('admin.actionFailed'), 'error');
@@ -434,6 +459,16 @@ export default function AdminScreen() {
                 <Text className="text-[11px] leading-snug text-muted-light dark:text-muted-dark">
                   {t('admin.tagsHint')}
                 </Text>
+
+                {/* The bigger hammer for the same target: when the event
+                    itself is the problem rather than one word on it. */}
+                <PrimaryButton
+                  label={t('admin.deleteEvent')}
+                  variant="destructive-outline"
+                  leftIcon={<Ionicons name="trash-outline" size={14} color="#B91C1C" />}
+                  onPress={() => setConfirmDeleteEvent(target)}
+                  fullWidth
+                />
               </>
             ) : null}
 
@@ -561,6 +596,24 @@ export default function AdminScreen() {
           }
         }}
         onCancel={() => setConfirmBan(null)}
+      />
+
+      {/* Confirmed, not one tap: the row is gone for good and everyone
+          who joined gets told it was cancelled. */}
+      <ConfirmationDialog
+        open={!!confirmDeleteEvent}
+        title={t('admin.deleteEventTitle', {
+          title: confirmDeleteEvent?.target_text ?? t('admin.thisEvent'),
+        })}
+        message={t('admin.deleteEventMessage')}
+        confirmLabel={t('common.delete')}
+        destructive
+        onConfirm={() => {
+          const r = confirmDeleteEvent;
+          setConfirmDeleteEvent(null);
+          if (r?.target_id) void deleteEvent(r);
+        }}
+        onCancel={() => setConfirmDeleteEvent(null)}
       />
     </SafeAreaView>
   );

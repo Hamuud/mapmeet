@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useT } from '@/i18n';
+import { currentBcp47, useT } from '@/i18n';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import {
+  parseReportLimitError,
   REPORT_REASONS,
   reportsService,
   type ReportTargetType,
@@ -72,6 +73,25 @@ export function ReportSheet({
       toast.show(t('report.sent'), 'success');
       onClose();
     } catch (e) {
+      // Over the daily cap. The server answers with a machine-readable
+      // code so the sheet can name the number and the exact minute the
+      // next one is available, rather than showing raw Postgres prose.
+      const capped = parseReportLimitError(e);
+      if (capped) {
+        toast.show(
+          t('report.limitReached', {
+            count: capped.limit,
+            when: new Date(capped.resetsAt).toLocaleString(currentBcp47(), {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }),
+          'error',
+        );
+        return;
+      }
       toast.show(e instanceof Error ? e.message : t('report.failed'), 'error');
     } finally {
       setSending(false);
