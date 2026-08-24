@@ -453,6 +453,25 @@ export type Database = {
         };
         Returns: string;
       };
+      /** The caller's own subscription, for the account screen. No rows
+       *  when signed out or never subscribed. */
+      my_subscription: {
+        Args: Record<string, never>;
+        Returns: {
+          active: boolean;
+          status: string;
+          store: string | null;
+          product_id: string | null;
+          entitled_until: string | null;
+          will_renew: boolean;
+        }[];
+      };
+      /** Is this account currently paying? Time-based, so a missed
+       *  webhook lapses rather than granting forever. */
+      has_active_subscription: {
+        Args: { p_user?: string };
+        Returns: boolean;
+      };
       /** How many complaints the caller may still file in the current
        *  rolling 24h. `max_per_day` null means unlimited (staff). */
       my_report_quota: {

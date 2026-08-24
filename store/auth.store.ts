@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import { authService } from '@/services/auth.service';
 import { profilesService } from '@/services/profiles.service';
+import { useSubscriptionStore } from './subscription.store';
 import type { Profile } from '@/types';
 
 type AuthState = {
@@ -59,6 +60,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     await authService.signOut();
+    // Unbind the store SDK too. Without this the next account to sign in
+    // on this device inherits the last one's cached entitlement until
+    // the first sync lands — briefly showing somebody else's premium.
+    await useSubscriptionStore.getState().signOut().catch(() => {});
     set({ session: null, profile: null });
   },
 

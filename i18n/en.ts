@@ -915,6 +915,41 @@ export const en = {
   'role.supportHint': 'Reviews reports; cannot assign roles',
   'role.admin': 'Admin',
   'role.adminHint': 'Full moderation; cannot assign roles',
+  // ── Premium subscription ──────────────────────────────────────────
+  'settings.premium': 'MapMeet Premium',
+  'settings.premiumHint': 'Styled pins and more markers a day',
+  'settings.premiumOn': 'Active',
+  'premium.title': 'Premium',
+  'premium.heading': 'Make your\npins yours.',
+  'premium.subheading':
+    'Premium is one monthly subscription. Cancel any time, keep it until the month you paid for ends.',
+  'premium.perkColour': 'Colour your event pins from the full palette',
+  'premium.perkEffects': 'Animated pin effects — glow, sparkle, shine',
+  'premium.perkMarkers': 'Pin 25 events a day instead of 5',
+  'premium.perkBadge': 'A premium badge on your profile',
+  'premium.subscribe': 'Subscribe',
+  'premium.subscribeFor': 'Subscribe — {price} / month',
+  // Guideline 3.1.2 wants length, auto-renewal and how to cancel stated
+  // on the screen that takes the money, not buried in the Terms link.
+  'premium.terms':
+    'Billed monthly through your App Store account and renews automatically until you cancel. Cancel any time in Settings → Apple Account → Subscriptions, at least 24 hours before the period ends.',
+  'premium.activeTitle': 'Premium is active',
+  'premium.renewsOn': 'Renews on {date}.',
+  'premium.endsOn': "Cancelled — you keep Premium until {date}, and it won't renew.",
+  'premium.billingIssue':
+    "There's a problem with your payment method. The store is retrying; update it to avoid losing Premium.",
+  'premium.manageHint':
+    'Manage or cancel in Settings → Apple Account → Subscriptions.',
+  'premium.restore': 'Restore purchases',
+  'premium.restored': 'Premium restored.',
+  'premium.nothingToRestore': 'No subscription found for this account.',
+  'premium.legal': 'Terms & Privacy',
+  'premium.thanks': 'Welcome to Premium.',
+  'premium.noOffering': "Premium isn't available right now. Try again shortly.",
+  'premium.appOnlyTitle': 'Subscribe in the app',
+  'premium.appOnlyBody':
+    "Premium is bought through the App Store, so you'll need the MapMeet app to subscribe. Once you have it, Premium works here on the web too.",
+
   'role.premium': 'Premium',
   'role.premiumHint': 'Coloured, animated event pins. No moderation access',
   'role.plain': 'Member',

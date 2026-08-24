@@ -21,6 +21,7 @@ import {
 } from '@/services/calendar.service';
 import { LOCALE_LABEL, LOCALES, useT, type Locale } from '@/i18n';
 import { usePreferencesStore, type Appearance } from '@/store/preferences.store';
+import { useSubscriptionStore } from '@/store/subscription.store';
 import { goBack } from '@/utils/nav';
 
 const APPEARANCE_OPTIONS: readonly Appearance[] = ['light', 'dark', 'auto'] as const;
@@ -72,6 +73,8 @@ export default function SettingsScreen() {
   const setSearchRadiusKm = usePreferencesStore((s) => s.setSearchRadiusKm);
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
   const setFavoriteReaction = usePreferencesStore((s) => s.setFavoriteReaction);
+
+  const premiumActive = useSubscriptionStore((s) => s.active);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -168,6 +171,12 @@ export default function SettingsScreen() {
             icon="person-outline"
             label={t('settings.personalInfo')}
             onPress={() => router.push('/profile-edit')}
+          />
+          <SettingsRow
+            icon="star-outline"
+            label={t('settings.premium')}
+            hint={premiumActive ? t('settings.premiumOn') : t('settings.premiumHint')}
+            onPress={() => router.push('/premium')}
           />
           <SettingsRow
             icon="lock-closed-outline"

@@ -18,6 +18,7 @@ import { usePresence } from '@/hooks/usePresence';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
 import { useModerationStore } from '@/store/moderation.store';
+import { useSubscriptionStore } from '@/store/subscription.store';
 
 /** Bottom tab bar — matches the redesigned mobile screen: light panel
  *  background, hairline top border, ink active state, muted inactive
@@ -45,6 +46,15 @@ export default function TabsLayout() {
   useEffect(() => {
     if (session) void refreshModeration();
   }, [session, refreshModeration]);
+
+  // Bind the store SDK to this account and reconcile the entitlement
+  // with RevenueCat. Done on every authed launch on purpose: it is what
+  // repairs a webhook that never arrived, and the person it repairs it
+  // for is a paying customer who would otherwise have to write in.
+  const bootstrapSubscription = useSubscriptionStore((s) => s.bootstrap);
+  useEffect(() => {
+    if (session) void bootstrapSubscription(session.user.id);
+  }, [session, bootstrapSubscription]);
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   if (!session) return <Redirect href="/(auth)/login" />;
