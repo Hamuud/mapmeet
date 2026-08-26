@@ -50,7 +50,21 @@ That means the *interesting* half of this system — paywall → purchase →
 entitlement → `premium` role → Style step appears — is testable now, on
 a dev build, and only the App Store plumbing has to wait.
 
-`.env` already holds a test key for iOS and Android.
+`.env` holds the test key; `eas.json` holds the real `appl_…` one. That
+split is not an accident and it is not a mismatch:
+
+| Build | Where the JS is bundled | Key it gets |
+| --- | --- | --- |
+| `expo start` + a dev client | your machine, from `.env` | `test_…` → Test Store |
+| `eas build` preview / production | EAS, from `eas.json` | `appl_…` → real App Store |
+
+So local development keeps the simulated purchase sheet while release
+builds go to the real store, without anyone remembering to swap a value.
+
+⚠ Until the Paid Applications Agreement is Active **and** the products
+exist, a preview or TestFlight build will read the real store, find
+nothing, and show "Premium isn't available right now". That is correct
+behaviour, not a regression — test on the dev build until then.
 
 ⚠ **A `test_` key crashes a release build on purpose.** RevenueCat
 detects it at launch, alerts, and kills the app so test purchases can
