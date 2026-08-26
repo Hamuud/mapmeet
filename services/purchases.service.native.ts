@@ -21,9 +21,25 @@ export const ENTITLEMENT = 'premium';
  *  Supabase's, a missing one is not fatal: the app runs fine with
  *  nothing for sale, which is what every build before the store products
  *  exist will be. */
+/** A Test Store key (`test_…`) in a RELEASE build is fatal, by design:
+ *  the RevenueCat SDK detects it, shows an alert and deliberately
+ *  crashes the app on launch so test purchases can never be mistaken for
+ *  real ones. That is a reasonable thing for them to do and a terrible
+ *  thing to discover from TestFlight.
+ *
+ *  So a test key is honoured in development and ignored everywhere else.
+ *  The worst case becomes "premium is not for sale in this build",
+ *  which is recoverable, instead of "the app dies on launch", which is
+ *  a point release. */
+function usableKey(raw: string | undefined): string {
+  const key = raw ?? '';
+  if (key.startsWith('test_') && !__DEV__) return '';
+  return key;
+}
+
 const KEYS = {
-  ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '',
-  android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '',
+  ios: usableKey(process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY),
+  android: usableKey(process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY),
 };
 
 let configured = false;
@@ -47,7 +63,10 @@ export async function initPurchases(userId: string): Promise<void> {
   const apiKey = Platform.OS === 'ios' ? KEYS.ios : KEYS.android;
 
   if (!configured) {
-    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.WARN);
+    // VERBOSE in development, because the first thing anyone debugs here
+    // is why a purchase did not unlock anything. Quiet in release: at
+    // VERBOSE the SDK logs receipt payloads and user ids.
+    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.VERBOSE : LOG_LEVEL.ERROR);
     Purchases.configure({ apiKey, appUserID: userId });
     configured = true;
   } else {

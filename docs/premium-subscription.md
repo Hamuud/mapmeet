@@ -38,6 +38,32 @@ migration for why that matters.
 
 ---
 
+## 0. Test Store — try the whole thing before any App Store setup
+
+RevenueCat provisions a **Test Store** with every project, keyed
+`test_…`. With that key the SDK ignores StoreKit entirely, serves
+products configured in the RevenueCat dashboard, and replaces Apple's
+payment sheet with a modal offering "succeed / fail / cancel". No Paid
+Applications Agreement, no product, no sandbox tester, no device.
+
+That means the *interesting* half of this system — paywall → purchase →
+entitlement → `premium` role → Style step appears — is testable now, on
+a dev build, and only the App Store plumbing has to wait.
+
+`.env` already holds a test key for iOS and Android.
+
+⚠ **A `test_` key crashes a release build on purpose.** RevenueCat
+detects it at launch, alerts, and kills the app so test purchases can
+never leak into production. `purchases.service.native.ts` therefore
+ignores any `test_` key unless `__DEV__`, turning that crash into
+"premium isn't for sale in this build" — but the real `appl_…` key still
+has to reach the EAS secret before a TestFlight build, or premium will
+be quietly unbuyable there.
+
+```bash
+npx eas build --platform ios --profile development
+```
+
 ## 1. App Store Connect
 
 1. **Sign the Paid Applications Agreement** — Business → Agreements, plus
@@ -112,10 +138,13 @@ npx eas build --platform ios --profile production --auto-submit
 
 ## 5. Testing
 
-Use a **Sandbox tester** (App Store Connect → Users and Access → Sandbox)
-on a physical device. Sandbox subscriptions renew every few minutes and
-expire after six renewals, which is what makes the whole lifecycle
-testable in an afternoon.
+For the flow itself, the Test Store (section 0) is enough and needs no
+App Store setup at all.
+
+For the real thing, use a **Sandbox tester** (App Store Connect → Users
+and Access → Sandbox) on a physical device. Sandbox subscriptions renew
+every few minutes and expire after six renewals, which is what makes the
+whole lifecycle testable in an afternoon.
 
 Watch it work:
 
