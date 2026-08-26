@@ -66,23 +66,65 @@ npx eas build --platform ios --profile development
 
 ## 1. App Store Connect
 
-1. **Sign the Paid Applications Agreement** — Business → Agreements, plus
-   banking and tax details. Until this is active, in-app purchase
-   products do not load at all and the paywall will show "Premium isn't
-   available right now". This is the single most common reason a
-   subscription appears not to work.
-2. **Create a subscription group**, e.g. `MapMeet Premium`. Groups are
-   how upgrades/downgrades work later; one group, one level for now.
-3. **Create the auto-renewable subscription** in that group:
-   - Product ID: `com.mapmeet.app.premium.monthly` (suggested — it is
-     referenced nowhere in the code, only in RevenueCat)
-   - Duration: 1 month
-   - Price: your call
-   - Localisations, a display name, and a **review screenshot** of the
-     paywall — all required before it can be submitted.
-4. Attach the subscription to the next app version. **A subscription is
-   reviewed with a build**, so this ships with 1.0.2 (or whatever
-   follows the version currently in review), not on its own.
+### 1a. Money, first — it gates everything else
+
+**Business → Agreements, Tax, and Banking.** Sign the Paid Applications
+agreement and complete banking and tax. The status has to read
+**Active**; tax review can take a day or two, so start here.
+
+Until it is active, `getOfferings()` returns nothing, the paywall says
+"Premium isn't available right now", and no amount of correct code
+changes that. It is the single most common reason a subscription appears
+not to work.
+
+### 1b. The products
+
+**Your app → Monetization → Subscriptions.**
+
+1. **Create one subscription group** — e.g. `MapMeet Premium`. Both plans
+   go in the **same group**. That is what lets someone move between
+   monthly and yearly instead of accidentally holding both, and Apple
+   handles the proration.
+2. **Create two auto-renewable subscriptions** in it:
+
+   | Product ID | Duration |
+   | --- | --- |
+   | `com.mapmeet.app.premium.monthly` | 1 month |
+   | `com.mapmeet.app.premium.yearly` | 1 year |
+
+   The ids appear nowhere in this repo — only in RevenueCat — so they can
+   be whatever you like, as long as the two sides agree.
+
+   Each one needs a reference name, a price, **localisations** (display
+   name + description, per language), and **review information** with a
+   screenshot of the paywall.
+3. **Localise the group itself** too — the group has its own display
+   name per language, separate from the subscriptions inside it. Missing
+   it blocks submission and the error message does not say so clearly.
+
+### 1c. Let RevenueCat talk to Apple
+
+4. **Users and Access → Integrations → In-App Purchase → generate a
+   key.** Download the `.p8` — you get exactly one chance — and note the
+   Key ID and Issuer ID.
+
+   `react-native-purchases` v10 uses StoreKit 2, so this key is
+   **required**; the older App-Specific Shared Secret on its own is not
+   enough.
+5. Upload the `.p8` in RevenueCat under your App Store app →
+   **In-app purchase key configuration**.
+6. **App Store Server Notifications V2** — point Apple at RevenueCat's
+   URL (RevenueCat shows it, and can configure it for you once the key
+   above is uploaded). This is what makes renewals, cancellations and
+   refunds reach RevenueCat — and therefore us — promptly rather than
+   at the next app launch.
+
+### 1d. Submission
+
+7. Attach both subscriptions to the app version and submit them
+   **together with a build**. The first subscription in an app is
+   reviewed alongside a version; later ones can go on their own. So this
+   ships with the version after whatever is currently in review.
 
 ## 2. RevenueCat
 
@@ -107,13 +149,42 @@ npx eas build --platform ios --profile development
 
    Both default to `premium` when unset, which is wrong for this
    project — so neither may be left blank.
-4. **Offering**: create the default offering with a **Monthly** package
-   pointing at the product from step 1.3. The paywall reads
-   `offerings.current.monthly`.
+4. **Offering**: `default`, flagged **Current**, with a **Monthly** and
+   an **Annual** package. Set the package *type* rather than just naming
+   them — that is what gives them the reserved `$rc_monthly` /
+   `$rc_annual` identifiers the SDK reads. (`availablePlans()` falls back
+   to matching on the name, but that is a rescue, not the design.)
 5. **Webhook**: Integrations → Webhooks
    - URL: `https://wpcwjjlaoolnqddeqpce.supabase.co/functions/v1/revenuecat-webhook`
    - Authorization header value: a long random string — the *same* one
-     you set as `REVENUECAT_WEBHOOK_SECRET` below.
+     you set as `REVENUECAT_WEBHOOK_SECRET` below. A `Bearer ` prefix on
+     one side only is fine; the function strips it.
+   - Environment: **Both Production and Sandbox**, or nothing you test
+     will arrive.
+   - Event type: **All events**. Filtering to purchases would grant
+     correctly and then never revoke.
+
+### Moving off the Test Store
+
+The Test Store products are separate objects from the App Store ones.
+When the App Store side is live:
+
+6. **Products** — add the two App Store products by their exact product
+   ids from step 1b.
+7. **Offering** — point the Monthly and Annual packages at the App Store
+   products.
+8. **Entitlement** — attach both App Store products to
+   `com_mapmeet_app_pro`.
+
+   ⚠ Step 8 is the one people skip. A product that is in the offering but
+   not on the entitlement sells perfectly: the payment goes through, the
+   webhook answers 200, `entitlement_ids` comes back empty, and nothing
+   unlocks. If a real purchase ever appears to do nothing, check this
+   first:
+
+   ```bash
+   supabase db query --linked "select type, payload->'event'->>'entitlement_ids' as ents, payload->'event'->>'product_id' as product from public.subscription_events order by id desc limit 5;"
+   ```
 
 ## 3. Secrets
 
