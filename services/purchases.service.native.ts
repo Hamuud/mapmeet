@@ -96,15 +96,66 @@ export async function logOutPurchases(): Promise<void> {
 
 /** The monthly subscription package, or null if the store has nothing to
  *  offer — no products configured, no App Store agreement signed, or the
- *  device is offline. */
+ *  device is offline.
+ *
+ *  Three fallbacks, because there are three separate ways a dashboard
+ *  that LOOKS configured still returns nothing here, and they are
+ *  indistinguishable from the app:
+ *
+ *  - `offerings.current` is whichever offering is flagged Current. An
+ *    offering can exist, be complete, and still not be flagged — so fall
+ *    back to `default` by name, then to whatever exists.
+ *  - `.monthly` is a shortcut for the package whose identifier is the
+ *    reserved `$rc_monthly`. A package built as "Custom" and merely
+ *    *named* monthly is not that, and the shortcut returns null.
+ *  - Failing both, take the first package rather than nothing: an
+ *    offering with exactly one package in it is unambiguous, and
+ *    refusing to sell it helps nobody.
+ *
+ *  In development it says which branch it took, because "Premium isn't
+ *  available right now" is the least actionable error in this file. */
 export async function monthlyPackage(): Promise<PurchasesPackage | null> {
   if (!isPurchasesAvailable()) return null;
   try {
     const offerings = await Purchases.getOfferings();
-    const current = offerings.current;
-    if (!current) return null;
-    return current.monthly ?? current.availablePackages[0] ?? null;
-  } catch {
+    const offering =
+      offerings.current ??
+      offerings.all['default'] ??
+      Object.values(offerings.all)[0] ??
+      null;
+
+    if (!offering) {
+      if (__DEV__) {
+        console.warn(
+          '[purchases] no offering. Create one in RevenueCat and mark it Current.',
+        );
+      }
+      return null;
+    }
+
+    const pkg =
+      offering.monthly ??
+      offering.availablePackages.find((p) => /month/i.test(p.identifier)) ??
+      offering.availablePackages[0] ??
+      null;
+
+    if (__DEV__) {
+      if (!pkg) {
+        console.warn(
+          `[purchases] offering "${offering.identifier}" has no packages.`,
+        );
+      } else if (!offering.monthly) {
+        console.warn(
+          `[purchases] no $rc_monthly package in "${offering.identifier}"; ` +
+            `falling back to "${pkg.identifier}". Set the package type to ` +
+            `Monthly in RevenueCat to make this deliberate.`,
+        );
+      }
+    }
+
+    return pkg;
+  } catch (e) {
+    if (__DEV__) console.warn('[purchases] getOfferings failed', e);
     return null;
   }
 }
