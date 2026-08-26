@@ -238,10 +238,36 @@ npx eas build --platform ios --profile production --auto-submit
 For the flow itself, the Test Store (section 0) is enough and needs no
 App Store setup at all.
 
-For the real thing, use a **Sandbox tester** (App Store Connect → Users
-and Access → Sandbox) on a physical device. Sandbox subscriptions renew
-every few minutes and expire after six renewals, which is what makes the
-whole lifecycle testable in an afternoon.
+### Testing a real purchase through TestFlight
+
+This is the easy path, and the one to use. A TestFlight build runs
+against Apple's sandbox **automatically**:
+
+- **Purchases are free.** No money moves, no card is charged.
+- **Your own Apple ID works.** You do not need a Sandbox Apple Account
+  for a plain buy-it-and-see test — just install from TestFlight and
+  tap Subscribe. (Signing in with a Sandbox Apple Account additionally
+  unlocks Apple's sandbox controls, for forcing renewals, billing
+  failures and interruptions.)
+- **Sandbox purchases never carry over** to the App Store version.
+
+⚠ **Renewals are once every 24 hours, up to 6 times** — Apple changed
+this in December 2024, and every older guide still says "every few
+minutes". So an expiry cycle takes about a week of wall-clock time, not
+an afternoon. To watch a revocation sooner, cancel the subscription
+from the device's Subscriptions screen and use App Store Connect →
+Users and Access → Sandbox to clear the purchase history, rather than
+waiting it out.
+
+Prerequisites, all of them:
+
+1. Paid Applications Agreement **Active**.
+2. Both subscriptions created in App Store Connect (they do NOT need to
+   be approved — created is enough for sandbox).
+3. In RevenueCat: the App Store products added, in the offering, and
+   attached to `com_mapmeet_app_pro`.
+4. A TestFlight build that actually contains `react-native-purchases` —
+   anything built before this feature landed will not sell anything.
 
 Watch it work:
 
