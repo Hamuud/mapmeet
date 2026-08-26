@@ -2,12 +2,13 @@ import { create } from 'zustand';
 
 import { supabase } from '@/services/supabase';
 import {
+  availablePlans,
   initPurchases,
   logOutPurchases,
-  monthlyPackage,
-  purchase,
+  purchasePlan,
   restore,
   syncSubscription,
+  type Plan,
   type PurchaseOutcome,
 } from '@/services/purchases.service';
 import { useModerationStore } from './moderation.store';
@@ -20,13 +21,20 @@ export type SubscriptionState = {
   entitledUntil: string | null;
   willRenew: boolean;
   loaded: boolean;
-  /** Localised price string from the store ("£2.99"), or null when there
-   *  is nothing to sell on this platform. */
-  price: string | null;
+  /** What is on sale, monthly first. Empty when there is nothing to sell
+   *  on this platform, or the store has not been configured yet. */
+  plans: Plan[];
+  /** Which one the paywall has selected. Defaults to monthly — it is the
+   *  cheaper commitment, and pre-selecting the expensive one is a dark
+   *  pattern rather than a default. */
+  selectedPlanId: string | null;
   busy: boolean;
 
   bootstrap: (userId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Re-read what is on sale. Safe to call repeatedly. */
+  loadPlans: () => Promise<void>;
+  selectPlan: (id: string) => void;
   buy: () => Promise<PurchaseOutcome>;
   restorePurchases: () => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -77,7 +85,8 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   entitledUntil: null,
   willRenew: false,
   loaded: false,
-  price: null,
+  plans: [],
+  selectedPlanId: null,
   busy: false,
 
   /** Called once per signed-in session.
@@ -97,9 +106,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     await syncSubscription().catch(() => false);
     await get().refresh();
 
-    void monthlyPackage()
-      .then((pkg) => set({ price: pkg?.product.priceString ?? null }))
-      .catch(() => set({ price: null }));
+    void get().loadPlans();
   },
 
   refresh: async () => {
@@ -107,15 +114,36 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     set({ ...q, loaded: true });
   },
 
+  /** Kept separate from bootstrap so the paywall can load its own
+   *  prices. It used to rely on the tabs layout having run bootstrap
+   *  first, which made the buy button read a bare "Subscribe" with no
+   *  price whenever that had not happened or had failed — a paywall that
+   *  quietly depends on another screen is a paywall that will one day
+   *  show up empty. */
+  loadPlans: async () => {
+    try {
+      const plans = await availablePlans();
+      set((s) => ({
+        plans,
+        // Keep whatever the user already picked if it is still on sale;
+        // otherwise fall to monthly, which sorts first.
+        selectedPlanId:
+          plans.find((p) => p.id === s.selectedPlanId)?.id ?? plans[0]?.id ?? null,
+      }));
+    } catch {
+      set({ plans: [], selectedPlanId: null });
+    }
+  },
+
+  selectPlan: (id) => set({ selectedPlanId: id }),
+
   buy: async () => {
     if (get().busy) return { kind: 'cancelled' as const };
+    const planId = get().selectedPlanId;
+    if (!planId) return { kind: 'failed' as const, message: 'no offering' };
     set({ busy: true });
     try {
-      const pkg = await monthlyPackage();
-      if (!pkg) {
-        return { kind: 'failed' as const, message: 'no offering' };
-      }
-      const outcome = await purchase(pkg);
+      const outcome = await purchasePlan(planId);
       if (outcome.kind === 'purchased') {
         await get().refresh();
         await refreshRole();
@@ -149,7 +177,8 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       entitledUntil: null,
       willRenew: false,
       loaded: false,
-      price: null,
+      plans: [],
+      selectedPlanId: null,
     });
   },
 }));

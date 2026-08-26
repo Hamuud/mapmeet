@@ -30,8 +30,17 @@ export async function initPurchases(_userId: string): Promise<void> {}
 
 export async function logOutPurchases(): Promise<void> {}
 
-export async function monthlyPackage(): Promise<null> {
-  return null;
+export type Plan = {
+  id: string;
+  period: 'monthly' | 'annual';
+  priceString: string;
+  price: number;
+};
+
+/** Nothing on sale, so nothing to choose between. The paywall shows its
+ *  "subscribe in the app" state rather than an empty plan picker. */
+export async function availablePlans(): Promise<Plan[]> {
+  return [];
 }
 
 export type PurchaseOutcome =
@@ -39,7 +48,7 @@ export type PurchaseOutcome =
   | { kind: 'cancelled' }
   | { kind: 'failed'; message: string };
 
-export async function purchase(): Promise<PurchaseOutcome> {
+export async function purchasePlan(_planId: string): Promise<PurchaseOutcome> {
   return { kind: 'failed', message: 'unavailable on web' };
 }
 

@@ -922,17 +922,24 @@ export const en = {
   'premium.title': 'Premium',
   'premium.heading': 'Make your\npins yours.',
   'premium.subheading':
-    'Premium is one monthly subscription. Cancel any time, keep it until the month you paid for ends.',
+    'Pick monthly or yearly. Cancel any time — you keep Premium until the period you paid for ends.',
   'premium.perkColour': 'Colour your event pins from the full palette',
   'premium.perkEffects': 'Animated pin effects — glow, sparkle, shine',
   'premium.perkMarkers': 'Pin 25 events a day instead of 5',
   'premium.perkBadge': 'A premium badge on your profile',
   'premium.subscribe': 'Subscribe',
-  'premium.subscribeFor': 'Subscribe — {price} / month',
+  'premium.subscribeFor': 'Subscribe — {price}',
+  'premium.planMonthly': 'Monthly',
+  'premium.planYearly': 'Yearly',
+  'premium.perMonth': '{price} / month',
+  'premium.perYear': '{price} / year',
+  'premium.savePercent': 'Save {n}%',
+  'premium.periodMonthly': 'monthly',
+  'premium.periodYearly': 'yearly',
   // Guideline 3.1.2 wants length, auto-renewal and how to cancel stated
   // on the screen that takes the money, not buried in the Terms link.
   'premium.terms':
-    'Billed monthly through your App Store account and renews automatically until you cancel. Cancel any time in Settings → Apple Account → Subscriptions, at least 24 hours before the period ends.',
+    'Billed {period} through your App Store account and renews automatically until you cancel. Cancel any time in Settings → Apple Account → Subscriptions, at least 24 hours before the period ends.',
   'premium.activeTitle': 'Premium is active',
   'premium.renewsOn': 'Renews on {date}.',
   'premium.endsOn': "Cancelled — you keep Premium until {date}, and it won't renew.",

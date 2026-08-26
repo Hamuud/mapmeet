@@ -94,28 +94,57 @@ export async function logOutPurchases(): Promise<void> {
   }
 }
 
-/** The monthly subscription package, or null if the store has nothing to
- *  offer — no products configured, no App Store agreement signed, or the
- *  device is offline.
+/** One buyable plan, flattened for the UI.
  *
- *  Three fallbacks, because there are three separate ways a dashboard
- *  that LOOKS configured still returns nothing here, and they are
- *  indistinguishable from the app:
+ *  The `PurchasesPackage` itself deliberately does not leave this file —
+ *  it is a native SDK object, and threading it through a Zustand store
+ *  and a web stub that has no SDK would mean typing around something
+ *  neither of them can hold. The UI passes `id` back to `purchasePlan`
+ *  and this module does the lookup. */
+export type Plan = {
+  id: string;
+  period: 'monthly' | 'annual';
+  /** Localised and currency-formatted by the store. Never build this
+   *  yourself: the store knows the user's storefront, currency and
+   *  local conventions, and we do not. */
+  priceString: string;
+  /** Numeric, same currency across an offering — only used to work out
+   *  what the annual plan saves. */
+  price: number;
+};
+
+/** id → package, so the UI can stay free of SDK types. Repopulated on
+ *  every `availablePlans()`; a stale id simply fails to buy. */
+const packagesById = new Map<string, PurchasesPackage>();
+
+function periodOf(pkg: PurchasesPackage): 'monthly' | 'annual' | null {
+  const type = String(pkg.packageType).toUpperCase();
+  if (type === 'MONTHLY') return 'monthly';
+  if (type === 'ANNUAL') return 'annual';
+  // A package built as "Custom" carries no type worth reading, so fall
+  // back to what it was named.
+  if (/month/i.test(pkg.identifier)) return 'monthly';
+  if (/year|annual/i.test(pkg.identifier)) return 'annual';
+  return null;
+}
+
+/** Everything on sale, monthly first. Empty when the store has nothing
+ *  to offer — no packages configured, no App Store agreement signed, or
+ *  the device is offline.
  *
- *  - `offerings.current` is whichever offering is flagged Current. An
- *    offering can exist, be complete, and still not be flagged — so fall
+ *  Two fallbacks, because a dashboard that LOOKS configured can still
+ *  return nothing and the app cannot tell the cases apart:
+ *
+ *  - `offerings.current` is whichever offering is flagged Current, and
+ *    an offering can be complete without ever being flagged — so fall
  *    back to `default` by name, then to whatever exists.
- *  - `.monthly` is a shortcut for the package whose identifier is the
- *    reserved `$rc_monthly`. A package built as "Custom" and merely
- *    *named* monthly is not that, and the shortcut returns null.
- *  - Failing both, take the first package rather than nothing: an
- *    offering with exactly one package in it is unambiguous, and
- *    refusing to sell it helps nobody.
+ *  - `packageType` is only meaningful when the package was built as
+ *    Monthly or Annual rather than Custom, hence `periodOf`.
  *
- *  In development it says which branch it took, because "Premium isn't
+ *  In development it says what it found, because "Premium isn't
  *  available right now" is the least actionable error in this file. */
-export async function monthlyPackage(): Promise<PurchasesPackage | null> {
-  if (!isPurchasesAvailable()) return null;
+export async function availablePlans(): Promise<Plan[]> {
+  if (!isPurchasesAvailable()) return [];
   try {
     const offerings = await Purchases.getOfferings();
     const offering =
@@ -130,33 +159,45 @@ export async function monthlyPackage(): Promise<PurchasesPackage | null> {
           '[purchases] no offering. Create one in RevenueCat and mark it Current.',
         );
       }
-      return null;
+      return [];
     }
 
-    const pkg =
-      offering.monthly ??
-      offering.availablePackages.find((p) => /month/i.test(p.identifier)) ??
-      offering.availablePackages[0] ??
-      null;
+    packagesById.clear();
+    const plans: Plan[] = [];
+    for (const pkg of offering.availablePackages) {
+      const period = periodOf(pkg);
+      if (!period) continue;
+      packagesById.set(pkg.identifier, pkg);
+      plans.push({
+        id: pkg.identifier,
+        period,
+        priceString: pkg.product.priceString,
+        price: pkg.product.price,
+      });
+    }
+
+    // Monthly first: it is the default choice and the one the copy and
+    // the App Store listing describe.
+    plans.sort((a, b) => (a.period === b.period ? 0 : a.period === 'monthly' ? -1 : 1));
 
     if (__DEV__) {
-      if (!pkg) {
+      if (plans.length === 0) {
         console.warn(
-          `[purchases] offering "${offering.identifier}" has no packages.`,
+          `[purchases] offering "${offering.identifier}" has ${offering.availablePackages.length} ` +
+            `package(s), none recognisable as monthly or annual. Set the package ` +
+            `type in RevenueCat.`,
         );
-      } else if (!offering.monthly) {
-        console.warn(
-          `[purchases] no $rc_monthly package in "${offering.identifier}"; ` +
-            `falling back to "${pkg.identifier}". Set the package type to ` +
-            `Monthly in RevenueCat to make this deliberate.`,
+      } else {
+        console.log(
+          `[purchases] plans: ${plans.map((p) => `${p.period}=${p.priceString}`).join(', ')}`,
         );
       }
     }
 
-    return pkg;
+    return plans;
   } catch (e) {
     if (__DEV__) console.warn('[purchases] getOfferings failed', e);
-    return null;
+    return [];
   }
 }
 
@@ -175,7 +216,9 @@ function entitled(info: CustomerInfo): boolean {
  *
  *  A successful purchase is followed by a server sync rather than being
  *  trusted on its own — see `syncSubscription`. */
-export async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
+export async function purchasePlan(planId: string): Promise<PurchaseOutcome> {
+  const pkg = packagesById.get(planId);
+  if (!pkg) return { kind: 'failed', message: 'no offering' };
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     if (!entitled(customerInfo)) {
