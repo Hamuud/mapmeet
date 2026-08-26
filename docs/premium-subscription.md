@@ -90,11 +90,23 @@ npx eas build --platform ios --profile development
 2. Upload the **App Store Connect API key** (In-App Purchase key) so
    RevenueCat can read subscription status server-side, and paste the
    **App-Specific Shared Secret** from App Store Connect.
-3. **Entitlement**: create one with the identifier exactly `premium`.
-   This string appears in three places and all three must match:
-   the dashboard, `ENTITLEMENT` in `services/purchases.service.native.ts`,
-   and `REVENUECAT_ENTITLEMENT` in the Edge Functions (defaults to
-   `premium`, so leaving it unset is fine).
+3. **Entitlement**: whatever identifier the dashboard gives it — ours is
+   `com_mapmeet_app_pro`. It is NOT our name for the tier; internally
+   that is `premium` everywhere, and this is only RevenueCat's key for
+   it.
+
+   It must match in exactly three places, and a mismatch is the nastiest
+   failure in this system — the payment succeeds, the webhook answers
+   200, and nothing unlocks:
+
+   | Where | Value |
+   | --- | --- |
+   | RevenueCat dashboard | `com_mapmeet_app_pro` |
+   | `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT` in `.env` + EAS | same |
+   | `REVENUECAT_ENTITLEMENT` Supabase secret | same |
+
+   Both default to `premium` when unset, which is wrong for this
+   project — so neither may be left blank.
 4. **Offering**: create the default offering with a **Monthly** package
    pointing at the product from step 1.3. The paywall reads
    `offerings.current.monthly`.

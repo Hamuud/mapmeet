@@ -18,7 +18,8 @@
 
 import { supabase } from './supabase';
 
-export const ENTITLEMENT = 'premium';
+export const ENTITLEMENT =
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT || 'premium';
 
 /** Nothing to sell here. */
 export function isPurchasesAvailable(): boolean {

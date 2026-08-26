@@ -7,11 +7,20 @@ import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
-/** The RevenueCat entitlement identifier. Must match the dashboard and
- *  `REVENUECAT_ENTITLEMENT` in the Edge Functions — all three are the
- *  same string, and a typo in any one of them looks like "the purchase
- *  worked but nothing unlocked". */
-export const ENTITLEMENT = 'premium';
+/** The RevenueCat entitlement identifier.
+ *
+ *  NOT the same thing as our own name for the tier. Internally the tier
+ *  is `premium` everywhere — the role, the table, the UI — and this is
+ *  only the key RevenueCat files it under, which is whatever the
+ *  dashboard generated. Ours is `com_mapmeet_app_pro`.
+ *
+ *  Configurable because it has to match `REVENUECAT_ENTITLEMENT` in the
+ *  Edge Functions and the dashboard exactly, and a mismatch is the
+ *  nastiest failure in this whole system: the payment succeeds, the
+ *  webhook answers 200, and nothing unlocks. One env var, read by both
+ *  sides, is how that stops being possible to get half-right. */
+export const ENTITLEMENT =
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT || 'premium';
 
 /** Public SDK keys. These are *meant* to ship inside the app — they can
  *  only read and start purchases, never grant an entitlement. The secret
