@@ -953,6 +953,9 @@ export const en = {
   'premium.legal': 'Terms & Privacy',
   'premium.thanks': 'Welcome to Premium.',
   'premium.noOffering': "Premium isn't available right now. Try again shortly.",
+  'premium.notReadyTitle': 'Not available yet',
+  'premium.notReadyBody':
+    "Premium isn't on sale in this version yet. It'll appear here as soon as it is \u2014 nothing else about the app is affected.",
   'premium.appOnlyTitle': 'Subscribe in the app',
   'premium.appOnlyBody':
     "Premium is bought through the App Store, so you'll need the MapMeet app to subscribe. Once you have it, Premium works here on the web too.",

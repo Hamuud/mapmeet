@@ -46,6 +46,7 @@ export default function PremiumScreen() {
   const willRenew = useSubscriptionStore((s) => s.willRenew);
   const loaded = useSubscriptionStore((s) => s.loaded);
   const plans = useSubscriptionStore((s) => s.plans);
+  const plansLoaded = useSubscriptionStore((s) => s.plansLoaded);
   const selectedPlanId = useSubscriptionStore((s) => s.selectedPlanId);
   const selectPlan = useSubscriptionStore((s) => s.selectPlan);
   const busy = useSubscriptionStore((s) => s.busy);
@@ -159,6 +160,25 @@ export default function PremiumScreen() {
             ) : null}
             <Text className="text-[12px] leading-snug text-muted-light dark:text-muted-dark">
               {t('premium.manageHint')}
+            </Text>
+          </View>
+        ) : sellable && !plansLoaded ? (
+          <ActivityIndicator />
+        ) : sellable && plans.length === 0 ? (
+          // The store has a key but nothing to sell: products still
+          // "Missing Metadata", the Paid Applications Agreement not
+          // active, a storefront with no price, or simply offline.
+          //
+          // This state exists because the alternative is worse than
+          // useless — a Subscribe button that takes a tap and answers
+          // with an error toast. That is a broken feature for a real
+          // user and a Guideline 2.1 rejection in front of a reviewer.
+          <View className="gap-2 rounded-2xl border border-border-light bg-elevated-light p-4 dark:border-border-dark dark:bg-elevated-dark">
+            <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">
+              {t('premium.notReadyTitle')}
+            </Text>
+            <Text className="text-[13px] leading-snug text-ink2-light dark:text-ink2-dark">
+              {t('premium.notReadyBody')}
             </Text>
           </View>
         ) : sellable ? (

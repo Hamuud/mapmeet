@@ -24,6 +24,10 @@ export type SubscriptionState = {
   /** What is on sale, monthly first. Empty when there is nothing to sell
    *  on this platform, or the store has not been configured yet. */
   plans: Plan[];
+  /** Whether the plan lookup has come back at all. Distinguishes "still
+   *  asking the store" from "the store has nothing" — without it the
+   *  paywall flashes an "unavailable" panel on every open. */
+  plansLoaded: boolean;
   /** Which one the paywall has selected. Defaults to monthly — it is the
    *  cheaper commitment, and pre-selecting the expensive one is a dark
    *  pattern rather than a default. */
@@ -86,6 +90,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   willRenew: false,
   loaded: false,
   plans: [],
+  plansLoaded: false,
   selectedPlanId: null,
   busy: false,
 
@@ -125,13 +130,14 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       const plans = await availablePlans();
       set((s) => ({
         plans,
+        plansLoaded: true,
         // Keep whatever the user already picked if it is still on sale;
         // otherwise fall to monthly, which sorts first.
         selectedPlanId:
           plans.find((p) => p.id === s.selectedPlanId)?.id ?? plans[0]?.id ?? null,
       }));
     } catch {
-      set({ plans: [], selectedPlanId: null });
+      set({ plans: [], plansLoaded: true, selectedPlanId: null });
     }
   },
 
@@ -178,6 +184,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       willRenew: false,
       loaded: false,
       plans: [],
+      plansLoaded: false,
       selectedPlanId: null,
     });
   },

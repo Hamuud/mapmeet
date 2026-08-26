@@ -971,6 +971,9 @@ export const uk: Record<TranslationKey, Phrase> = {
   'premium.legal': 'Умови та конфіденційність',
   'premium.thanks': 'Вітаємо у преміумі.',
   'premium.noOffering': 'Преміум зараз недоступний. Спробуйте трохи згодом.',
+  'premium.notReadyTitle': 'Ще недоступно',
+  'premium.notReadyBody':
+    'Преміум поки не продається у цій версії. Він з\u2019явиться тут, щойно стане доступним \u2014 на решту застосунку це не впливає.',
   'premium.appOnlyTitle': 'Оформлення — у застосунку',
   'premium.appOnlyBody':
     'Преміум купується через App Store, тож для оформлення потрібен застосунок MapMeet. Після цього преміум працюватиме й тут, у браузері.',
