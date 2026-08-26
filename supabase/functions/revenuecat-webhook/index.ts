@@ -91,7 +91,15 @@ Deno.serve(async (req) => {
   // TEST events come from the dashboard's "Send test webhook" button and
   // carry no real subscriber. Answering 200 is how the dashboard reports
   // the endpoint as reachable.
-  if (type === 'TEST') return ok('test');
+  //
+  // Recorded before returning, deliberately: a 200 in someone else's
+  // dashboard is a weak thing to debug against, and "did the test
+  // webhook reach us, authenticate, and parse" is a question worth being
+  // able to answer from our own database.
+  if (type === 'TEST') {
+    await recordEvent(ev.id ?? null, null, type, store, body).catch(() => {});
+    return ok('test');
+  }
 
   const userId = isUserId(ev.app_user_id)
     ? ev.app_user_id
