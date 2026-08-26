@@ -57,6 +57,26 @@ const SECRET = Deno.env.get('REVENUECAT_WEBHOOK_SECRET') ?? '';
 
 const ok = (why = 'ok') => new Response(why);
 
+/** Compare the shared secret forgivingly in the two ways it habitually
+ *  goes wrong, and in no others.
+ *
+ *  RevenueCat's field is a raw Authorization header value and its
+ *  placeholder reads `Bearer Xz3a…`, so half of people type the scheme
+ *  and half do not — while the Supabase secret is almost always the bare
+ *  string. And `supabase secrets set X="$(openssl rand -hex 32)"` in the
+ *  wrong shell quotes keeps the trailing newline.
+ *
+ *  Both produce an identical, silent 401 with no way to see which side
+ *  is wrong, because neither side will ever print the value. Stripping
+ *  an optional scheme and surrounding whitespace costs nothing and
+ *  removes the entire class. What it does NOT do is weaken the check:
+ *  the remaining comparison is still the full secret, exact. */
+function authOk(header: string | null): boolean {
+  if (!SECRET || !header) return false;
+  const strip = (v: string) => v.trim().replace(/^Bearer\s+/i, '');
+  return strip(header) === strip(SECRET);
+}
+
 /** Later of the two, treating nulls as "not set". A grace period can run
  *  past the nominal expiry, and it is the one that decides access. */
 function laterOf(a: string | null, b: string | null): string | null {
@@ -67,7 +87,7 @@ function laterOf(a: string | null, b: string | null): string | null {
 
 Deno.serve(async (req) => {
   // Fail closed. An unset secret must not mean "open to everyone".
-  if (!SECRET || req.headers.get('authorization') !== SECRET) {
+  if (!authOk(req.headers.get('authorization'))) {
     return new Response('unauthorized', { status: 401 });
   }
 
