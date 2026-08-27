@@ -645,9 +645,9 @@ export function EventPreviewBody({
           if (!series) return;
           void eventsService
             .stopRepeat(series)
-            .then((removed) => {
+            .then(() => {
               patchEvent(event.id, { series_id: null, repeat_every: null });
-              toast.show(t('preview.stopRepeatDone', { count: removed }), 'success');
+              toast.show(t('preview.stopRepeatDone'), 'success');
             })
             .catch(() => toast.show(t('preview.stopRepeatFailed'), 'error'));
         }}

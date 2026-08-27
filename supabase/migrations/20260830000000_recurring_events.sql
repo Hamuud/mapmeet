@@ -13,9 +13,11 @@
 --   every screen in the app keeps working without knowing they repeat.
 --
 -- HORIZON: A ROLLING 8 WEEKS
---   Generated forward by a daily job, topped up as time passes — the
---   same pattern as the Karabas ingest. No end date to forget, and the
---   map never carries a year of identical pins.
+--   ⚠ SUPERSEDED by 20260831000000, which replaced the horizon with a
+--   treadmill: exactly one occurrence is live at a time and the next
+--   appears when it finishes. Eight identical pins on one building was
+--   clutter, and the badge says "Every week" better than eight copies.
+--   The rest of this file still stands.
 --
 -- THE TEMPLATE IS COPIED, NOT REFERENCED
 --   The series takes a snapshot of the first occurrence when repeat is

@@ -489,7 +489,7 @@ export const en = {
   'createEvent.repeatFortnightly': 'Every 2 weeks',
   'createEvent.repeatMonthly': 'Every month',
   'createEvent.repeatHint':
-    'The next 8 weeks are added automatically, and topped up as time passes. Anyone who joins stays joined for the following ones. You can stop it any time from the event.',
+    'Only one date is on the map at a time. When it finishes, its chat moves to your archive and the next one appears in its place, with everyone who came still on the list. Stop it any time from the event.',
   'createEvent.repeatFailed':
     'The event was created, but repeating could not be switched on. You can turn it on from the event.',
   'createEvent.pastWarning':
@@ -555,11 +555,8 @@ export const en = {
   'preview.stopRepeating': 'Stop repeating',
   'preview.stopRepeatTitle': 'Stop repeating this event?',
   'preview.stopRepeatMessage':
-    "Future dates are removed and anyone who joined them is told they're cancelled. This event itself stays, and so does anything already past.",
-  'preview.stopRepeatDone': {
-    one: 'Stopped. {count} future date removed.',
-    other: 'Stopped. {count} future dates removed.',
-  },
+    'This date goes ahead as normal — it just will not be followed by another. Nothing is cancelled and nobody is removed.',
+  'preview.stopRepeatDone': 'Stopped. This is the last one.',
   'preview.stopRepeatFailed': 'Could not stop the repeat',
   'preview.awayFrom': '{d} away',
   'preview.directions': 'Directions',

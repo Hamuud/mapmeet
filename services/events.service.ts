@@ -361,14 +361,14 @@ export const eventsService = {
     return data as string;
   },
 
-  /** Stop repeating. Future occurrences go; the event the host created
-   *  by hand stays. Returns how many were removed. */
-  async stopRepeat(seriesId: string): Promise<number> {
-    const { data, error } = await supabase.rpc('stop_event_repeat', {
+  /** Stop repeating. Nothing is deleted: whatever date is currently on
+   *  the map goes ahead as an ordinary event, it just will not be
+   *  followed by another. */
+  async stopRepeat(seriesId: string): Promise<void> {
+    const { error } = await supabase.rpc('stop_event_repeat', {
       p_series: seriesId,
     });
     if (error) throw error;
-    return (data as number | null) ?? 0;
   },
 
   async update(id: string, patch: EventUpdate): Promise<Event> {
