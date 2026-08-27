@@ -563,6 +563,7 @@ export const uk: Record<TranslationKey, Phrase> = {
 
   // ── Event preview ─────────────────────────────────────────────────
   'preview.private': 'Приватна',
+  'preview.nextOn': 'Наступна: {date}',
   'preview.repeatsWeekly': 'Щотижня',
   'preview.repeatsFortnightly': 'Раз на 2 тижні',
   'preview.repeatsMonthly': 'Щомісяця',

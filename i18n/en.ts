@@ -549,6 +549,7 @@ export const en = {
 
   // ── Event preview ─────────────────────────────────────────────────
   'preview.private': 'Private',
+  'preview.nextOn': 'Next one: {date}',
   'preview.repeatsWeekly': 'Every week',
   'preview.repeatsFortnightly': 'Every 2 weeks',
   'preview.repeatsMonthly': 'Every month',

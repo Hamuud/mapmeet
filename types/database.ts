@@ -50,6 +50,8 @@ export type PublicEventRpcRow = {
   creator_avatar_url: string | null;
   creator_role: string | null;
   participant_count: number;
+  repeat_every: 'weekly' | 'fortnightly' | 'monthly' | null;
+  next_date: string | null;
 };
 
 export type UserRole =
@@ -214,6 +216,10 @@ export type Database = {
           /** Denormalised from event_series so attendees can see that an
            *  event repeats — the series row itself is host-only. */
           repeat_every: 'weekly' | 'fortnightly' | 'monthly' | null;
+          /** When the following occurrence lands, computed from the
+           *  series anchor. Null when it does not repeat, or the host
+           *  has stopped it. */
+          next_date: string | null;
           /** One-shot flag for the "starts in an hour" push. */
           reminder_sent: boolean;
           created_at: string;
@@ -239,6 +245,7 @@ export type Database = {
           pin_effect_emoji?: string[] | null;
           series_id?: string | null;
           repeat_every?: 'weekly' | 'fortnightly' | 'monthly' | null;
+          next_date?: string | null;
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
         Relationships: [];

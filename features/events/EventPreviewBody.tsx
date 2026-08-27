@@ -426,6 +426,20 @@ export function EventPreviewBody({
         </View>
       ) : null}
 
+      {/* With one occurrence live at a time, the pattern is on the badge
+          but the date is not knowable from the map — so it is spelled
+          out. Computed from the series anchor server-side: walking
+          forward from THIS occurrence gets a monthly series wrong
+          whenever the anchor fell on a fifth weekday. */}
+      {event.next_date ? (
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="repeat" size={13} color="#8B8880" />
+          <Text className="text-[13px] text-muted-light dark:text-muted-dark">
+            {t('preview.nextOn', { date: formatEventDate(event.next_date) })}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Description — clamped with a More/Less toggle. Imported events
           carry long blurbs + a poster; at full length they pushed the
           action buttons under the tab bar, unclickable. */}
