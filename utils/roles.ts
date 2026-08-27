@@ -63,3 +63,13 @@ export function dailyEventLimit(role: UserRole | null | undefined): number | nul
   if (role === 'premium') return 25;
   return 5;
 }
+
+/** Entitled to make an event repeat. Mirror of `can_repeat_events()`.
+ *
+ *  Deliberately a separate list from `canStylePin`, which happens to
+ *  have the same members today: they are two different perks and the
+ *  next person to change one should not silently change the other. The
+ *  server decides — this only chooses whether to offer the control. */
+export function canRepeatEvents(role: UserRole | null | undefined): boolean {
+  return !!role && PIN_STYLE_ROLES.includes(role);
+}

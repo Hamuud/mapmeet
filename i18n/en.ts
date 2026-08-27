@@ -483,6 +483,15 @@ export const en = {
   'createEvent.tomorrow': 'Tomorrow',
   'createEvent.startsAt': '{date} at {time}',
   'createEvent.staysOnMap': 'It stays on the map until an hour after it starts.',
+  'createEvent.repeatLabel': 'Repeat',
+  'createEvent.repeatNone': 'Just once',
+  'createEvent.repeatWeekly': 'Every week',
+  'createEvent.repeatFortnightly': 'Every 2 weeks',
+  'createEvent.repeatMonthly': 'Every month',
+  'createEvent.repeatHint':
+    'The next 8 weeks are added automatically, and topped up as time passes. Anyone who joins stays joined for the following ones. You can stop it any time from the event.',
+  'createEvent.repeatFailed':
+    'The event was created, but repeating could not be switched on. You can turn it on from the event.',
   'createEvent.pastWarning':
     "That's already past — the event won't show up on the map.",
   'createEvent.pinDropped': 'Pin dropped',
@@ -540,6 +549,18 @@ export const en = {
 
   // ── Event preview ─────────────────────────────────────────────────
   'preview.private': 'Private',
+  'preview.repeatsWeekly': 'Every week',
+  'preview.repeatsFortnightly': 'Every 2 weeks',
+  'preview.repeatsMonthly': 'Every month',
+  'preview.stopRepeating': 'Stop repeating',
+  'preview.stopRepeatTitle': 'Stop repeating this event?',
+  'preview.stopRepeatMessage':
+    "Future dates are removed and anyone who joined them is told they're cancelled. This event itself stays, and so does anything already past.",
+  'preview.stopRepeatDone': {
+    one: 'Stopped. {count} future date removed.',
+    other: 'Stopped. {count} future dates removed.',
+  },
+  'preview.stopRepeatFailed': 'Could not stop the repeat',
   'preview.awayFrom': '{d} away',
   'preview.directions': 'Directions',
   'preview.seeVenueAbove': 'See venue above',

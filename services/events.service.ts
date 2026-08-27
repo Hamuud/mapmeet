@@ -343,6 +343,34 @@ export const eventsService = {
     return data;
   },
 
+  /** Premium: make an event the first of a repeating series and
+   *  generate the rolling horizon. Returns the series id.
+   *
+   *  Called AFTER create rather than as part of it, so the whole
+   *  existing create path is untouched and the first occurrence is an
+   *  ordinary event in every respect. */
+  async setRepeat(
+    eventId: string,
+    repeat: 'weekly' | 'fortnightly' | 'monthly',
+  ): Promise<string> {
+    const { data, error } = await supabase.rpc('set_event_repeat', {
+      p_event: eventId,
+      p_repeat: repeat,
+    });
+    if (error) throw error;
+    return data as string;
+  },
+
+  /** Stop repeating. Future occurrences go; the event the host created
+   *  by hand stays. Returns how many were removed. */
+  async stopRepeat(seriesId: string): Promise<number> {
+    const { data, error } = await supabase.rpc('stop_event_repeat', {
+      p_series: seriesId,
+    });
+    if (error) throw error;
+    return (data as number | null) ?? 0;
+  },
+
   async update(id: string, patch: EventUpdate): Promise<Event> {
     const { data, error } = await supabase
       .from('events')

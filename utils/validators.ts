@@ -66,6 +66,11 @@ export const forgotPasswordSchema = z.object({
 // dashes so multi-word input still commits as a single tag.
 const TAG_REGEX = /^\S{2,24}$/;
 
+/** How often an event repeats. 'none' rather than null so the wizard's
+ *  segmented control always has a selected option. */
+export const REPEAT_OPTIONS = ['none', 'weekly', 'fortnightly', 'monthly'] as const;
+export type RepeatOption = (typeof REPEAT_OPTIONS)[number];
+
 export const eventSchema = z.object({
   title: z.string().min(1, 'validation.titleRequired').max(80),
   description: z.string().max(500).optional().or(z.literal('')),
@@ -118,6 +123,10 @@ export const eventSchema = z.object({
     .array(z.string().regex(TAG_REGEX, 'validation.tagFormat'))
     .min(1, 'validation.tagMin')
     .max(5, 'validation.tagMax'),
+  /** Premium only, and not a column: the event is created first and
+   *  `set_event_repeat` turns it into a series afterwards. The server
+   *  re-checks the entitlement, so a crafted request gains nothing. */
+  repeat: z.enum(REPEAT_OPTIONS).default('none'),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

@@ -26,7 +26,7 @@ import {
 } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
-import { canStylePin, dailyEventLimit } from '@/utils/roles';
+import { canRepeatEvents, canStylePin, dailyEventLimit } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { LatLng } from '@/types';
 
@@ -83,6 +83,7 @@ function makeDefaults(): EventInput {
     pin_effect: 'none',
     pin_effect_emoji: null,
     tags: [],
+    repeat: 'none',
   };
 }
 
@@ -275,6 +276,19 @@ export function CreateEventSheet({
       // Auto-join the creator — they're always attending their own event, and
       // seeing an active "Join" button for it in the preview was confusing.
       await eventsService.join(inserted.id, session.user.id);
+
+      // Repeating is a second step on purpose: the event above is an
+      // ordinary event in every respect, and this turns it into the
+      // first of a series. Failing here must not lose the event they
+      // just created, so it is reported and swallowed rather than
+      // thrown — they still have their Wednesday, just not the rest.
+      if (values.repeat !== 'none' && canRepeatEvents(role)) {
+        try {
+          await eventsService.setRepeat(inserted.id, values.repeat);
+        } catch {
+          toast.show(t('createEvent.repeatFailed'), 'error');
+        }
+      }
 
       upsertEvent({
         ...inserted,

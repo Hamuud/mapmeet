@@ -207,6 +207,13 @@ export type Database = {
            *  a packed string — emoji are grapheme clusters and splitting
            *  them apart in JS mangles ZWJ sequences. */
           pin_effect_emoji: string[] | null;
+          /** Set when this event is one occurrence of a repeating
+           *  series. Cleared when the series stops, so a non-null value
+           *  means "this still repeats". */
+          series_id: string | null;
+          /** Denormalised from event_series so attendees can see that an
+           *  event repeats — the series row itself is host-only. */
+          repeat_every: 'weekly' | 'fortnightly' | 'monthly' | null;
           /** One-shot flag for the "starts in an hour" push. */
           reminder_sent: boolean;
           created_at: string;
@@ -230,6 +237,8 @@ export type Database = {
           pin_color?: PinColor | null;
           pin_effect?: PinEffect | null;
           pin_effect_emoji?: string[] | null;
+          series_id?: string | null;
+          repeat_every?: 'weekly' | 'fortnightly' | 'monthly' | null;
         };
         Update: Partial<Database['public']['Tables']['events']['Insert']>;
         Relationships: [];
@@ -487,6 +496,18 @@ export type Database = {
         };
         Returns: string;
       };
+      /** Premium: turn an event the caller hosts into the first of a
+       *  repeating series, and generate the horizon. Returns the series
+       *  id; idempotent if it already repeats. */
+      set_event_repeat: {
+        Args: { p_event: string; p_repeat: 'weekly' | 'fortnightly' | 'monthly' };
+        Returns: string;
+      };
+      /** Stop a series: future occurrences are deleted (except the one
+       *  the host originally created) and survivors are unlinked.
+       *  Returns how many were removed. */
+      stop_event_repeat: { Args: { p_series: string }; Returns: number };
+      can_repeat_events: { Args: { p_user?: string }; Returns: boolean };
       /** What a signed-out visitor may read. `events` is closed to
        *  `anon` by RLS; these return a curated projection of public
        *  events plus an attendee COUNT — never the participant rows the

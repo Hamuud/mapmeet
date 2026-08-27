@@ -7,8 +7,19 @@ import { useT, useTMaybe } from '@/i18n';
 import { formatEventDate, formatEventTime } from '@/utils/format';
 import { EVENT_GRACE_MINUTES, eventStart } from '@/utils/eventTime';
 
+import { useModerationStore } from '@/store/moderation.store';
+import { canRepeatEvents } from '@/utils/roles';
+import { REPEAT_OPTIONS, type RepeatOption } from '@/utils/validators';
+
 import { StepHeading } from './StepHeading';
 import type { StepProps } from './types';
+
+const REPEAT_LABEL: Record<RepeatOption, 'createEvent.repeatNone' | 'createEvent.repeatWeekly' | 'createEvent.repeatFortnightly' | 'createEvent.repeatMonthly'> = {
+  none: 'createEvent.repeatNone',
+  weekly: 'createEvent.repeatWeekly',
+  fortnightly: 'createEvent.repeatFortnightly',
+  monthly: 'createEvent.repeatMonthly',
+};
 
 /** `YYYY-MM-DD` for today plus `offsetDays`, in local time — the same
  *  interpretation `eventStart` uses when it reads the field back. */
@@ -31,6 +42,8 @@ function isoDate(offsetDays: number): string {
 export function StepWhen({ form }: StepProps) {
   const t = useT();
   const te = useTMaybe();
+  const role = useModerationStore((st) => st.role);
+  const canRepeat = canRepeatEvents(role);
   const {
     control,
     setValue,
@@ -156,6 +169,59 @@ export function StepWhen({ form }: StepProps) {
             </Text>
           </View>
         </View>
+      ) : null}
+
+      {/* Repeat — premium only. Lives on the When step because "every
+          Wednesday" is part of answering "when?", not a separate
+          decision. Everyone else never sees it, and set_event_repeat
+          re-checks the entitlement server-side regardless. */}
+      {canRepeat ? (
+        <Controller
+          control={control}
+          name="repeat"
+          render={({ field: { value, onChange } }) => (
+            <View className="gap-2">
+              <Text className="ml-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
+                {t('createEvent.repeatLabel')}
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {REPEAT_OPTIONS.map((opt) => {
+                  const on = value === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => onChange(opt)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      className={[
+                        'rounded-xl border px-3.5 py-2',
+                        on
+                          ? 'border-brand-500 bg-brand-500/10'
+                          : 'border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
+                      ].join(' ')}
+                    >
+                      <Text
+                        className={[
+                          'text-[13px] font-semibold',
+                          on
+                            ? 'text-brand-500'
+                            : 'text-text-light dark:text-text-dark',
+                        ].join(' ')}
+                      >
+                        {t(REPEAT_LABEL[opt])}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {value !== 'none' ? (
+                <Text className="text-[12px] leading-snug text-muted-light dark:text-muted-dark">
+                  {t('createEvent.repeatHint')}
+                </Text>
+              ) : null}
+            </View>
+          )}
+        />
       ) : null}
     </View>
   );

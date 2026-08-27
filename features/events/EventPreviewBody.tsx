@@ -16,6 +16,7 @@ import {
 import { useT } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -147,6 +148,7 @@ export function EventPreviewBody({
   const [reportOpen, setReportOpen] = useState(false);
   const [arrivedAt, setArrivedAt] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [confirmStopRepeat, setConfirmStopRepeat] = useState(false);
 
   const isCreator = !!(session && event.creator_id === session.user.id);
   // Imported from a ticketing site (karabas.com etc.) rather than pinned
@@ -353,6 +355,18 @@ export function EventPreviewBody({
             />
             {event.visibility === 'private' ? (
               <Badge tone="accent" label={t('preview.private')} />
+            ) : null}
+            {event.repeat_every ? (
+              <Badge
+                tone="neutral"
+                label={t(
+                  event.repeat_every === 'weekly'
+                    ? 'preview.repeatsWeekly'
+                    : event.repeat_every === 'fortnightly'
+                      ? 'preview.repeatsFortnightly'
+                      : 'preview.repeatsMonthly',
+                )}
+              />
             ) : null}
             {distanceLabel ? (
               <Badge tone="neutral" label={t('preview.awayFrom', { d: distanceLabel })} />
@@ -605,6 +619,40 @@ export function EventPreviewBody({
           />
         ) : null}
       </View>
+
+      {isCreator && event.repeat_every && event.series_id ? (
+        <Pressable
+          onPress={() => setConfirmStopRepeat(true)}
+          hitSlop={6}
+          className="flex-row items-center justify-center gap-1.5 py-1"
+        >
+          <Ionicons name="repeat" size={12} color="#8B8880" />
+          <Text className="text-[11px] font-medium text-muted-light dark:text-muted-dark">
+            {t('preview.stopRepeating')}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <ConfirmationDialog
+        open={confirmStopRepeat}
+        title={t('preview.stopRepeatTitle')}
+        message={t('preview.stopRepeatMessage')}
+        confirmLabel={t('preview.stopRepeating')}
+        destructive
+        onConfirm={() => {
+          setConfirmStopRepeat(false);
+          const series = event.series_id;
+          if (!series) return;
+          void eventsService
+            .stopRepeat(series)
+            .then((removed) => {
+              patchEvent(event.id, { series_id: null, repeat_every: null });
+              toast.show(t('preview.stopRepeatDone', { count: removed }), 'success');
+            })
+            .catch(() => toast.show(t('preview.stopRepeatFailed'), 'error'));
+        }}
+        onCancel={() => setConfirmStopRepeat(false)}
+      />
 
       {/* Reporting the event itself, not its host. One tap from the
           thing that is wrong, rather than a detour through the profile of

@@ -496,6 +496,15 @@ export const uk: Record<TranslationKey, Phrase> = {
   'createEvent.startsAt': '{date} о {time}',
   'createEvent.staysOnMap':
     'Подія залишиться на карті ще годину після початку.',
+  'createEvent.repeatLabel': 'Повторення',
+  'createEvent.repeatNone': 'Один раз',
+  'createEvent.repeatWeekly': 'Щотижня',
+  'createEvent.repeatFortnightly': 'Раз на 2 тижні',
+  'createEvent.repeatMonthly': 'Щомісяця',
+  'createEvent.repeatHint':
+    'Наступні 8 тижнів додаються автоматично й поповнюються з часом. Хто приєднався — лишається учасником і наступних. Зупинити можна будь-коли з картки події.',
+  'createEvent.repeatFailed':
+    'Подію створено, але ввімкнути повторення не вдалося. Це можна зробити з картки події.',
   'createEvent.pastWarning':
     'Цей час уже минув — подія не з’явиться на карті.',
   'createEvent.pinDropped': 'Позначку поставлено',
@@ -554,6 +563,19 @@ export const uk: Record<TranslationKey, Phrase> = {
 
   // ── Event preview ─────────────────────────────────────────────────
   'preview.private': 'Приватна',
+  'preview.repeatsWeekly': 'Щотижня',
+  'preview.repeatsFortnightly': 'Раз на 2 тижні',
+  'preview.repeatsMonthly': 'Щомісяця',
+  'preview.stopRepeating': 'Зупинити повторення',
+  'preview.stopRepeatTitle': 'Зупинити повторення події?',
+  'preview.stopRepeatMessage':
+    'Майбутні дати буде видалено, а учасникам надійде сповіщення про скасування. Ця подія лишиться, як і всі, що вже минули.',
+  'preview.stopRepeatDone': {
+    one: 'Зупинено. Видалено {count} майбутню дату.',
+    few: 'Зупинено. Видалено {count} майбутні дати.',
+    other: 'Зупинено. Видалено {count} майбутніх дат.',
+  },
+  'preview.stopRepeatFailed': 'Не вдалося зупинити повторення',
   'preview.awayFrom': 'за {d}',
   'preview.directions': 'Маршрут',
   'preview.seeVenueAbove': 'Дивіться адресу вище',
