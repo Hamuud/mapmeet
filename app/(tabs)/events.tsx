@@ -8,6 +8,7 @@ import { EventCard } from '@/components/events/EventCard';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { GuestGate } from '@/features/auth/GuestGate';
 import { useToast } from '@/components/ui/Toast';
 import { EditEventSheet } from '@/features/events/EditEventSheet';
 import { PastEventSheet } from '@/features/events/PastEventSheet';
@@ -42,6 +43,7 @@ function goToMap() {
 
 export default function MyEventsScreen() {
   const t = useT();
+
   return (
     <ErrorBoundary where={t('boundary.myEvents')}>
       <MyEventsBody />
@@ -53,6 +55,8 @@ function MyEventsBody() {
   const t = useT();
   const toast = useToast();
   const { profile } = useAuth();
+  const { session } = useAuth();
+  const isGuest = !session;
   const { coords, status: locStatus, request: requestLocation } = useLocation();
   const events = useEventsStore((s) => s.events);
   const savedIds = useSavedStore((s) => s.ids);
@@ -233,6 +237,11 @@ function MyEventsBody() {
       toast.show(e instanceof Error ? e.message : t('events.couldNotDelete'), 'error');
     }
   };
+
+  // Every hook above has already run: this refusal has to sit
+  // below them or the screen would break the rules of hooks the
+  // first time a guest opens it.
+  if (isGuest) return <GuestGate reason="events" />;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">

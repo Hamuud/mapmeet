@@ -24,6 +24,7 @@ import { dmsService } from '@/services/dms.service';
 import { eventsService } from '@/services/events.service';
 import { invitesService } from '@/services/invites.service';
 import { useEventsStore } from '@/store/events.store';
+import { useAuthWallStore } from '@/store/authWall.store';
 import { useModerationStore } from '@/store/moderation.store';
 import { useSavedStore } from '@/store/saved.store';
 import { addEvent, downloadIcs, requestCalendarAccess } from '@/services/calendar.service';
@@ -76,6 +77,8 @@ export function EventPreviewBody({
   const venue = useVenue(event);
   const patchEvent = useEventsStore((s) => s.patchEvent);
   const moderationGuard = useModerationStore((s) => s.guard);
+  // Guests get the whole preview and are stopped at the actions.
+  const authGuard = useAuthWallStore((s) => s.guard);
   // Subscribe to this event's bookmark only, so saving one doesn't
   // re-render every other open sheet.
   const isSaved = useSavedStore((s) => !!s.ids[event.id]);
@@ -121,6 +124,7 @@ export function EventPreviewBody({
    *  most events, and until now the only ways to give it were to commit
    *  or to close the sheet and forget. */
   const handleToggleSaved = async () => {
+    if (!authGuard('save')) return;
     if (!session) return;
     try {
       const nowSaved = await toggleSaved(event.id, session.user.id);
@@ -159,6 +163,15 @@ export function EventPreviewBody({
 
   useEffect(() => {
     let cancelled = false;
+    if (!session) {
+      // The attendee RPC is for signed-in callers; a guest sees the
+      // count that came with the event and nothing more. Skipping the
+      // call avoids a guaranteed 401 on every preview they open.
+      setAttendees([]);
+      setLoadingAttendees(false);
+      setAttendeesFailed(false);
+      return;
+    }
     setLoadingAttendees(true);
     setAttendeesFailed(false);
     // One call for both the avatar row and the full list behind it, so
@@ -184,7 +197,7 @@ export function EventPreviewBody({
     return () => {
       cancelled = true;
     };
-  }, [event.id]);
+  }, [event.id, session]);
 
   // Have I said I'm here? Only worth asking for events I'm going to.
   useEffect(() => {
@@ -236,6 +249,10 @@ export function EventPreviewBody({
     event.participant_count >= event.max_participants;
 
   const handleJoinToggle = async () => {
+    // A signed-out visitor gets the sign-in prompt here rather than at
+    // the door: they have already seen what the event is, which is the
+    // whole point of letting them this far.
+    if (!authGuard('join')) return;
     if (!session) return;
     const wasJoined = event.is_joined;
     // Joining is a restricted action while muted/banned; leaving isn't.
@@ -359,7 +376,7 @@ export function EventPreviewBody({
             vertical space, and the actions below are already three deep.
             Hidden for the host (it's in their Created list) and for
             anything already over. */}
-        {session && !isCreator && !isPast ? (
+        {!isCreator && !isPast ? (
           <Pressable
             onPress={() => void handleToggleSaved()}
             hitSlop={8}
@@ -408,7 +425,10 @@ export function EventPreviewBody({
         total={event.participant_count}
         loading={loadingAttendees}
         maxParticipants={event.max_participants}
-        onPress={() => setAttendeesOpen(true)}
+        onPress={() => {
+          if (!authGuard('join')) return;
+          setAttendeesOpen(true);
+        }}
       />
 
       {/* Primary actions */}

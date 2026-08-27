@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { AuthWallSheet } from '@/features/auth/AuthWallSheet';
 import { RestrictionDialog } from '@/features/moderation/RestrictionDialog';
 import { useEventsBootstrap } from '@/features/events/useEventsBootstrap';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
@@ -16,6 +17,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useT } from '@/i18n';
 import { usePresence } from '@/hooks/usePresence';
 import { useAuthStore } from '@/store/auth.store';
+import { useAuthWallStore } from '@/store/authWall.store';
 import { useChatStore } from '@/store/chat.store';
 import { useModerationStore } from '@/store/moderation.store';
 import { useSubscriptionStore } from '@/store/subscription.store';
@@ -33,6 +35,7 @@ export default function TabsLayout() {
   const profile = useAuthStore((s) => s.profile);
   const isDark = scheme === 'dark';
   const unreadTotal = useChatStore((s) => s.unreadTotal);
+  const showWall = useAuthWallStore((s) => s.show);
 
   useEventsBootstrap();
   useChatSync();
@@ -57,7 +60,10 @@ export default function TabsLayout() {
   }, [session, bootstrapSubscription]);
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
-  if (!session) return <Redirect href="/(auth)/login" />;
+  // No redirect for guests: the map is browsable signed-out, and the
+  // wall goes up on the actions that need an identity instead. The two
+  // gates below still apply, and both already require a profile — so a
+  // guest, who has none, falls through them untouched.
   // An account created through Google has a handle we invented for it.
   // Ask once, here rather than at the call site, so every route into the
   // app goes through it — including a deep link straight to a chat.
@@ -108,6 +114,14 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="events"
+        listeners={{
+          tabPress: (e) => {
+            if (!session) {
+              e.preventDefault();
+              showWall('events');
+            }
+          },
+        }}
         options={{
           title: t('tabs.events'),
           tabBarIcon: ({ color, size, focused }) => (
@@ -121,6 +135,14 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="chat"
+        listeners={{
+          tabPress: (e) => {
+            if (!session) {
+              e.preventDefault();
+              showWall('chat');
+            }
+          },
+        }}
         options={{
           title: t('tabs.chat'),
           // Unread count across every chat the viewer belongs to.
@@ -143,6 +165,14 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="profile"
+        listeners={{
+          tabPress: (e) => {
+            if (!session) {
+              e.preventDefault();
+              showWall('profile');
+            }
+          },
+        }}
         options={{
           title: t('tabs.you'),
           tabBarIcon: ({ color, size, focused }) => (
@@ -158,6 +188,10 @@ export default function TabsLayout() {
 
     {/* Explains a mute/ban whenever a restricted action is attempted. */}
     <RestrictionDialog />
+
+    {/* And the guest equivalent: raised whenever somebody signed out
+        reaches for something that needs an account. */}
+    <AuthWallSheet />
     </>
   );
 }

@@ -32,6 +32,7 @@ import { useIconColor } from '@/hooks/useIconColor';
 import { useT } from '@/i18n';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useLocation } from '@/hooks/useLocation';
+import { useAuthWallStore } from '@/store/authWall.store';
 import { useEventsStore } from '@/store/events.store';
 import { useFiltersStore } from '@/store/filters.store';
 import { usePreferencesStore } from '@/store/preferences.store';
@@ -137,6 +138,10 @@ function MapScreenBody() {
     }, 250);
     return () => clearTimeout(t);
   }, [focusedEventId, events, focusEvent]);
+
+  // Hosting needs an identity; browsing does not. Guests get the map
+  // and the previews, and meet the wall here.
+  const authGuard = useAuthWallStore((s) => s.guard);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<LatLng | null>(null);
@@ -271,11 +276,15 @@ function MapScreenBody() {
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
   const handlePickLocation = useCallback((c: LatLng) => {
+    if (!authGuard('create')) {
+      setPickMode(false);
+      return;
+    }
     setPendingCoords(c);
     setPickMode(false);
     setCreateOpen(true);
     mapRef.current?.animateTo(c);
-  }, []);
+  }, [authGuard]);
 
   const armPickMode = () => {
     setCreateOpen(false);
@@ -404,6 +413,7 @@ function MapScreenBody() {
             </Text>
             <Pressable
               onPress={() => {
+                if (!authGuard('create')) return;
                 setPickMode(false);
                 setCreateOpen(true);
               }}
@@ -459,6 +469,7 @@ function MapScreenBody() {
                 // Close any other overlay first so we never end up with
                 // two sheets fighting for the same bottom position.
                 selectEvent(null);
+                if (!authGuard('create')) return;
                 setClusterEvents(null);
                 setEditEvent(null);
                 setDirectionsTarget(null);
@@ -509,6 +520,7 @@ function MapScreenBody() {
                 // Close any other overlay first so we never end up with
                 // two sheets fighting for the same bottom position.
                 selectEvent(null);
+                if (!authGuard('create')) return;
                 setClusterEvents(null);
                 setEditEvent(null);
                 setDirectionsTarget(null);

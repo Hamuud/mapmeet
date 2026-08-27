@@ -32,6 +32,56 @@ function toEventWithCreator(row: RawEventRow, viewerId: string | null): EventWit
   };
 }
 
+/** Flat row shape of `public_user_events()` / `public_events_in_bbox()`,
+ *  the two RPCs a signed-out visitor reads instead of the `events`
+ *  table — which RLS closes to `anon` entirely. */
+type PublicEventRow = Omit<
+  Event,
+  'source_id' | 'archive_warned' | 'coming_poll_created' | 'reminder_sent'
+> & {
+  creator_username: string | null;
+  creator_display_name: string | null;
+  creator_avatar_url: string | null;
+  creator_role: string | null;
+  participant_count: number;
+};
+
+/** Collapse a guest row into the same shape the authenticated path
+ *  produces, so every screen downstream is unaware which kind of viewer
+ *  it is rendering for.
+ *
+ *  The four columns the projection withholds are internal bookkeeping;
+ *  they are filled with their table defaults rather than left undefined,
+ *  because the type says they exist and a guest event that later gets
+ *  merged with an authenticated one should not differ in shape. */
+function fromPublicRow(row: PublicEventRow): EventWithCreator {
+  const {
+    creator_username,
+    creator_display_name,
+    creator_avatar_url,
+    creator_role,
+    participant_count,
+    ...event
+  } = row;
+  return {
+    ...event,
+    source_id: null,
+    archive_warned: false,
+    coming_poll_created: false,
+    reminder_sent: false,
+    creator: {
+      id: event.creator_id,
+      username: creator_username ?? 'unknown',
+      display_name: creator_display_name ?? 'Unknown',
+      avatar_url: creator_avatar_url,
+      role: (creator_role ?? 'user') as EventWithCreator['creator']['role'],
+    },
+    participant_count,
+    // A guest has joined nothing, by definition.
+    is_joined: false,
+  } as EventWithCreator;
+}
+
 /** Bounding box of the visible map region. */
 export type Bbox = {
   minLat: number;
@@ -85,6 +135,14 @@ export const eventsService = {
    *  a week across a country, so they load per-viewport instead
    *  (`listExternalInBbox`) and per-membership (`listJoinedExternal`). */
   async list(viewerId: string | null): Promise<EventWithCreator[]> {
+    // Signed out: `events` is closed to `anon` by RLS, so read the
+    // curated projection instead. Same events, minus anything private
+    // and minus the columns a stranger has no business seeing.
+    if (!viewerId) {
+      const { data, error } = await supabase.rpc('public_user_events');
+      if (error) throw error;
+      return ((data as PublicEventRow[] | null) ?? []).map(fromPublicRow);
+    }
     const { data, error } = await supabase
       .from('events')
       .select(SELECT_EVENT)
@@ -198,6 +256,17 @@ export const eventsService = {
     bbox: Bbox,
     limit = VIEWPORT_LIMIT,
   ): Promise<EventWithCreator[]> {
+    if (!viewerId) {
+      const { data, error } = await supabase.rpc('public_events_in_bbox', {
+        p_min_lat: bbox.minLat,
+        p_max_lat: bbox.maxLat,
+        p_min_lng: bbox.minLng,
+        p_max_lng: bbox.maxLng,
+        p_limit: limit,
+      });
+      if (error) throw error;
+      return ((data as PublicEventRow[] | null) ?? []).map(fromPublicRow);
+    }
     const { data, error } = await supabase
       .from('events')
       .select(SELECT_EVENT)

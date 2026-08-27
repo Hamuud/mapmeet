@@ -21,10 +21,16 @@ export function useEventsBootstrap() {
   const resetSaved = useSavedStore((s) => s.reset);
 
   // Initial fetch + realtime subscription.
+  //
+  // A signed-out visitor still fetches: the map is the shop window, and
+  // `eventsService.list(null)` reads the public projection instead of the
+  // table. What they do NOT get is a realtime channel or bookmarks —
+  // both need an account, and Realtime would just fail its auth
+  // handshake in a retry loop.
   useEffect(() => {
     if (!viewerId) {
-      reset();
       resetSaved();
+      void fetch(null);
       return;
     }
     void fetch(viewerId);
@@ -35,12 +41,13 @@ export function useEventsBootstrap() {
     return () => {
       unsubscribe();
     };
-  }, [viewerId, fetch, subscribe, reset]);
+  }, [viewerId, fetch, subscribe, reset, resetSaved, loadSaved]);
 
   // Foreground refetch — covers the case where iOS parked the WebSocket
   // (or the network flapped) and we've missed events while inactive.
+  // Guests have no socket to park, but they also have no other way to
+  // notice new pins, so this is their only refresh.
   useEffect(() => {
-    if (!viewerId) return;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void fetch(viewerId);

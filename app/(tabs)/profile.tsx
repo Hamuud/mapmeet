@@ -11,6 +11,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PastEventSheet } from '@/features/events/PastEventSheet';
+import { GuestGate } from '@/features/auth/GuestGate';
 import { useT } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
@@ -30,6 +31,8 @@ type Tab = 'hosting' | 'attending' | 'past' | 'reviews';
 export default function YouScreen() {
   const t = useT();
   const { profile } = useAuth();
+  const { session } = useAuth();
+  const isGuest = !session;
   const iconColor = useIconColor();
   const events = useEventsStore((s) => s.events);
   const focusEvent = useEventsStore((s) => s.focusEvent);
@@ -64,7 +67,10 @@ export default function YouScreen() {
   }, [profile]);
 
   const { hostingCount, attendingCount, hosting, attending, past } = useMemo(() => {
-    if (!profile) {
+    // Every hook above has already run: this refusal has to sit
+  // below them or the screen would break the rules of hooks the
+  // first time a guest opens it.
+  if (!profile) {
       return { hostingCount: 0, attendingCount: 0, hosting: [], attending: [], past: [] };
     }
     const now = new Date();
@@ -111,6 +117,13 @@ export default function YouScreen() {
     router.navigate('/(tabs)/map');
   };
 
+  // Every hook above has already run: this refusal has to sit below
+  // them or the screen would break the rules of hooks the first
+  // time a guest opens it. It also has to precede the "no profile
+  // yet" state below, which is for a signed-in account still
+  // loading and offers no way to sign in.
+  if (isGuest) return <GuestGate reason="profile" />;
+
   if (!profile) {
     return (
       <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
@@ -126,6 +139,8 @@ export default function YouScreen() {
   const interests = (profile.interests ?? [])
     .map((k) => INTERESTS_BY_KEY[k])
     .filter((i): i is NonNullable<typeof i> => !!i);
+
+
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">

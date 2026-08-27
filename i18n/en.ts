@@ -915,6 +915,21 @@ export const en = {
   'role.supportHint': 'Reviews reports; cannot assign roles',
   'role.admin': 'Admin',
   'role.adminHint': 'Full moderation; cannot assign roles',
+  // ── Sign-in wall (guests) ─────────────────────────────────────────
+  'wall.join': 'Sign in to join',
+  'wall.save': 'Sign in to save events',
+  'wall.chat': 'Sign in to join the chat',
+  'wall.create': 'Sign in to pin an event',
+  'wall.events': 'Sign in to see your events',
+  'wall.profile': 'Sign in to see your profile',
+  'wall.generic': 'Sign in to continue',
+  'wall.body':
+    'The map is free to browse. An account is what lets you come along, talk to the people going, and pin your own.',
+  'wall.createAccount': 'Create an account',
+  'wall.signIn': 'I already have one',
+  'wall.notNow': 'Not now',
+  'wall.backToMap': 'Back to the map',
+
   // ── Premium subscription ──────────────────────────────────────────
   'settings.premium': 'MapMeet Premium',
   'settings.premiumHint': 'Styled pins and more markers a day',

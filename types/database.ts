@@ -18,6 +18,40 @@ export type PollPayload = {
  *  the side of the staff chain (support → admin → owner). Anything that
  *  means "can moderate" must test membership explicitly — see
  *  `isStaffRole` in utils/roles.ts. */
+/** One row from the guest-facing event RPCs. Flat rather than embedded,
+ *  because a SECURITY DEFINER function returns a table and PostgREST
+ *  embeds are not available to it — the creator's public fields are
+ *  joined in as `creator_*` and reassembled client-side. */
+export type PublicEventRpcRow = {
+  id: string;
+  creator_id: string;
+  title: string;
+  description: string | null;
+  emoji: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  event_date: string;
+  event_time: string;
+  max_participants: number | null;
+  visibility: string;
+  tags: string[];
+  source: string;
+  source_url: string | null;
+  image_url: string | null;
+  geo_precision: string | null;
+  pin_color: string | null;
+  pin_effect: string | null;
+  pin_effect_emoji: string[] | null;
+  created_at: string;
+  updated_at: string;
+  creator_username: string | null;
+  creator_display_name: string | null;
+  creator_avatar_url: string | null;
+  creator_role: string | null;
+  participant_count: number;
+};
+
 export type UserRole =
   | 'user'
   | 'premium'
@@ -452,6 +486,24 @@ export type Database = {
           p_details?: string | null;
         };
         Returns: string;
+      };
+      /** What a signed-out visitor may read. `events` is closed to
+       *  `anon` by RLS; these return a curated projection of public
+       *  events plus an attendee COUNT — never the participant rows the
+       *  count is derived from. */
+      public_user_events: {
+        Args: Record<string, never>;
+        Returns: PublicEventRpcRow[];
+      };
+      public_events_in_bbox: {
+        Args: {
+          p_min_lat: number;
+          p_max_lat: number;
+          p_min_lng: number;
+          p_max_lng: number;
+          p_limit?: number;
+        };
+        Returns: PublicEventRpcRow[];
       };
       /** The caller's own subscription, for the account screen. No rows
        *  when signed out or never subscribed. */

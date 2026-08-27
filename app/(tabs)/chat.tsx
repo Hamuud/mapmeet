@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
+import { GuestGate } from '@/features/auth/GuestGate';
 import { useT, type TFunction } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { dmsService, type DmRoom } from '@/services/dms.service';
@@ -24,6 +25,7 @@ type Folder = 'active' | 'archive' | 'direct';
 
 export default function ChatScreen() {
   const t = useT();
+
   return (
     <ErrorBoundary where={t('boundary.chat')}>
       <ChatListBody />
@@ -37,6 +39,7 @@ export default function ChatScreen() {
 function ChatListBody() {
   const t = useT();
   const { session } = useAuth();
+  const isGuest = !session;
   const viewerId = session?.user.id ?? null;
   const events = useEventsStore((s) => s.events);
   const [folder, setFolder] = useState<Folder>('active');
@@ -133,6 +136,11 @@ function ChatListBody() {
     dms.reduce((s, r) => s + r.unreadCount, 0) +
     groups.reduce((s, r) => s + r.unreadCount, 0);
   const directCount = dms.length + groups.length;
+
+  // Every hook above has already run: this refusal has to sit
+  // below them or the screen would break the rules of hooks the
+  // first time a guest opens it.
+  if (isGuest) return <GuestGate reason="chat" />;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
