@@ -360,6 +360,7 @@ export const uk: Record<TranslationKey, Phrase> = {
   // ── Past event recap ──────────────────────────────────────────────
   'past.noDescription': 'Опис не додали.',
   'past.hostedBy': 'Організатор — {name}',
+  'preview.hostedBy': 'організатор — {name}',
   'past.went': {
     one: 'прийшов {count}',
     few: 'прийшли {count}',

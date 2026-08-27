@@ -368,7 +368,7 @@ export function EventPreviewBody({
             className="text-xs text-muted-light dark:text-muted-dark"
             numberOfLines={1}
           >
-            hosted by {event.creator.display_name}
+            {t('preview.hostedBy', { name: event.creator.display_name })}
           </Text>
         </View>
 

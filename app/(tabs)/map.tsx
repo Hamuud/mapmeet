@@ -23,7 +23,7 @@ import { DateRangeSheet } from '@/features/events/DateRangeSheet';
 import { filterEvents } from '@/features/events/filterEvents';
 import { EventSuggestions } from '@/features/map/EventSuggestions';
 import { suggestEvents } from '@/features/map/matchEvents';
-import { DEMO_CENTER } from '@/features/map/demo-events';
+import { FALLBACK_CENTER } from '@/features/map/mapDefaults';
 import { MapEventPanel } from '@/features/map/MapEventPanel';
 import { MapSidebar } from '@/features/map/MapSidebar';
 import { MapZoomStack } from '@/features/map/MapZoomStack';
@@ -258,7 +258,7 @@ function MapScreenBody() {
   // overlapping with the first real region change is harmless.
   const seededCenter = useRef<string | null>(null);
   useEffect(() => {
-    const center = coords ?? DEMO_CENTER;
+    const center = coords ?? FALLBACK_CENTER;
     const key = `${center.latitude.toFixed(3)},${center.longitude.toFixed(3)}`;
     if (seededCenter.current === key) return;
     seededCenter.current = key;
@@ -310,7 +310,7 @@ function MapScreenBody() {
       <Map
         ref={mapRef}
         events={visibleEvents}
-        initialCenter={coords ?? DEMO_CENTER}
+        initialCenter={coords ?? FALLBACK_CENTER}
         userLocation={coords}
         selectedEventId={selectedEventId}
         pendingCoords={pendingCoords}

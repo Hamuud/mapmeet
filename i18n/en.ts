@@ -357,6 +357,7 @@ export const en = {
   // ── Past event recap ──────────────────────────────────────────────
   'past.noDescription': 'No description was added.',
   'past.hostedBy': 'Hosted by {name}',
+  'preview.hostedBy': 'hosted by {name}',
   'past.went': {
     one: '{count} went',
     few: '{count} went',
