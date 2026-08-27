@@ -45,7 +45,7 @@ export function GuestGate({ reason }: { reason: AuthWallReason }) {
         </Text>
 
         <Pressable
-          onPress={() => router.push('/(auth)/signup')}
+          onPress={() => router.navigate('/(auth)/signup')}
           className="mt-2 w-full max-w-[320px] items-center rounded-2xl bg-text-light py-3.5 active:opacity-90 dark:bg-text-dark"
         >
           <Text className="text-[15px] font-semibold text-surface-light dark:text-surface-dark">
@@ -54,7 +54,7 @@ export function GuestGate({ reason }: { reason: AuthWallReason }) {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/(auth)/login')}
+          onPress={() => router.navigate('/(auth)/login')}
           className="w-full max-w-[320px] items-center rounded-2xl border border-border-light py-3.5 active:opacity-80 dark:border-border-dark"
         >
           <Text className="text-[15px] font-semibold text-text-light dark:text-text-dark">

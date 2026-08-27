@@ -155,7 +155,7 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => router.push('/profile-edit')}
+              onPress={() => router.navigate('/profile-edit')}
               className="rounded-full border border-border-light bg-elevated-light px-3 py-1.5 dark:border-border-dark dark:bg-elevated-dark"
             >
               <Text className="text-xs font-semibold text-text-light dark:text-text-dark">
@@ -170,19 +170,19 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="person-outline"
             label={t('settings.personalInfo')}
-            onPress={() => router.push('/profile-edit')}
+            onPress={() => router.navigate('/profile-edit')}
           />
           <SettingsRow
             icon="star-outline"
             label={t('settings.premium')}
             hint={premiumActive ? t('settings.premiumOn') : t('settings.premiumHint')}
-            onPress={() => router.push('/premium')}
+            onPress={() => router.navigate('/premium')}
           />
           <SettingsRow
             icon="lock-closed-outline"
             label={t('settings.privacy')}
             hint={t('settings.privacyHint')}
-            onPress={() => router.push('/privacy')}
+            onPress={() => router.navigate('/privacy')}
           />
           <SettingsRow
             icon="location-outline"
@@ -214,7 +214,7 @@ export default function SettingsScreen() {
             icon="notifications-outline"
             label={t('settings.pushNotifications')}
             hint={t(pushNotifications ? 'settings.pushOn' : 'settings.pushOff')}
-            onPress={() => router.push('/notifications')}
+            onPress={() => router.navigate('/notifications')}
           />
           {calendarAvailable ? (
             <SettingsRow
@@ -291,7 +291,7 @@ export default function SettingsScreen() {
               icon="shield-checkmark-outline"
               label={t('settings.complaints')}
               hint={t('settings.complaintsHint')}
-              onPress={() => router.push('/admin')}
+              onPress={() => router.navigate('/admin')}
             />
           </Section>
         ) : null}

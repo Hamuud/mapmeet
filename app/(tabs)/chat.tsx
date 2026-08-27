@@ -212,7 +212,7 @@ function ChatListBody() {
                 title={t('chat.emptyDirect')}
                 description={t('chat.emptyDirectHint')}
                 actionLabel={t('chat.findFriends')}
-                onAction={() => router.push('/friends')}
+                onAction={() => router.navigate('/friends')}
               />
             )
           }
@@ -243,7 +243,7 @@ function ChatListBody() {
                 title={t('chat.emptyActive')}
                 description={t('chat.emptyActiveHint')}
                 actionLabel={t('events.openMap')}
-                onAction={() => router.push('/(tabs)/map')}
+                onAction={() => router.navigate('/(tabs)/map')}
               />
             ) : (
               <EmptyState

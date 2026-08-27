@@ -152,7 +152,7 @@ export default function FriendsScreen() {
               title={t('friends.empty')}
               description={t('friends.emptyHint')}
               actionLabel={t('events.openMap')}
-              onAction={() => router.push('/(tabs)/map')}
+              onAction={() => router.navigate('/(tabs)/map')}
             />
           ) : (
             <EmptyState

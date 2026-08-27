@@ -47,7 +47,7 @@ export function AuthWallSheet() {
 
   const go = (path: '/(auth)/signup' | '/(auth)/login') => {
     hide();
-    router.push(path);
+    router.navigate(path);
   };
 
   return (

@@ -153,7 +153,7 @@ export default function YouScreen() {
             {/* Header row — settings on the right */}
             <View className="flex-row items-center justify-end">
               <Pressable
-                onPress={() => router.push('/settings')}
+                onPress={() => router.navigate('/settings')}
                 accessibilityLabel={t('profile.settings')}
                 hitSlop={8}
                 className="h-9 w-9 items-center justify-center rounded-full border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
@@ -189,7 +189,7 @@ export default function YouScreen() {
               <View className="flex-1">
                 <PrimaryButton
                   label={t('profile.editProfile')}
-                  onPress={() => router.push('/profile-edit')}
+                  onPress={() => router.navigate('/profile-edit')}
                   fullWidth
                 />
               </View>
@@ -200,7 +200,7 @@ export default function YouScreen() {
                   leftIcon={
                     <Ionicons name="people-outline" size={14} color={iconColor} />
                   }
-                  onPress={() => router.push('/friends')}
+                  onPress={() => router.navigate('/friends')}
                   fullWidth
                 />
               </View>
@@ -211,7 +211,7 @@ export default function YouScreen() {
                   leftIcon={
                     <Ionicons name="settings-outline" size={14} color={iconColor} />
                   }
-                  onPress={() => router.push('/settings')}
+                  onPress={() => router.navigate('/settings')}
                   fullWidth
                 />
               </View>
@@ -314,7 +314,7 @@ export default function YouScreen() {
                   : t('profile.emptyHostingHint')
               }
               actionLabel={t('events.openMap')}
-              onAction={() => router.push('/(tabs)/map')}
+              onAction={() => router.navigate('/(tabs)/map')}
             />
           )
         }
