@@ -40,6 +40,23 @@ type Props = {
   desktopWidth?: number;
 };
 
+/** Stacking order for the sheet's root, above every fixed overlay a host
+ *  screen paints over its own content.
+ *
+ *  Being in-tree rather than inside a `<Modal>` means this competes with
+ *  its siblings on z-order like any other view — and on the map screen
+ *  two of those siblings declare one: the search bar and filter chips at
+ *  20, the map-style switcher at 10. React Native stacks siblings that
+ *  declare a zIndex above those that don't, whatever the document order,
+ *  so coming later in the tree bought these sheets nothing. Every sheet
+ *  on the map opened underneath the search field, with the filter chips
+ *  cutting across its heading.
+ *
+ *  Set here rather than at the call sites because it is a property of
+ *  what a sheet IS — the thing in front — and there are ten of them.
+ *  100 leaves room for map chrome to grow without anyone coming back. */
+const SHEET_Z = 100;
+
 /** Bottom sheet — in-tree, not inside `<Modal>`.
  *
  *  Native path uses RN's Animated for slide + backdrop fade and a
@@ -167,7 +184,7 @@ export function BottomSheet({
       // form fields need room, but capped so we don't crowd the map.
       const railWidth = 380;
       return (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: SHEET_Z }]} pointerEvents="box-none">
           <Pressable
             onPress={onClose}
             accessibilityLabel={t('a11y.closeSheet')}
@@ -211,7 +228,7 @@ export function BottomSheet({
 
     // Standard web bottom sheet (mobile / narrow desktop).
     return (
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: SHEET_Z }]} pointerEvents="box-none">
         <Pressable
           onPress={onClose}
           accessibilityLabel={t('a11y.closeSheet')}
@@ -272,7 +289,7 @@ export function BottomSheet({
   const combinedTranslate = Animated.add(enterTranslate, dragY);
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFillObject, { zIndex: SHEET_Z }]} pointerEvents="box-none">
       <Animated.View
         style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}
       >
