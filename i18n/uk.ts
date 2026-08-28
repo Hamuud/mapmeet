@@ -1004,6 +1004,8 @@ export const uk: Record<TranslationKey, Phrase> = {
   'premium.restored': 'Преміум відновлено.',
   'premium.nothingToRestore': 'Для цього акаунта підписки не знайдено.',
   'premium.legal': 'Умови та конфіденційність',
+  'premium.terms_link': 'Умови використання',
+  'premium.privacy_link': 'Політика конфіденційності',
   'premium.thanks': 'Вітаємо у преміумі.',
   'premium.noOffering': 'Преміум зараз недоступний. Спробуйте трохи згодом.',
   'premium.notReadyTitle': 'Ще недоступно',

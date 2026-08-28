@@ -11,7 +11,15 @@ import { isPurchasesAvailable } from '@/services/purchases.service';
 import { useSubscriptionStore } from '@/store/subscription.store';
 import { goBack } from '@/utils/nav';
 
-const LEGAL_URL = 'https://hamuud.github.io/mapmeet/legal/';
+/** Two distinct links, not one combined "Terms & Privacy".
+ *
+ *  Guideline 3.1.2(c) asks for "functional links to the privacy policy
+ *  and Terms of Use (EULA)" — plural, and the 1.0.2 review cited it. A
+ *  single link to an index page that lists both is arguably functional
+ *  and is not worth arguing about with a reviewer who is looking for
+ *  two. Both point straight at the document, no hop through an index. */
+const TERMS_URL = 'https://hamuud.github.io/mapmeet/legal/terms.html';
+const PRIVACY_URL = 'https://hamuud.github.io/mapmeet/legal/privacy.html';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(currentBcp47(), {
@@ -275,14 +283,26 @@ export default function PremiumScreen() {
           ) : null}
           <Pressable
             onPress={() =>
-              Linking.openURL(LEGAL_URL).catch(() =>
+              Linking.openURL(TERMS_URL).catch(() =>
                 toast.show(t('settings.legalFailed'), 'error'),
               )
             }
             hitSlop={8}
           >
             <Text className="text-[13px] font-semibold text-brand-500">
-              {t('premium.legal')}
+              {t('premium.terms_link')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              Linking.openURL(PRIVACY_URL).catch(() =>
+                toast.show(t('settings.legalFailed'), 'error'),
+              )
+            }
+            hitSlop={8}
+          >
+            <Text className="text-[13px] font-semibold text-brand-500">
+              {t('premium.privacy_link')}
             </Text>
           </Pressable>
         </View>

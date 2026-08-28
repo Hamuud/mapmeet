@@ -986,6 +986,8 @@ export const en = {
   'premium.restored': 'Premium restored.',
   'premium.nothingToRestore': 'No subscription found for this account.',
   'premium.legal': 'Terms & Privacy',
+  'premium.terms_link': 'Terms of Use',
+  'premium.privacy_link': 'Privacy Policy',
   'premium.thanks': 'Welcome to Premium.',
   'premium.noOffering': "Premium isn't available right now. Try again shortly.",
   'premium.notReadyTitle': 'Not available yet',
