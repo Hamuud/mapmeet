@@ -24,13 +24,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   bootstrap: async () => {
     if (get().status !== 'idle') return;
     set({ status: 'loading' });
-    const session = await authService.getSession();
-    await get().setSession(session);
-    // Subscribe once — the returned handle is intentionally leaked for the
-    // life of the process. Re-mounting would create duplicate listeners.
+
+    // Subscribe BEFORE reading the stored session, not after.
+    //
+    // Two reasons, and both used to bite. The listener is the only thing
+    // that delivers TOKEN_REFRESHED and SIGNED_OUT for the rest of the
+    // process, so wiring it behind an `await` meant a failed read left
+    // the app with no listener at all. And the read below can throw
+    // (see the catch), which skipped this line entirely.
+    //
+    // Subscribing once is deliberate — the handle is leaked for the life
+    // of the process, because re-mounting would stack up duplicates.
     authService.onAuthStateChange((next) => {
-      void get().setSession(next);
+      // Deferred out of the callback on purpose. supabase-js runs this
+      // while holding its auth lock, and any other supabase call made
+      // inside it queues behind that same lock — `setSession` fetches
+      // the profile, so calling it here deadlocks the client: the fetch
+      // waits for the lock, the lock waits for the callback to return.
+      // A tick later the lock is free and the same work is safe.
+      setTimeout(() => void get().setSession(next), 0);
     });
+
+    try {
+      const session = await authService.getSession();
+      await get().setSession(session);
+    } catch {
+      // Reading the stored session failed — an access token whose
+      // refresh couldn't complete, no network at launch, or Supabase
+      // having a bad minute. Fall through as signed-out rather than
+      // leaving `status` on 'loading': every screen renders a
+      // full-screen spinner in that state, nothing else can clear it,
+      // and the one-shot guard at the top means it never retries. The
+      // app was frozen until the user killed and reopened it.
+      //
+      // A guest gets the map, which is browsable anyway, and a real
+      // session comes back through the listener above the moment the
+      // refresh succeeds.
+      set({ session: null, profile: null });
+    }
+
     set({ status: 'ready' });
   },
 

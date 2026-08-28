@@ -43,8 +43,10 @@ export default function SignUpScreen() {
     try {
       const { session } = await authService.signUp(values);
       if (session) {
+        // No navigation here: the layout guard redirects on the session
+        // itself, and doing it again from this screen after the profile
+        // fetch resolves re-enters the tabs navigator. See login.tsx.
         await setSession(session);
-        router.replace('/(tabs)/map');
       } else {
         toast.show(t('auth.checkInbox'), 'success');
         router.replace('/(auth)/login');

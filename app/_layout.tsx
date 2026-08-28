@@ -11,6 +11,7 @@ import { useColorScheme as useOsColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/components/ui/Toast';
 import { useDeepLinkSession } from '@/features/auth/useDeepLinkSession';
 import { useAuthStore } from '@/store/auth.store';
@@ -57,27 +58,43 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ToastProvider>
           <StatusBar style={effective === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: {
-                backgroundColor: effective === 'dark' ? '#0B0B0F' : '#FFFFFF',
-              },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="reset" />
-            <Stack.Screen name="settings" />
-            <Stack.Screen name="privacy" />
-            <Stack.Screen name="notifications" />
-            <Stack.Screen name="auth-callback" />
-            <Stack.Screen name="admin" />
-            <Stack.Screen name="profile-edit" />
-            <Stack.Screen name="user/[id]" />
-            <Stack.Screen name="chat/[id]" />
-          </Stack>
+          {/* The outermost boundary, and the only one that covers the
+              layouts themselves.
+
+              Map, Events and Chat each wrap their own body, but a throw
+              in `(tabs)/_layout` or `(auth)/_layout` — or in one of the
+              hooks they mount — happens *above* those, so nothing caught
+              it. On iOS an uncaught render error is a fatal error: the
+              release build doesn't show a red screen, it terminates the
+              process. Signing in is exactly such a moment, because the
+              session changing re-runs every one of those layout effects
+              at once.
+
+              Catching here turns "the app closed" into a screen that
+              says what happened and offers to try again. */}
+          <ErrorBoundary>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: {
+                  backgroundColor: effective === 'dark' ? '#0B0B0F' : '#FFFFFF',
+                },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="reset" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="privacy" />
+              <Stack.Screen name="notifications" />
+              <Stack.Screen name="auth-callback" />
+              <Stack.Screen name="admin" />
+              <Stack.Screen name="profile-edit" />
+              <Stack.Screen name="user/[id]" />
+              <Stack.Screen name="chat/[id]" />
+            </Stack>
+          </ErrorBoundary>
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

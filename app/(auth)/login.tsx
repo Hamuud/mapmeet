@@ -43,11 +43,18 @@ export default function LoginScreen() {
     defaultValues: { email: '', password: '' },
   });
 
+  // No `router.replace` after this. The layout's own guard sends a
+  // signed-in visitor to the map the moment the session lands, and it
+  // gets there first: `setSession` stores the session synchronously and
+  // only then waits on the profile fetch, so by the time this resolves
+  // the redirect has already run and we are standing on /map. Replacing
+  // the route again from a screen that has been unmounted re-entered the
+  // tabs navigator — tearing down and rebuilding every layout effect,
+  // realtime channels included, in the middle of signing in.
   const onSubmit = async (values: SignInInput) => {
     try {
       const session = await authService.signIn(values);
       await setSession(session);
-      router.replace('/(tabs)/map');
     } catch (e) {
       toast.show(e instanceof Error ? e.message : t('auth.signInFailed'), 'error');
     }
@@ -67,8 +74,8 @@ export default function LoginScreen() {
       // Google; native returns null when the user dismisses the sheet.
       // Neither is an error, and neither should navigate.
       if (session) {
+        // Same as onSubmit — the layout guard does the navigating.
         await setSession(session);
-        router.replace('/(tabs)/map');
       }
     } catch (e) {
       toast.show(e instanceof Error ? e.message : t('auth.signInFailed'), 'error');
