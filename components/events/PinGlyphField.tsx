@@ -7,6 +7,7 @@ import {
   MAX_EFFECT_GLYPHS,
 } from '@/features/events/pinStyle';
 import { useT } from '@/i18n';
+import { firstEmoji } from '@/utils/emoji';
 
 /** A few obvious ones so the common case is a single tap. */
 const QUICK_GLYPHS = ['❤️', '⭐', '🔥', '❄️', '🎈', '🍀'];
@@ -30,7 +31,10 @@ export function PinGlyphField({ value, onChange }: Props) {
   const full = glyphs.length >= MAX_EFFECT_GLYPHS;
 
   const add = (glyph: string) => {
-    const g = glyph.trim();
+    // One emoji, or nothing — same rule as the event's own emoji field,
+    // and for the same reason: this used to take whatever was typed, so
+    // a stray letter became a particle falling past the pin.
+    const g = firstEmoji(glyph);
     if (!g || full || glyphs.includes(g)) return;
     onChange([...glyphs, g].slice(0, MAX_EFFECT_GLYPHS));
   };
@@ -82,13 +86,16 @@ export function PinGlyphField({ value, onChange }: Props) {
             <TextInput
               value={draft}
               onChangeText={(v) => {
-                setDraft(v);
-                // Commit as soon as something lands — this field only
-                // ever holds one emoji, so there is nothing to confirm.
-                if (v.trim()) {
-                  add(v.trim());
+                // Commit as soon as an emoji lands — this field only
+                // ever holds one, so there is nothing to confirm. Text
+                // that isn't an emoji leaves the draft where it was, so
+                // the keystroke simply doesn't take.
+                if (firstEmoji(v)) {
+                  add(v);
                   setDraft('');
+                  return;
                 }
+                setDraft(v.trim() ? draft : '');
               }}
               placeholder="🚀"
               placeholderTextColor="#8B8880"

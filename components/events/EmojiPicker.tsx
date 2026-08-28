@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { useT } from '@/i18n';
+import { firstEmoji } from '@/utils/emoji';
 
 /** Just the crowd-favourites. The old ~80-emoji grid took up more than a
  *  screen height in the "Pin an event" sheet — users kept scrolling
@@ -16,7 +16,17 @@ type Props = {
 
 export function EmojiPicker({ value, onChange }: Props) {
   const t = useT();
-  const [custom, setCustom] = useState('');
+
+  // The paste field has no state of its own — it IS the selection,
+  // blanked whenever the selection came from the row of quick picks.
+  //
+  // It used to hold a separate draft, which is where two bugs lived.
+  // Whatever was typed went straight through, so "hello" or three emoji
+  // in a row were both accepted and both ended up on the map. And
+  // because the draft never heard about the quick picks, tapping one
+  // left the previous custom emoji sitting in the field, contradicting
+  // the pin preview right above it.
+  const custom = QUICK_PICKS.includes(value) ? '' : value;
 
   return (
     <View className="gap-3">
@@ -31,20 +41,33 @@ export function EmojiPicker({ value, onChange }: Props) {
           </Text>
           <TextInput
             value={custom}
-            onChangeText={(t) => {
-              setCustom(t);
-              if (t.trim().length > 0) onChange(t.trim());
+            onChangeText={(next) => {
+              // Clearing the field clears the choice; the form's own
+              // "pick an emoji" rule then has something to complain
+              // about, which is more honest than quietly keeping the
+              // emoji they just deleted.
+              if (next.trim().length === 0) {
+                onChange('');
+                return;
+              }
+              // One emoji, or nothing at all. Returning without calling
+              // onChange re-renders the field at its previous value, so
+              // a typed letter never appears — the rejection reads as
+              // the keystroke not registering, which is what a field
+              // that only takes emoji should feel like.
+              const one = firstEmoji(next);
+              if (one) onChange(one);
             }}
             placeholder="🚀"
             placeholderTextColor="#8B8880"
-            // maxLength counts UTF-16 code units in JS/RN, not user-
-            // perceived emoji. A rainbow flag 🏳️‍🌈 is 6 units and a
-            // family 👨‍👩‍👧‍👦 is 11 — the old cap of 4 chopped ZWJ
-            // sequences mid-pair and the map showed either garbage
-            // or nothing. 32 comfortably fits any single emoji cluster
-            // while the DB CHECK (char_length between 1 and 8) still
-            // gates absurd input at the storage layer.
-            maxLength={32}
+            // Long enough for any single cluster to arrive intact before
+            // firstEmoji trims it — a paste is delivered whole, and
+            // cutting it here would sever a ZWJ sequence mid-pair. The
+            // DB CHECK (char_length between 1 and 8) is still the
+            // backstop for absurdly long ones.
+            maxLength={64}
+            autoCapitalize="none"
+            autoCorrect={false}
             className="h-11 rounded-xl border border-border-light bg-panel-light px-4 text-lg text-text-light outline-none dark:border-border-dark dark:bg-panel-dark dark:text-text-dark"
           />
         </View>

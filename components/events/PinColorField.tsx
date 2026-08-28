@@ -9,37 +9,14 @@ import {
   PIN_COLOR_LABEL,
   PIN_COLORS,
 } from '@/features/events/pinStyle';
+import { ColorPicker } from '@/components/ui/ColorPicker';
 import { useT } from '@/i18n';
 import type { PinColor } from '@/types/database';
 
-/** h/s/l → #RRGGBB. Only used to build the spectrum below, once. */
-function hsl(h: number, s: number, l: number): string {
-  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const v = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    return Math.round(255 * v)
-      .toString(16)
-      .padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
-}
-
-/** Twelve hues at two lightnesses, plus a greyscale run.
- *
- *  This is a shortcut, not the feature — the hex field below it is what
- *  makes the palette genuinely open. A designer with a brand colour
- *  pastes it; a designer browsing taps here. */
-const SPECTRUM: string[] = [
-  ...Array.from({ length: 12 }, (_, i) => hsl(i * 30, 75, 45)),
-  ...Array.from({ length: 12 }, (_, i) => hsl(i * 30, 70, 65)),
-  '#000000',
-  '#3F3F46',
-  '#71717A',
-  '#A1A1AA',
-  '#D4D4D8',
-  '#FFFFFF',
-];
+/** Where the picker starts when a designer opens it on a palette colour
+ *  or on Standard — a mid violet, far enough from the eight palette hues
+ *  to read as "this is the free one". */
+const PICKER_SEED = '#7C3AED';
 
 type Props = {
   value: PinColor | null;
@@ -56,6 +33,11 @@ type Props = {
 export function PinColorField({ value, onChange, freeform }: Props) {
   const t = useT();
   const custom = isFreeformColor(value);
+  // What the picker shows when the current selection isn't a free colour
+  // — on Standard, or on one of the eight palette keys, which are names
+  // rather than hexes. It stays put until the user drags, so opening the
+  // picker never silently changes the pin.
+  const pickerValue = custom ? (value as string) : PICKER_SEED;
 
   // Local draft so the user can type '#4B5' without the field fighting
   // them by rejecting every intermediate state. Only a complete, valid
@@ -75,37 +57,6 @@ export function PinColorField({ value, onChange, freeform }: Props) {
     setDraft(trimmed === '#' ? '' : trimmed);
     if (HEX_RE.test(trimmed)) onChange(trimmed);
   };
-
-  const Swatch = ({
-    color,
-    on,
-    label,
-    onPress,
-  }: {
-    color: string;
-    on: boolean;
-    label: string;
-    onPress: () => void;
-  }) => (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel={label}
-      className={[
-        'h-9 w-9 items-center justify-center rounded-xl border-2',
-        on ? 'border-text-light dark:border-text-dark' : 'border-transparent',
-      ].join(' ')}
-      style={{ backgroundColor: color }}
-    >
-      {on ? (
-        <Ionicons
-          name="checkmark"
-          size={15}
-          // A tick has to survive being dropped on white or on black.
-          color={isLight(color) ? '#0E0E10' : '#fff'}
-        />
-      ) : null}
-    </Pressable>
-  );
 
   return (
     <View className="gap-3">
@@ -156,17 +107,12 @@ export function PinColorField({ value, onChange, freeform }: Props) {
             {t('pinStyle.anyColour')}
           </Text>
 
-          <View className="flex-row flex-wrap gap-2">
-            {SPECTRUM.map((hex) => (
-              <Swatch
-                key={hex}
-                color={hex}
-                on={custom && (value as string).toUpperCase() === hex}
-                label={hex}
-                onPress={() => onChange(hex)}
-              />
-            ))}
-          </View>
+          {/* Drag, don't type. The grid of pre-mixed swatches this
+              replaces could only ever offer a sample of the space, and
+              the hex field below it made picking a colour a matter of
+              knowing its code — fine for matching a brand, useless for
+              choosing one. The square and strip are the whole gamut. */}
+          <ColorPicker value={pickerValue} onChange={onChange} />
 
           <View className="flex-row items-center gap-2.5">
             <View
@@ -203,13 +149,4 @@ export function PinColorField({ value, onChange, freeform }: Props) {
       ) : null}
     </View>
   );
-}
-
-/** Rough perceptual lightness — enough to choose a tick colour. */
-function isLight(hex: string): boolean {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
 }
