@@ -67,10 +67,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSession: async (session) => {
+    const current = get().session;
+
     if (!session) {
+      if (!current) return;
       set({ session: null, profile: null });
       return;
     }
+
+    // The same session arriving twice is the normal case, not an edge
+    // case: the sign-in screen calls this directly, and supabase's own
+    // listener fires SIGNED_IN for that same sign-in a moment later.
+    // Both used to store it, and because `set` hands out a fresh object
+    // reference every time, every effect keyed on `session` ran twice —
+    // in the tabs layout that meant two subscription bootstraps racing
+    // each other into the store SDK (one calling Purchases.configure
+    // while the other called Purchases.logIn), two profile fetches and
+    // two moderation reads, all inside the same frame as the redirect
+    // off the login screen.
+    //
+    // Compare the token rather than the reference. A refresh mints a new
+    // one and still gets through, which is what keeps the client's JWT
+    // current; a duplicate of what we already hold does not.
+    if (current?.access_token === session.access_token) return;
+
     // Set the session FIRST, synchronously, so the route guards react
     // immediately and send the user to /map. Previously we awaited the
     // profile fetch before storing the session, so a slow or failing

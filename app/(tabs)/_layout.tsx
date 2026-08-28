@@ -43,12 +43,20 @@ export default function TabsLayout() {
   useNotifications();
   usePresence();
 
-  // Load the viewer's mute/ban standing once per authed session so the
-  // restriction dialog can explain a block without a round trip.
+  // Both effects below key on the viewer's id, not the session object,
+  // the way every hook above already does. Keyed on the object they
+  // re-ran on any new reference for the same person — the duplicate
+  // SIGNED_IN the store now swallows, and every hourly token refresh
+  // after that. "Once per authed session" has to mean once per account,
+  // or the word does no work.
+  const viewerId = session?.user.id ?? null;
+
+  // Load the viewer's mute/ban standing so the restriction dialog can
+  // explain a block without a round trip.
   const refreshModeration = useModerationStore((s) => s.refresh);
   useEffect(() => {
-    if (session) void refreshModeration();
-  }, [session, refreshModeration]);
+    if (viewerId) void refreshModeration();
+  }, [viewerId, refreshModeration]);
 
   // Bind the store SDK to this account and reconcile the entitlement
   // with RevenueCat. Done on every authed launch on purpose: it is what
@@ -56,8 +64,8 @@ export default function TabsLayout() {
   // for is a paying customer who would otherwise have to write in.
   const bootstrapSubscription = useSubscriptionStore((s) => s.bootstrap);
   useEffect(() => {
-    if (session) void bootstrapSubscription(session.user.id);
-  }, [session, bootstrapSubscription]);
+    if (viewerId) void bootstrapSubscription(viewerId);
+  }, [viewerId, bootstrapSubscription]);
 
   if (status !== 'ready') return <LoadingSpinner fullScreen />;
   // No redirect for guests: the map is browsable signed-out, and the

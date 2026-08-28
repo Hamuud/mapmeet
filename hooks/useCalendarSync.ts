@@ -41,7 +41,10 @@ function signatureOf(e: CalendarEventInput): string {
  *  no-ops entirely on web and on native builds made before expo-calendar
  *  landed. */
 export function useCalendarSync() {
-  const session = useAuthStore((s) => s.session);
+  // The id, not the session object: a reconcile pass writes to the
+  // device calendar, and re-running it on every new session reference
+  // for the same person is work nobody asked for.
+  const viewerId = useAuthStore((s) => s.session?.user.id ?? null);
   const events = useEventsStore((s) => s.events);
   const enabled = usePreferencesStore((s) => s.calendarSync);
   const entries = useCalendarStore((s) => s.entries);
@@ -59,7 +62,7 @@ export function useCalendarSync() {
   entriesRef.current = entries;
 
   useEffect(() => {
-    if (!session || !enabled || running.current) return;
+    if (!viewerId || !enabled || running.current) return;
 
     let cancelled = false;
     running.current = true;
@@ -122,5 +125,5 @@ export function useCalendarSync() {
     return () => {
       cancelled = true;
     };
-  }, [session, enabled, events, remember, forget]);
+  }, [viewerId, enabled, events, remember, forget]);
 }
