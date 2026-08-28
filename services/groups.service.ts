@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { withSignedMedia } from './media.service';
+import { openChannel } from './realtime';
 import { supabase } from './supabase';
 import type { MessageWithSender } from '@/types';
 
@@ -296,8 +297,7 @@ export const groupsService = {
   /** Fires on any change (INSERT for new messages, UPDATE for reactions
    *  / read receipts) so the room can refetch. */
   subscribe(groupId: string, onChange: () => void): RealtimeChannel {
-    return supabase
-      .channel(`mapmeet:group:${groupId}`)
+    return openChannel(`mapmeet:group:${groupId}`)
       .on(
         'postgres_changes',
         {

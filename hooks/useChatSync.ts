@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { messagesService } from '@/services/messages.service';
+import { openChannel } from '@/services/realtime';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatStore } from '@/store/chat.store';
@@ -104,8 +105,7 @@ export function useChatSync() {
       timer = setTimeout(doRefresh, 600);
     };
 
-    const channel = supabase
-      .channel('mapmeet:chat:badge')
+    const channel = openChannel('mapmeet:chat:badge')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },

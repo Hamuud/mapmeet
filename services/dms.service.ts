@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { withSignedMedia } from './media.service';
+import { openChannel } from './realtime';
 import { supabase } from './supabase';
 import type { MessageWithSender } from '@/types';
 
@@ -236,8 +237,7 @@ export const dmsService = {
 
   /** Fires on any change (new message, reaction, read receipt). */
   subscribe(dmId: string, onChange: () => void): RealtimeChannel {
-    return supabase
-      .channel(`mapmeet:dm:${dmId}`)
+    return openChannel(`mapmeet:dm:${dmId}`)
       .on(
         'postgres_changes',
         {

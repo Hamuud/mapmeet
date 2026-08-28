@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { withSignedMedia } from './media.service';
+import { openChannel } from './realtime';
 import { supabase } from './supabase';
 import type { Message, MessageWithSender } from '@/types';
 
@@ -295,8 +296,7 @@ export const messagesService = {
       onUpdate?: (message: Message) => void;
     },
   ): RealtimeChannel {
-    const channel = supabase
-      .channel(`mapmeet:chat:${eventId}`)
+    const channel = openChannel(`mapmeet:chat:${eventId}`)
       .on(
         'postgres_changes',
         {
@@ -331,8 +331,7 @@ export const messagesService = {
   /** Realtime feed across ALL chats the viewer can see (RLS-scoped) —
    *  powers the chat list's live previews + unread badges. */
   subscribeAll(onInsert: (message: Message) => void): RealtimeChannel {
-    const channel = supabase
-      .channel('mapmeet:chat:all')
+    const channel = openChannel('mapmeet:chat:all')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },

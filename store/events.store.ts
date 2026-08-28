@@ -2,6 +2,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
 import { eventsService, type Bbox } from '@/services/events.service';
+import { openChannel } from '@/services/realtime';
 import { supabase } from '@/services/supabase';
 import type { EventWithCreator } from '@/types';
 
@@ -104,8 +105,7 @@ export const useEventsStore = create<EventsState>((set, get) => ({
     const prev = get()._channel;
     if (prev) supabase.removeChannel(prev);
 
-    const channel = supabase
-      .channel('mapmeet:events')
+    const channel = openChannel('mapmeet:events')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
