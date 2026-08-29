@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  FlatList,
+  PanResponder,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
@@ -23,6 +32,24 @@ import { INTERESTS_BY_KEY } from '@/utils/interests';
 import type { EventWithCreator } from '@/types';
 
 type Tab = 'hosting' | 'attending' | 'past' | 'reviews';
+
+/** Left-to-right order of the tabs. The swipe gesture walks this, so it
+ *  has to match what the segmented control renders. */
+const TABS: Tab[] = ['hosting', 'attending', 'past', 'reviews'];
+
+/** How far across the screen a drag has to get before releasing it
+ *  changes tab. A flick past `SWIPE_VELOCITY` counts too, so a quick
+ *  gesture doesn't have to travel the distance. */
+const SWIPE_TRIGGER = 0.22;
+const SWIPE_VELOCITY = 0.45;
+
+/** Past the first or last tab there is nothing to move to, so the drag
+ *  is damped to a third of the finger and capped. That resistance IS
+ *  the message: the panel gives, so you know the gesture was heard, and
+ *  it refuses, so you know there is nothing behind it. Springing back
+ *  from a dead stop would read as a broken swipe instead. */
+const EDGE_RESIST = 0.32;
+const EDGE_MAX = 64;
 
 /** "You" tab — the redesigned profile screen. Big avatar + display
  *  name + @handle line, optional bio + interest chips, Events / Joined
@@ -100,6 +127,96 @@ export default function YouScreen() {
     };
   }, [events, profile]);
 
+  // ── Swipe between tabs ────────────────────────────────────────────
+  // Everything below is hooks, so it has to stay above the guest and
+  // no-profile returns further down.
+  const { width } = useWindowDimensions();
+  const slide = useRef(new Animated.Value(0)).current;
+
+  // The pan handlers are built once and never rebuilt, so they read the
+  // things that change through refs rather than closing over a stale
+  // first render.
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  const widthRef = useRef(width);
+  widthRef.current = width;
+
+  // Only the panel dims as it travels; a straight slide with no fade
+  // reads as the list being dragged rather than swapped.
+  const fade = useMemo(
+    () =>
+      slide.interpolate({
+        inputRange: [-width, 0, width],
+        outputRange: [0.25, 1, 0.25],
+        extrapolate: 'clamp',
+      }),
+    [slide, width],
+  );
+
+  const pan = useRef(
+    PanResponder.create({
+      // No onStart handler: taps have to reach the rows underneath.
+      // Claiming only once a drag is clearly sideways is what keeps this
+      // from stealing the vertical scroll — 1.6 is enough of a margin
+      // that a slightly diagonal flick down the list still scrolls.
+      onMoveShouldSetPanResponder: (_e, g) =>
+        Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+      onPanResponderMove: (_e, g) => {
+        const i = TABS.indexOf(tabRef.current);
+        const beyondStart = i === 0 && g.dx > 0;
+        const beyondEnd = i === TABS.length - 1 && g.dx < 0;
+        if (beyondStart || beyondEnd) {
+          const sign = g.dx > 0 ? 1 : -1;
+          slide.setValue(sign * Math.min(Math.abs(g.dx) * EDGE_RESIST, EDGE_MAX));
+        } else {
+          slide.setValue(g.dx);
+        }
+      },
+      onPanResponderRelease: (_e, g) => {
+        const i = TABS.indexOf(tabRef.current);
+        const w = widthRef.current;
+        // Swiping left (negative dx) means "forward", the way pages go.
+        const dir = g.dx < 0 ? 1 : -1;
+        const next = i + dir;
+        const committed =
+          Math.abs(g.dx) > w * SWIPE_TRIGGER || Math.abs(g.vx) > SWIPE_VELOCITY;
+
+        if (committed && next >= 0 && next < TABS.length) {
+          // Carry the outgoing panel the rest of the way off, swap the
+          // data behind it, then bring the incoming one in from the
+          // opposite edge. Two steps, so the swap is never visible.
+          Animated.timing(slide, {
+            toValue: -dir * w,
+            duration: 140,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }).start(({ finished }) => {
+            if (!finished) return;
+            setTab(TABS[next]!);
+            slide.setValue(dir * w);
+            settle();
+          });
+          return;
+        }
+        // Everything else comes home: a drag too short to count, and
+        // every attempt at the two ends.
+        settle();
+      },
+      onPanResponderTerminate: () => settle(),
+    }),
+  ).current;
+
+  function settle() {
+    Animated.spring(slide, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 14,
+    }).start();
+  }
+
+  const panelStyle = { transform: [{ translateX: slide }], opacity: fade };
+
   const list: (EventWithCreator | UserReview)[] =
     tab === 'reviews'
       ? reviews
@@ -144,6 +261,11 @@ export default function YouScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
+      {/* The gesture covers the whole screen, not just the strip of
+          list below the tabs. Somebody reaching for a swipe aims at the
+          content, not at a 40pt row of labels, and there is no other
+          horizontal gesture on this screen to compete with. */}
+      <View className="flex-1" {...pan.panHandlers}>
       <FlatList
         data={list}
         keyExtractor={(e) => e.id}
@@ -284,24 +406,35 @@ export default function YouScreen() {
           </View>
         }
         contentContainerStyle={{ padding: 20, gap: 12, paddingTop: 4, flexGrow: 1 }}
-        renderItem={({ item }) =>
-          tab === 'reviews' ? (
-            <ReviewCard review={item as UserReview} />
-          ) : (
-            <EventCard
-              event={item as EventWithCreator}
-              // Past events have no pin left to fly to, so they open a
-              // recap rather than the map.
-              onPress={() =>
-                tab === 'past'
-                  ? setPastEvent(item as EventWithCreator)
-                  : openOnMap(item as EventWithCreator)
-              }
-            />
-          )
-        }
+        // The rows travel, the header above them does not: the avatar,
+        // the stats and the tab strip belong to all four panels, and
+        // sliding them sideways would say the whole page changed when
+        // only the list did.
+        renderItem={({ item }) => (
+          <Animated.View style={panelStyle}>
+            {tab === 'reviews' ? (
+              <ReviewCard review={item as UserReview} />
+            ) : (
+              <EventCard
+                event={item as EventWithCreator}
+                // Past events have no pin left to fly to, so they open a
+                // recap rather than the map.
+                onPress={() =>
+                  tab === 'past'
+                    ? setPastEvent(item as EventWithCreator)
+                    : openOnMap(item as EventWithCreator)
+                }
+              />
+            )}
+          </Animated.View>
+        )}
+        // Wrapped too, or an empty tab would sit dead still while a
+        // populated one slides — and three of the four are empty for
+        // most people, which is exactly when the gesture most needs to
+        // show it did something.
         ListEmptyComponent={
-          tab === 'reviews' ? (
+          <Animated.View style={[panelStyle, { flexGrow: 1 }]}>
+          {tab === 'reviews' ? (
             <EmptyState
               emoji="📝"
               title={t('profile.noReviews')}
@@ -325,9 +458,11 @@ export default function YouScreen() {
               actionLabel={t('events.openMap')}
               onAction={() => router.navigate('/(tabs)/map')}
             />
-          )
+          )}
+          </Animated.View>
         }
       />
+      </View>
 
       <PastEventSheet event={pastEvent} onClose={() => setPastEvent(null)} />
     </SafeAreaView>
