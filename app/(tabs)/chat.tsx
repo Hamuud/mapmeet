@@ -9,6 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
+import { SearchBar } from '@/components/events/SearchBar';
+import { muteKey, mutesService } from '@/services/mutes.service';
 import { GuestGate } from '@/features/auth/GuestGate';
 import { useT, type TFunction } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,6 +48,30 @@ function ChatListBody() {
   const events = useEventsStore((s) => s.events);
   const [folder, setFolder] = useState<Folder>('active');
 
+  // One box filters whichever folder is open. Client-side on purpose:
+  // the rows are already loaded, so the answer is instant and works
+  // offline — and a conversation list is short enough that a query per
+  // keystroke would be all cost and no benefit.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+
+  // Which rooms are silenced, so the list can say so. Muting happens in
+  // the room; this is only for the marker.
+  const [mutedKeys, setMutedKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!viewerId) return;
+    let cancelled = false;
+    mutesService
+      .list()
+      .then((keys) => {
+        if (!cancelled) setMutedKeys(keys);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerId]);
+
   // Same per-minute tick the Events tab uses, so a chat migrates from
   // Active → Archive at the moment its event crosses the 1h-grace
   // cutoff, without a refetch.
@@ -76,12 +102,15 @@ function ChatListBody() {
   // Sort: chats with newest messages first; chats without messages fall
   // back to event creation order.
   const sorted = useMemo(() => {
-    return [...chats].sort((a, b) => {
+    const matched = q
+      ? chats.filter((e) => e.title.toLowerCase().includes(q))
+      : chats;
+    return [...matched].sort((a, b) => {
       const ta = previews.get(a.id)?.lastMessage?.created_at ?? a.created_at;
       const tb = previews.get(b.id)?.lastMessage?.created_at ?? b.created_at;
       return tb.localeCompare(ta);
     });
-  }, [chats, previews]);
+  }, [chats, previews, q]);
 
   // Unread across the archive still matters (a chat can wrap with
   // messages the viewer never opened) — badge the folder tab.
@@ -127,8 +156,16 @@ function ChatListBody() {
       ...dms.map((room) => ({ kind: 'dm' as const, ts: room.lastMessage?.created_at ?? '', room })),
       ...groups.map((room) => ({ kind: 'group' as const, ts: room.lastMessage?.created_at ?? '', room })),
     ];
-    return items.sort((a, b) => b.ts.localeCompare(a.ts));
-  }, [dms, groups]);
+    const matched = q
+      ? items.filter((i) =>
+          i.kind === 'dm'
+            ? i.room.other.display_name.toLowerCase().includes(q) ||
+              i.room.other.username.toLowerCase().includes(q)
+            : i.room.name.toLowerCase().includes(q),
+        )
+      : items;
+    return matched.sort((a, b) => b.ts.localeCompare(a.ts));
+  }, [dms, groups, q]);
   const directUnread =
     dms.reduce((s, r) => s + r.unreadCount, 0) +
     groups.reduce((s, r) => s + r.unreadCount, 0);
@@ -156,8 +193,16 @@ function ChatListBody() {
             <Ionicons name="add" size={22} color="#fff" />
           </Pressable>
         </View>
+        <View className="mt-3">
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t('chat.searchPlaceholder')}
+          />
+        </View>
+
         {/* Active / Direct / Archive folders */}
-        <View className="mt-4 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
+        <View className="mt-3 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
           <FolderTab
             label={t('chat.tabActive')}
             count={active.length}
@@ -195,9 +240,17 @@ function ChatListBody() {
           }}
           renderItem={({ item }) =>
             item.kind === 'group' ? (
-              <GroupRow room={item.room} viewerId={viewerId} />
+              <GroupRow
+                room={item.room}
+                viewerId={viewerId}
+                muted={mutedKeys.has(muteKey('group', item.room.id))}
+              />
             ) : (
-              <DmRow room={item.room} viewerId={viewerId} />
+              <DmRow
+                room={item.room}
+                viewerId={viewerId}
+                muted={mutedKeys.has(muteKey('dm', item.room.id))}
+              />
             )
           }
           ListEmptyComponent={
@@ -241,6 +294,7 @@ function ChatListBody() {
           renderItem={({ item }) => (
             <ChatRow
               event={item}
+              muted={mutedKeys.has(muteKey('event', item.id))}
               preview={previews.get(item.id)}
               isHost={item.creator_id === viewerId}
               viewerId={viewerId}
@@ -347,9 +401,11 @@ function previewText(preview: ChatPreview | undefined, t: TFunction): string {
 function DmRow({
   room,
   viewerId,
+  muted,
 }: {
   room: DmRoom;
   viewerId: string | null;
+  muted?: boolean;
 }) {
   const t = useT();
   const last = room.lastMessage;
@@ -379,6 +435,9 @@ function DmRow({
           </Text>
           <VerifiedBadge role={room.other.role} size={12} />
           <View className="flex-1" />
+          {muted ? (
+            <Ionicons name="notifications-off" size={10} color="#8B8880" />
+          ) : null}
           {last ? (
             <Text className="font-mono text-[9px] uppercase text-muted-light">
               {formatRelativeTime(last.created_at)}
@@ -417,9 +476,11 @@ function DmRow({
 function GroupRow({
   room,
   viewerId,
+  muted,
 }: {
   room: GroupRoom;
   viewerId: string | null;
+  muted?: boolean;
 }) {
   const t = useT();
   const last = room.lastMessage;
@@ -442,6 +503,9 @@ function GroupRow({
           </Text>
           <Ionicons name="people" size={11} color="#8B8880" />
           <Text className="font-mono text-[9px] text-muted-light">{room.memberCount}</Text>
+          {muted ? (
+            <Ionicons name="notifications-off" size={10} color="#8B8880" />
+          ) : null}
           {last ? (
             <Text className="font-mono text-[9px] uppercase text-muted-light">
               {formatRelativeTime(last.created_at)}
@@ -482,9 +546,13 @@ function ChatRow({
   preview,
   isHost,
   viewerId,
+  muted,
 }: {
   event: EventWithCreator;
   preview: ChatPreview | undefined;
+  /** Silenced — the row says so, since the unread badge alone would
+      otherwise look like a notification that never arrived. */
+  muted?: boolean;
   isHost: boolean;
   viewerId: string | null;
 }) {
@@ -511,6 +579,9 @@ function ChatRow({
             {event.title}
           </Text>
           {isHost ? <Ionicons name="star" size={11} color="#FE5800" /> : null}
+          {muted ? (
+            <Ionicons name="notifications-off" size={10} color="#8B8880" />
+          ) : null}
           {last ? (
             <Text className="font-mono text-[9px] uppercase text-muted-light">
               {formatRelativeTime(last.created_at)}

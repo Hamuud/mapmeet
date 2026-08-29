@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -15,6 +15,11 @@ import { useT } from '@/i18n';
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
+import { JumpToLatest } from '@/components/chat/JumpToLatest';
+import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { UnreadDivider } from '@/components/chat/UnreadDivider';
+import { MessageSearchSheet } from '@/features/chat/MessageSearchSheet';
+import { useRoomExtras } from '@/hooks/useRoomExtras';
 import { Avatar } from '@/components/ui/Avatar';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -50,11 +55,13 @@ export default function DmRoomScreen() {
   const toast = useToast();
   const iconColor = useIconColor();
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const viewerId = session?.user.id ?? null;
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
   const moderationGuard = useModerationStore((s) => s.guard);
   const recorder = useVoiceRecorder();
+  const listRef = useRef<FlatList<MessageWithSender> | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const [other, setOther] = useState<Profile | null>(null);
   const [dmId, setDmId] = useState<string | null>(null);
@@ -316,6 +323,15 @@ export default function DmRoomScreen() {
     );
   }
 
+  const extras = useRoomExtras({
+    scope: 'dm',
+    targetId: dmId,
+    viewerId,
+    displayName: profile?.display_name ?? '',
+    messages,
+    listRef,
+  });
+
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
       {/* Header */}
@@ -364,6 +380,35 @@ export default function DmRoomScreen() {
             </Text>
           </View>
         </Pressable>
+        <Pressable
+          onPress={() => setSearchOpen(true)}
+          accessibilityLabel={t('room.search')}
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+        >
+          <Ionicons name="search" size={16} color={iconColor} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            void extras
+              .toggleMute()
+              .then((next) =>
+                toast.show(t(next ? 'chat.mutedToast' : 'chat.unmutedToast'), 'success'),
+              )
+              .catch(() => toast.show(t('chat.muteFailed'), 'error'));
+          }}
+          accessibilityLabel={t(extras.muted ? 'chat.unmute' : 'chat.mute')}
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+        >
+          <Ionicons
+            name={extras.muted ? 'notifications-off' : 'notifications-outline'}
+            size={16}
+            color={extras.muted ? '#FE5800' : iconColor}
+          />
+        </Pressable>
+
         {friendship !== 'friends' && !block.iBlocked && !block.theyBlocked ? (
           <Pressable
             onPress={handleAddFriend}
@@ -394,10 +439,14 @@ export default function DmRoomScreen() {
         className="flex-1"
       >
         <FlatList
+          ref={listRef}
           data={visible}
           keyExtractor={(m) => m.id}
           inverted
           showsVerticalScrollIndicator={false}
+          onScroll={extras.onScroll}
+          scrollEventThrottle={64}
+          ListHeaderComponent={<TypingIndicator names={extras.typerNames} />}
           contentContainerStyle={{ paddingVertical: 12 }}
           renderItem={({ item, index }) => {
             const older = visible[index + 1];
@@ -405,6 +454,9 @@ export default function DmRoomScreen() {
             return (
               <View>
                 {showDate ? <DateSeparator iso={item.created_at} /> : null}
+                {item.id === extras.firstUnreadId ? (
+                  <UnreadDivider count={extras.unreadCount} />
+                ) : null}
                 <MessageBubble
                   message={item}
                   isOwn={item.sender_id === viewerId}
@@ -435,6 +487,13 @@ export default function DmRoomScreen() {
               />
             </View>
           }
+        />
+
+        <JumpToLatest
+          visible={extras.showJump}
+          count={extras.missedCount}
+          onPress={extras.jumpToLatest}
+          bottom={insets.bottom + 70}
         />
 
         <View style={{ paddingBottom: insets.bottom }}>
@@ -471,6 +530,7 @@ export default function DmRoomScreen() {
             </View>
           ) : (
             <MessageInput
+              onTyping={extras.notifyTyping}
               onSend={handleSend}
               onAttach={() => toast.show(t('room.attachSoon'), 'info')}
               onCreatePoll={() => setPollOpen(true)}
@@ -566,6 +626,16 @@ export default function DmRoomScreen() {
           />
         </View>
       </BottomSheet>
+      <MessageSearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        search={(q) => (dmId ? dmsService.searchMessages(dmId, q) : Promise.resolve([]))}
+        onPick={(m) => {
+          setSearchOpen(false);
+          const i = visible.findIndex((x) => x.id === m.id);
+          if (i >= 0) listRef.current?.scrollToIndex({ index: i, animated: true });
+        }}
+      />
     </SafeAreaView>
   );
 }
