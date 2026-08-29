@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   PanResponder,
   StyleSheet,
   View,
@@ -8,22 +9,8 @@ import {
 } from 'react-native';
 
 import { useScrollLockStore } from '@/store/scrollLock.store';
+import { BLACK_RAMP, HUE_RAMP, WHITE_RAMP } from './gradientRamps';
 import { hexToHsv, hsvToHex, luminance, type Hsv } from '@/utils/color';
-
-/** Slice counts for the faked gradients.
- *
- *  There is no gradient primitive here — no expo-linear-gradient, no
- *  react-native-svg — and adding one means a native module, which the
- *  already-installed builds would not have. So the ramps are drawn as a
- *  row (or column) of flex-1 slices, which is plain Views and works
- *  everywhere including web.
- *
- *  These counts are where banding stops being visible at the sizes we
- *  render: the hue strip is the widest and the most sensitive to steps,
- *  so it gets the most. Raising them is cheap but not free — every
- *  slice is a view in the sheet. */
-const HUE_SLICES = 72;
-const SHADE_SLICES = 40;
 
 const SQUARE_HEIGHT = 170;
 const STRIP_HEIGHT = 26;
@@ -175,33 +162,23 @@ export function ColorPicker({ value, onChange }: Props) {
         }}
         accessibilityLabel="Saturation and brightness"
       >
+        {/* Saturation, then value. Both stretched from a one-pixel strip,
+            so the steps between are the GPU's bilinear filtering rather
+            than anything laid out — no slice boundaries to show through
+            at any size or pixel density. */}
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          <View style={{ flex: 1, flexDirection: 'row' }}>
-            {Array.from({ length: SHADE_SLICES }, (_, i) => (
-              <View
-                key={`s${i}`}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#FFFFFF',
-                  opacity: 1 - i / (SHADE_SLICES - 1),
-                }}
-              />
-            ))}
-          </View>
+          <Image
+            source={{ uri: WHITE_RAMP }}
+            resizeMode="stretch"
+            style={StyleSheet.absoluteFillObject}
+          />
         </View>
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          <View style={{ flex: 1 }}>
-            {Array.from({ length: SHADE_SLICES }, (_, i) => (
-              <View
-                key={`v${i}`}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#000000',
-                  opacity: i / (SHADE_SLICES - 1),
-                }}
-              />
-            ))}
-          </View>
+          <Image
+            source={{ uri: BLACK_RAMP }}
+            resizeMode="stretch"
+            style={StyleSheet.absoluteFillObject}
+          />
         </View>
 
         <View
@@ -227,16 +204,12 @@ export function ColorPicker({ value, onChange }: Props) {
         style={{ height: STRIP_HEIGHT, borderRadius: STRIP_HEIGHT / 2, overflow: 'hidden' }}
         accessibilityLabel="Hue"
       >
-        <View style={{ flex: 1, flexDirection: 'row' }} pointerEvents="none">
-          {Array.from({ length: HUE_SLICES }, (_, i) => (
-            <View
-              key={`h${i}`}
-              style={{
-                flex: 1,
-                backgroundColor: hsvToHex({ h: (i / HUE_SLICES) * 360, s: 1, v: 1 }),
-              }}
-            />
-          ))}
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <Image
+            source={{ uri: HUE_RAMP }}
+            resizeMode="stretch"
+            style={StyleSheet.absoluteFillObject}
+          />
         </View>
         <View
           pointerEvents="none"
