@@ -261,11 +261,6 @@ export default function YouScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-      {/* The gesture covers the whole screen, not just the strip of
-          list below the tabs. Somebody reaching for a swipe aims at the
-          content, not at a 40pt row of labels, and there is no other
-          horizontal gesture on this screen to compete with. */}
-      <View className="flex-1" {...pan.panHandlers}>
       <FlatList
         data={list}
         keyExtractor={(e) => e.id}
@@ -380,8 +375,17 @@ export default function YouScreen() {
               </View>
             ) : null}
 
-            {/* Segmented control */}
-            <View className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark">
+            {/* Segmented control — and the top of the swipe zone.
+                The gesture is attached from here down rather than to
+                the whole screen: above this line sit the avatar, the
+                buttons, the stats and the interests, none of which
+                belong to a particular tab, so a sideways drag across
+                them changing tab was the screen answering a question
+                that part of it was not being asked. */}
+            <View
+              {...pan.panHandlers}
+              className="flex-row items-center gap-6 border-b border-border-light dark:border-border-dark"
+            >
               <SegmentTab
                 label={t('profile.tabHosting', { n: hosting.length })}
                 active={tab === 'hosting'}
@@ -411,7 +415,7 @@ export default function YouScreen() {
         // sliding them sideways would say the whole page changed when
         // only the list did.
         renderItem={({ item }) => (
-          <Animated.View style={panelStyle}>
+          <Animated.View style={panelStyle} {...pan.panHandlers}>
             {tab === 'reviews' ? (
               <ReviewCard review={item as UserReview} />
             ) : (
@@ -433,7 +437,7 @@ export default function YouScreen() {
         // most people, which is exactly when the gesture most needs to
         // show it did something.
         ListEmptyComponent={
-          <Animated.View style={[panelStyle, { flexGrow: 1 }]}>
+          <Animated.View style={[panelStyle, { flexGrow: 1 }]} {...pan.panHandlers}>
           {tab === 'reviews' ? (
             <EmptyState
               emoji="📝"
@@ -462,7 +466,6 @@ export default function YouScreen() {
           </Animated.View>
         }
       />
-      </View>
 
       <PastEventSheet event={pastEvent} onClose={() => setPastEvent(null)} />
     </SafeAreaView>
