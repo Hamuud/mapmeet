@@ -376,6 +376,8 @@ export const uk: Record<TranslationKey, Phrase> = {
   'chat.tabArchive': 'Архів',
   'chat.emptyDirect': 'Особистих повідомлень ще немає',
   'chat.emptyDirectHint': 'Натисніть +, щоб створити групу з друзями, або «Написати» в профілі для особистого чату.',
+  'chat.directFailed': 'Не вдалося завантажити повідомлення',
+  'chat.directFailedHint': 'Перевірте зʼєднання та спробуйте ще — нічого не втрачено.',
   'chat.findFriends': 'Знайти друзів',
   'chat.emptyActive': 'Активних чатів немає',
   'chat.emptyActiveHint': 'Приєднайтеся до події на карті — у кожної події є власний груповий чат.',

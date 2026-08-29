@@ -375,6 +375,8 @@ export const en = {
   'chat.tabArchive': 'Archive',
   'chat.emptyDirect': 'No direct messages yet',
   'chat.emptyDirectHint': 'Tap + to start a group with friends, or Message on a profile for a DM.',
+  'chat.directFailed': "Couldn't load your messages",
+  'chat.directFailedHint': 'Check your connection and try again — nothing has been lost.',
   'chat.findFriends': 'Find friends',
   'chat.emptyActive': 'No active chats',
   'chat.emptyActiveHint': 'Join an event on the map — every event comes with its own group chat.',

@@ -12,8 +12,10 @@ import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
 import { GuestGate } from '@/features/auth/GuestGate';
 import { useT, type TFunction } from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
-import { dmsService, type DmRoom } from '@/services/dms.service';
-import { groupsService, type GroupRoom } from '@/services/groups.service';
+// Types only now — the fetching moved to the store, so this screen no
+// longer talks to either service directly.
+import type { DmRoom } from '@/services/dms.service';
+import type { GroupRoom } from '@/services/groups.service';
 import { type ChatPreview } from '@/services/messages.service';
 import { useChatStore } from '@/store/chat.store';
 import { useEventsStore } from '@/store/events.store';
@@ -95,30 +97,25 @@ function ChatListBody() {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
 
   // Direct folder = 1:1 DMs + friend group chats, one list sorted by
-  // last activity. Loaded when the Direct segment is picked (or after a
-  // group is created); realtime for the list isn't wired here yet, so we
-  // refresh on tab change.
-  const [dms, setDms] = useState<DmRoom[]>([]);
-  const [groups, setGroups] = useState<GroupRoom[]>([]);
-  const [directLoading, setDirectLoading] = useState(false);
+  // last activity.
+  //
+  // Read from the shared store, not fetched here. This screen used to
+  // load them itself when the Direct segment was picked, which had two
+  // consequences: the tab badge could not count a direct message
+  // because nothing outside this screen had ever loaded one, and the
+  // list only changed when you tapped the segment — a DM that arrived
+  // while you were looking at it did not appear. Both go away when the
+  // rooms live where the badge can see them, kept current by the same
+  // subscription that already feeds the event chats.
+  const dms = useChatStore((s) => s.dms);
+  const groups = useChatStore((s) => s.groups);
+  const directLoaded = useChatStore((s) => s.directLoaded);
+  const directFailed = useChatStore((s) => s.directFailed);
+  const refreshDirect = useChatStore((s) => s.refreshDirect);
   const loadDirect = useCallback(async () => {
     if (!viewerId) return;
-    setDirectLoading(true);
-    try {
-      const [d, g] = await Promise.all([
-        dmsService.listRooms(viewerId).catch(() => [] as DmRoom[]),
-        groupsService.listRooms(viewerId).catch(() => [] as GroupRoom[]),
-      ]);
-      setDms(d);
-      setGroups(g);
-    } finally {
-      setDirectLoading(false);
-    }
-  }, [viewerId]);
-  useEffect(() => {
-    if (folder !== 'direct') return;
-    void loadDirect();
-  }, [folder, loadDirect]);
+    await refreshDirect(viewerId);
+  }, [viewerId, refreshDirect]);
 
   // Interleave DMs + groups by last activity (falls back to nothing →
   // sorts to the bottom for brand-new empty chats).
@@ -204,8 +201,21 @@ function ChatListBody() {
             )
           }
           ListEmptyComponent={
-            directLoading ? (
+            !directLoaded ? (
               <EmptyState emoji="⏳" title={t('common.loading')} />
+            ) : directFailed ? (
+              // Not the same thing as having no messages, and it used to
+              // render as though it were: the fetch swallowed its own
+              // error and returned an empty array, so a dropped
+              // connection produced "no direct messages yet — find
+              // friends". An invitation to fix a problem you do not have.
+              <EmptyState
+                emoji="📡"
+                title={t('chat.directFailed')}
+                description={t('chat.directFailedHint')}
+                actionLabel={t('common.retry')}
+                onAction={() => void loadDirect()}
+              />
             ) : (
               <EmptyState
                 emoji="✉️"

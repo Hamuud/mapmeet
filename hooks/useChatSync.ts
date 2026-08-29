@@ -31,6 +31,9 @@ export function useChatSync() {
     return events.filter((e) => e.creator_id === viewerId || e.is_joined);
   }, [events, viewerId]);
 
+  const refreshDirect = useChatStore((s) => s.refreshDirect);
+  const resetChat = useChatStore((s) => s.reset);
+
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
   const idsKey = chats
@@ -91,6 +94,20 @@ export function useChatSync() {
     runArchiveWarnings();
   }, [idsKey, viewerId, refresh, runArchiveWarnings]);
 
+  // Direct rooms, loaded here rather than on the Chat screen.
+  //
+  // They used to be fetched by that screen when its Direct segment was
+  // picked, which is why a DM could not reach the tab badge: nothing
+  // had loaded it. Signing out clears them, so the next account does
+  // not inherit a badge counting somebody else's messages.
+  useEffect(() => {
+    if (!viewerId) {
+      resetChat();
+      return;
+    }
+    void refreshDirect(viewerId);
+  }, [viewerId, refreshDirect, resetChat]);
+
   // Realtime + foreground + heartbeat.
   useEffect(() => {
     if (!viewerId) return;
@@ -105,6 +122,23 @@ export function useChatSync() {
       timer = setTimeout(doRefresh, 600);
     };
 
+    let directTimer: ReturnType<typeof setTimeout>;
+    const doRefreshDirect = () => void refreshDirect(viewerId);
+    const debouncedDirect = () => {
+      clearTimeout(directTimer);
+      directTimer = setTimeout(doRefreshDirect, 600);
+    };
+
+    // One channel, three tables. dm_messages and group_messages are new
+    // here, and they are the reason a direct message now shows up
+    // without being gone looking for: the Direct list used to reload
+    // only when its segment was tapped, so a DM sat invisible until
+    // somebody happened to open the right folder.
+    //
+    // No filter on these. postgres_changes runs under RLS, so what
+    // arrives is already only the rooms this viewer belongs to — and
+    // the payload is thrown away regardless, since all we do with it is
+    // decide to refetch.
     const channel = openChannel('mapmeet:chat:badge')
       .on(
         'postgres_changes',
@@ -116,25 +150,38 @@ export function useChatSync() {
         { event: 'UPDATE', schema: 'public', table: 'messages' },
         debounced,
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dm_messages' },
+        debouncedDirect,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_messages' },
+        debouncedDirect,
+      )
       .subscribe();
 
     const appSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         doRefresh();
+        doRefreshDirect();
         runArchiveWarnings();
       }
     });
 
     const heartbeat = setInterval(() => {
       doRefresh();
+      doRefreshDirect();
       runArchiveWarnings();
     }, 60_000);
 
     return () => {
       clearTimeout(timer);
+      clearTimeout(directTimer);
       clearInterval(heartbeat);
       supabase.removeChannel(channel);
       appSub.remove();
     };
-  }, [viewerId, refresh, runArchiveWarnings]);
+  }, [viewerId, refresh, refreshDirect, runArchiveWarnings]);
 }
