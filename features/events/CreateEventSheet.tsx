@@ -26,6 +26,7 @@ import {
 } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
+import { useScrollLockStore } from '@/store/scrollLock.store';
 import { canRepeatEvents, canStylePin, dailyEventLimit } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { LatLng } from '@/types';
@@ -141,6 +142,7 @@ export function CreateEventSheet({
   const [quota, setQuota] = useState<EventQuota | null>(null);
   const pickingRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollLocked = useScrollLockStore((s) => s.locked);
 
   const form = useForm<EventInput>({
     resolver: zodResolver(eventSchema),
@@ -411,6 +413,12 @@ export function CreateEventSheet({
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingTop: 18, paddingBottom: 24 }}
               showsVerticalScrollIndicator={false}
+              // Frozen while the Style step's colour picker is being
+              // dragged. Its square is a vertical drag too, and iOS
+              // scrolls natively without asking the responder system
+              // first, so the sheet used to slide away under the finger
+              // choosing a brightness.
+              scrollEnabled={!scrollLocked}
             >
               {/* Keyed off the step's id, not its index — the Style step
                   shifts every index after it by one. */}

@@ -28,6 +28,7 @@ import { resolveColorValue } from '@/features/events/pinStyle';
 import { eventsService } from '@/services/events.service';
 import { useEventsStore } from '@/store/events.store';
 import { useModerationStore } from '@/store/moderation.store';
+import { useScrollLockStore } from '@/store/scrollLock.store';
 import { canStylePin, canStylePinFreeform } from '@/utils/roles';
 import { eventSchema, type EventInput } from '@/utils/validators';
 import type { EventWithCreator } from '@/types';
@@ -40,6 +41,7 @@ type Props = {
 
 export function EditEventSheet({ event, open, onClose }: Props) {
   const t = useT();
+  const scrollLocked = useScrollLockStore((s) => s.locked);
   const te = useTMaybe();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -154,6 +156,10 @@ export function EditEventSheet({ event, open, onClose }: Props) {
           className="flex-1"
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 60, gap: 18, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
+          // Same as the create sheet: the colour picker's square is a
+          // vertical drag, and iOS scrolls natively without deferring to
+          // the responder that already owns the gesture.
+          scrollEnabled={!scrollLocked}
         >
           <Controller
             control={control}

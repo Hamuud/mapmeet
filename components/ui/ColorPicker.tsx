@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PanResponder,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 
+import { useScrollLockStore } from '@/store/scrollLock.store';
 import { hexToHsv, hsvToHex, luminance, type Hsv } from '@/utils/color';
 
 /** Slice counts for the faked gradients.
@@ -87,6 +88,14 @@ export function ColorPicker({ value, onChange }: Props) {
   const hsvRef = useRef(hsv);
   hsvRef.current = hsv;
 
+  // Zustand actions keep the same identity for the life of the store, so
+  // the copy the pan handlers capture on first render stays good.
+  const lockScroll = useScrollLockStore((s) => s.setLocked);
+  // Releasing on unmount as well: closing the sheet mid-drag fires
+  // neither release nor terminate, and a lock left set would freeze the
+  // next sheet that opened.
+  useEffect(() => () => lockScroll(false), [lockScroll]);
+
   const pureHue = useMemo(() => hsvToHex({ h: hsv.h, s: 1, v: 1 }), [hsv.h]);
   const current = useMemo(() => hsvToHex(hsv), [hsv]);
   const knobInk = luminance(current) > 0.6 ? '#0E0E10' : '#FFFFFF';
@@ -95,28 +104,38 @@ export function ColorPicker({ value, onChange }: Props) {
    *  want — but only while every child is `pointerEvents="none"`, or a
    *  slice becomes the target and the numbers are relative to that
    *  instead. That is why the overlays and knobs below are all inert. */
-  const squarePan = useRef(
-    PanResponder.create({
-      // Claim on touch-down. The picker lives inside the sheet's
-      // ScrollView, and without claiming, a drag that starts vertical
-      // scrolls the sheet instead of setting brightness.
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => fromSquare(e),
-      onPanResponderMove: (e) => fromSquare(e),
-    }),
-  ).current;
+  /** Both controls behave identically towards the scroll view they sit
+   *  in: they take the gesture on touch-down and hold it until the
+   *  finger lifts.
+   *
+   *  Claiming the JS responder is only half of it. The sheet's
+   *  ScrollView scrolls through a native pan recogniser that does not
+   *  defer to the responder system, so dragging down the square to
+   *  lower brightness scrolled the sheet underneath at the same time.
+   *  Freezing it for the length of the drag is what stops that — and
+   *  the unlock has to happen on terminate as well as release, or one
+   *  interrupted gesture leaves the sheet stuck.
+   *
+   *  The gesture staying with the control once it has begun is the
+   *  point, not a side effect: dragging past the edge of the square
+   *  keeps adjusting the colour, clamped, rather than handing the
+   *  gesture back mid-choice. Scrolling is available again as soon as
+   *  the finger lifts. */
+  const dragHandlers = (apply: (e: GestureResponderEvent) => void) => ({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e: GestureResponderEvent) => {
+      lockScroll(true);
+      apply(e);
+    },
+    onPanResponderMove: apply,
+    onPanResponderRelease: () => lockScroll(false),
+    onPanResponderTerminate: () => lockScroll(false),
+  });
 
-  const stripPan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => fromStrip(e),
-      onPanResponderMove: (e) => fromStrip(e),
-    }),
-  ).current;
+  const squarePan = useRef(PanResponder.create(dragHandlers((e) => fromSquare(e)))).current;
+  const stripPan = useRef(PanResponder.create(dragHandlers((e) => fromStrip(e)))).current;
 
   function fromSquare(e: GestureResponderEvent) {
     const { w, h } = squareRef.current;
