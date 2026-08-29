@@ -12,7 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n';
-import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
+import { FloatingDate } from '@/components/chat/FloatingDate';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { JumpToLatest } from '@/components/chat/JumpToLatest';
@@ -371,14 +371,13 @@ export default function GroupRoomScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={extras.onScroll}
           scrollEventThrottle={64}
+          onViewableItemsChanged={extras.onViewableItemsChanged}
+          viewabilityConfig={extras.viewabilityConfig}
           ListHeaderComponent={<TypingIndicator names={extras.typerNames} />}
           contentContainerStyle={{ paddingVertical: 12 }}
-          renderItem={({ item, index }) => {
-            const older = visible[index + 1];
-            const showDate = !older || dayKey(older.created_at) !== dayKey(item.created_at);
+          renderItem={({ item }) => {
             return (
               <View>
-                {showDate ? <DateSeparator iso={item.created_at} /> : null}
                 {item.id === extras.firstUnreadId ? (
                   <UnreadDivider count={extras.unreadCount} />
                 ) : null}
@@ -412,6 +411,8 @@ export default function GroupRoomScreen() {
             </View>
           }
         />
+
+        <FloatingDate iso={extras.dateIso} visible={extras.dateVisible} top={8} />
 
         <JumpToLatest
           visible={extras.showJump}

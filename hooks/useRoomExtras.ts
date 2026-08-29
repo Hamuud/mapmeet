@@ -2,10 +2,23 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FlatList, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 import { JUMP_THRESHOLD } from '@/components/chat/JumpToLatest';
+import { dayKey } from '@/components/chat/FloatingDate';
 import { useUnreadBoundary } from '@/components/chat/UnreadDivider';
 import { useTyping } from '@/hooks/useTyping';
 import { muteKey, mutesService, type MuteScope } from '@/services/mutes.service';
 import type { MessageWithSender } from '@/types';
+
+/** Rooms whose date pill has already had its one free showing this
+ *  session. Module-level on purpose: it has to outlive the screen, and
+ *  it has to NOT outlive the app — "first time you open this chat"
+ *  means first time since launch, not first time ever. Persisting it
+ *  would mean the pill never greeted you again on any device, which is
+ *  more memory than the feature deserves. */
+const greeted = new Set<string>();
+
+/** How long the pill lingers after scrolling stops. Long enough to read,
+ *  short enough that it is gone before it becomes furniture. */
+const DATE_LINGER_MS = 1400;
 
 /** Everything the three chat rooms need on top of their messages, in one
  *  place.
@@ -92,17 +105,65 @@ export function useRoomExtras({
   const [missed, setMissed] = useState(0);
   const lastCount = useRef(messages.length);
 
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const away = y > JUMP_THRESHOLD;
-    if (away !== scrolledAwayRef.current) {
-      scrolledAwayRef.current = away;
-      setScrolledAway(away);
-      // Coming back to the bottom clears the tally; that is what the
-      // button was counting towards.
-      if (!away) setMissed(0);
-    }
+  // ── Floating date ─────────────────────────────────────────────────
+  const [dateIso, setDateIso] = useState<string | null>(null);
+  const [dateVisible, setDateVisible] = useState(false);
+  const dateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const revealDate = useCallback(() => {
+    setDateVisible(true);
+    if (dateTimer.current) clearTimeout(dateTimer.current);
+    dateTimer.current = setTimeout(() => setDateVisible(false), DATE_LINGER_MS);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dateTimer.current) clearTimeout(dateTimer.current);
+    };
+  }, []);
+
+  // One free showing when the room is opened, so the first thing you see
+  // is anchored in time without having to move. Second visit in the same
+  // session gets nothing — by then you know where you are.
+  useEffect(() => {
+    if (!targetId || messages.length === 0) return;
+    if (greeted.has(`${scope}:${targetId}`)) return;
+    greeted.add(`${scope}:${targetId}`);
+    setDateIso(messages[messages.length - 1]!.created_at);
+    revealDate();
+  }, [scope, targetId, messages, revealDate]);
+
+  /** Which message sits at the top of the viewport. The lists are
+   *  inverted, so the visually highest row is the LAST of the viewable
+   *  items, not the first — reading them in array order would show the
+   *  date of whatever is nearest the composer instead. */
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: MessageWithSender }> }) => {
+      const top = viewableItems[viewableItems.length - 1]?.item;
+      if (!top) return;
+      setDateIso((prev) =>
+        prev && dayKey(prev) === dayKey(top.created_at) ? prev : top.created_at,
+      );
+    },
+  ).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      revealDate();
+      const y = e.nativeEvent.contentOffset.y;
+      const away = y > JUMP_THRESHOLD;
+      if (away !== scrolledAwayRef.current) {
+        scrolledAwayRef.current = away;
+        setScrolledAway(away);
+        // Coming back to the bottom clears the tally; that is what the
+        // button was counting towards.
+        if (!away) setMissed(0);
+      }
+    },
+    [revealDate],
+  );
 
   // Count what arrives while the reader is elsewhere. Only while away,
   // so a chat read in real time never shows a badge.
@@ -125,6 +186,10 @@ export function useRoomExtras({
     notifyTyping,
     firstUnreadId,
     unreadCount,
+    dateIso,
+    dateVisible,
+    onViewableItemsChanged,
+    viewabilityConfig,
     showJump: scrolledAway,
     missedCount: missed,
     onScroll,
