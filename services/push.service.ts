@@ -68,7 +68,10 @@ export function configureNotificationHandler(): void {
  *  user's profile so the notify Edge Function can target them. Returns
  *  the token, or null when push isn't available (web, simulator, old
  *  build, or permission denied). */
-export async function registerForPush(userId: string): Promise<string | null> {
+// No userId parameter any more: the RPC takes the caller from the JWT.
+// Passing one in would suggest a device could be registered against an
+// account other than the one signed in, which is the whole bug.
+export async function registerForPush(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
   const mods = loadModules();
   if (!mods) return null;
@@ -96,7 +99,14 @@ export async function registerForPush(userId: string): Promise<string | null> {
     const { data: token } = await Notifications.getExpoPushTokenAsync({
       projectId: PROJECT_ID,
     });
-    await supabase.from('profiles').update({ push_token: token }).eq('id', userId);
+    // Through the RPC, not a direct update on our own row. The token
+    // names this handset, so claiming it has to release it from whoever
+    // held it before — which is a write to somebody else's profile, and
+    // only a SECURITY DEFINER function can do that. A plain update left
+    // the previous account still holding it, and every message sent to
+    // that account went on arriving here.
+    const { error } = await supabase.rpc('set_push_token', { p_token: token });
+    if (error) return null;
     return token;
   } catch {
     return null;
@@ -155,8 +165,14 @@ export async function syncPushSettings(input: {
 }
 
 /** Drop the stored token so the server stops targeting this device.
- *  Used when the master switch goes off — clearing the token is what
- *  actually stops delivery, since every send path filters on it. */
-export async function clearPushToken(userId: string): Promise<void> {
-  await supabase.from('profiles').update({ push_token: null }).eq('id', userId);
+ *
+ *  Two callers, and the second is the important one. The master push
+ *  switch going off is the obvious case. Signing out is the case that
+ *  was missing: leaving the token behind is what let a phone keep
+ *  receiving an account's messages long after that account had left it.
+ *
+ *  Must be awaited BEFORE the sign-out completes — it is a write, and
+ *  the JWT it needs dies with the session. */
+export async function clearPushToken(): Promise<void> {
+  await supabase.rpc('set_push_token', { p_token: null });
 }

@@ -41,8 +41,8 @@ export function useNotifications() {
     // actually stops delivery, since every send path filters on it. The
     // per-category switches ride on the profile row instead, because
     // they have to be readable by a cron job at 3am.
-    if (pushEnabled) void registerForPush(viewerId);
-    else void clearPushToken(viewerId).catch(() => {});
+    if (pushEnabled) void registerForPush();
+    else void clearPushToken().catch(() => {});
   }, [viewerId, pushEnabled]);
 
   useEffect(() => {

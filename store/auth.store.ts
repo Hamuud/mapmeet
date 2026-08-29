@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 import { authService } from '@/services/auth.service';
 import { profilesService } from '@/services/profiles.service';
+import { clearPushToken } from '@/services/push.service';
 import { useSubscriptionStore } from './subscription.store';
 import type { Profile } from '@/types';
 
@@ -111,6 +112,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    // Hand the push token back BEFORE the session goes. It is a write,
+    // so it needs the JWT that signing out is about to invalidate, and
+    // getting the order wrong means it silently does nothing.
+    //
+    // Leaving it behind is what let this device keep receiving an
+    // account's notifications after that account had signed off it —
+    // including the text of direct messages, previewed on a phone now
+    // logged in as somebody else. Best-effort: a failure here is
+    // repaired the next time any account registers on this device,
+    // because claiming the token releases it from everyone else.
+    await clearPushToken().catch(() => {});
+
     await authService.signOut();
     // Unbind the store SDK too. Without this the next account to sign in
     // on this device inherits the last one's cached entitlement until

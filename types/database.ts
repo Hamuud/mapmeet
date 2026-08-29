@@ -843,6 +843,12 @@ export type Database = {
           resets_at: string | null;
         }[];
       };
+      /** Claim this device's push token for the caller, releasing it
+       *  from any other profile that still holds it. Null clears it. */
+      set_push_token: {
+        Args: { p_token: string | null };
+        Returns: void;
+      };
       /** Handle search for the Friends screen. Returns the five public
        *  columns only — never the whole profile row. */
       search_profiles: {
