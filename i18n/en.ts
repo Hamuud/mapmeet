@@ -831,6 +831,12 @@ export const en = {
   'friends.emptyHint': "Tap Add friend on a profile — once they accept, they'll show up here.",
   'friends.noRequests': 'No pending requests',
   'friends.noRequestsHint': 'Friend requests from other users appear here.',
+  'friends.searchPlaceholder': 'Search by @username',
+  'friends.searching': 'Searching…',
+  'friends.searchNoResults': 'Nobody found',
+  'friends.searchNoResultsHint': 'Check the spelling, or ask them for their exact @username.',
+  'friends.searchFailed': 'Could not search',
+  'friends.searchResults': 'People',
   'card.created': 'Created',
   'card.joined': 'Joined',
 

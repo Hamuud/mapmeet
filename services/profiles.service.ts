@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Profile } from '@/types';
+import type { UserRole } from '@/types/database';
 
 /** Whether the URL segment looks like a UUID rather than a username.
  *  Usernames are `[a-zA-Z0-9_\.]{3,24}` (init migration), so a 36-char
@@ -7,6 +8,19 @@ import type { Profile } from '@/types';
 export function looksLikeUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
+
+/** What anyone is allowed to see of a stranger: enough to recognise them
+ *  in a list and open their profile, and nothing else. Matches the
+ *  columns `search_profiles` returns — deliberately not `Profile`, so
+ *  that a screen rendering search results cannot reach for a field the
+ *  search never fetched. */
+export type PublicProfile = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  role: UserRole | null;
+};
 
 export const profilesService = {
   /** Set who can see the events you're attending: nobody / friends /
@@ -58,6 +72,25 @@ export const profilesService = {
       .maybeSingle();
     if (error) throw error;
     return data;
+  },
+
+  /** Find people by handle, near misses included.
+   *
+   *  Goes through the `search_profiles` RPC rather than an `ilike` here,
+   *  for two reasons. The ranking and the typo tolerance are trigram
+   *  work that belongs in the database. And the RPC returns five public
+   *  columns and only those — a `select('*')` search would hand back
+   *  every column of every matching row, which for this table means
+   *  home coordinates and a push token.
+   *
+   *  Returns at most 20, best match first. A blank query is not an
+   *  error, it is an empty list. */
+  async search(query: string): Promise<PublicProfile[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const { data, error } = await supabase.rpc('search_profiles', { p_query: q });
+    if (error) throw error;
+    return (data as PublicProfile[] | null) ?? [];
   },
 
   /** Route-friendly resolver: takes whatever landed in `/user/[handle]`

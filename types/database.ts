@@ -843,6 +843,18 @@ export type Database = {
           resets_at: string | null;
         }[];
       };
+      /** Handle search for the Friends screen. Returns the five public
+       *  columns only — never the whole profile row. */
+      search_profiles: {
+        Args: { p_query: string };
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          role: UserRole | null;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

@@ -12,10 +12,16 @@ import { useToast } from '@/components/ui/Toast';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { useIconColor } from '@/hooks/useIconColor';
+import { SearchBar } from '@/components/events/SearchBar';
 import { friendshipsService, type FriendRow } from '@/services/friendships.service';
+import { profilesService, type PublicProfile } from '@/services/profiles.service';
 import { goBack } from '@/utils/nav';
 
 type Tab = 'friends' | 'requests';
+
+/** Long enough that a handle typed at speed is one query rather than
+ *  eight, short enough that the list feels like it is keeping up. */
+const SEARCH_DEBOUNCE_MS = 250;
 
 /** Full friends list + inbound requests. Rows route to the DM room. */
 export default function FriendsScreen() {
@@ -33,6 +39,16 @@ export default function FriendsScreen() {
   // that confirmation. Rejecting a *pending request* stays immediate —
   // it isn't removing an established friend.
   const [pendingUnfriend, setPendingUnfriend] = useState<FriendRow | null>(null);
+
+  // Handle search. A non-empty query takes over the list entirely
+  // rather than adding a third tab: searching for somebody is what you
+  // came here to do, and the tabs are still one tap away once the field
+  // is cleared.
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<PublicProfile[]>([]);
+  const [searching, setSearching] = useState(false);
+  const trimmed = query.trim();
+  const isSearching = trimmed.length > 0;
 
   const load = useCallback(async () => {
     if (!viewerId) return;
@@ -54,6 +70,45 @@ export default function FriendsScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Debounced, and every in-flight query carries a cancel flag: results
+  // arrive out of order often enough that "ma" answering after "mapmeet"
+  // would otherwise leave the wrong list on screen.
+  useEffect(() => {
+    if (!trimmed) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      profilesService
+        .search(trimmed)
+        .then((rows) => {
+          if (!cancelled) setResults(rows);
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          setResults([]);
+          toast.show(e instanceof Error ? e.message : t('friends.searchFailed'), 'error');
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // `toast` and `t` are stable for the life of the screen; listing them
+    // would re-run the search on every render they happen to change on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trimmed]);
+
+  const openProfile = useCallback((username: string) => {
+    router.navigate({ pathname: '/user/[username]', params: { username } });
+  }, []);
 
   const accept = useCallback(
     async (row: FriendRow) => {
@@ -100,22 +155,61 @@ export default function FriendsScreen() {
       </View>
 
       <View className="px-5 pb-3 pt-2">
-        <View className="mt-2 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
-          <Segment
-            label={t('friends.tabFriends')}
-            count={friends.length}
-            selected={tab === 'friends'}
-            onPress={() => setTab('friends')}
-          />
-          <Segment
-            label={t('friends.tabRequests')}
-            count={pending.length}
-            selected={tab === 'requests'}
-            onPress={() => setTab('requests')}
-          />
-        </View>
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('friends.searchPlaceholder')}
+        />
+
+        {/* The tabs are about your own friends, so they go away while a
+            search is running — leaving them would imply the results
+            below belong to whichever one is highlighted. */}
+        {isSearching ? null : (
+          <View className="mt-2 flex-row rounded-2xl border border-border-light bg-elevated-light p-1 dark:border-border-dark dark:bg-elevated-dark">
+            <Segment
+              label={t('friends.tabFriends')}
+              count={friends.length}
+              selected={tab === 'friends'}
+              onPress={() => setTab('friends')}
+            />
+            <Segment
+              label={t('friends.tabRequests')}
+              count={pending.length}
+              selected={tab === 'requests'}
+              onPress={() => setTab('requests')}
+            />
+          </View>
+        )}
       </View>
 
+      {isSearching ? (
+        <FlatList
+          data={results}
+          keyExtractor={(row) => row.id}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+            gap: 10,
+            flexGrow: 1,
+          }}
+          renderItem={({ item }) => (
+            <PersonRowView person={item} onPress={() => openProfile(item.username)} />
+          )}
+          ListEmptyComponent={
+            searching ? (
+              <EmptyState emoji="🔎" title={t('friends.searching')} />
+            ) : (
+              <EmptyState
+                emoji="🕵️"
+                title={t('friends.searchNoResults')}
+                description={t('friends.searchNoResultsHint')}
+              />
+            )
+          }
+        />
+      ) : (
       <FlatList
         data={list}
         keyExtractor={(row) => row.id}
@@ -163,6 +257,7 @@ export default function FriendsScreen() {
           )
         }
       />
+      )}
 
       <ConfirmationDialog
         open={!!pendingUnfriend}
@@ -217,6 +312,45 @@ function Segment({
           </Text>
         </View>
       ) : null}
+    </Pressable>
+  );
+}
+
+/** One search hit.
+ *
+ *  Deliberately plainer than FriendRowView: no Message and no Unfriend,
+ *  because neither is available for somebody you have no relationship
+ *  with yet. The whole row opens their profile, which is where Add
+ *  friend lives — one destination, so there is nothing to aim at. */
+function PersonRowView({
+  person,
+  onPress,
+}: {
+  person: PublicProfile;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel={`@${person.username}`}
+      className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 active:opacity-80 dark:border-border-dark dark:bg-panel-dark"
+    >
+      <Avatar name={person.display_name} uri={person.avatar_url} size="sm" />
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1">
+          <Text
+            className="shrink text-[15px] font-semibold text-text-light dark:text-text-dark"
+            numberOfLines={1}
+          >
+            {person.display_name}
+          </Text>
+          <VerifiedBadge role={person.role} size={12} />
+        </View>
+        <Text className="text-xs text-muted-light" numberOfLines={1}>
+          @{person.username}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="#8B8880" />
     </Pressable>
   );
 }

@@ -845,6 +845,12 @@ export const uk: Record<TranslationKey, Phrase> = {
   'friends.emptyHint': 'Натисніть «Додати в друзі» в профілі — щойно людина прийме запит, вона з’явиться тут.',
   'friends.noRequests': 'Немає запитів',
   'friends.noRequestsHint': 'Запити в друзі від інших користувачів з’являтимуться тут.',
+  'friends.searchPlaceholder': 'Пошук за @юзернеймом',
+  'friends.searching': 'Шукаємо…',
+  'friends.searchNoResults': 'Нікого не знайдено',
+  'friends.searchNoResultsHint': 'Перевірте написання або попросіть точний @юзернейм.',
+  'friends.searchFailed': 'Не вдалося виконати пошук',
+  'friends.searchResults': 'Люди',
   'card.created': 'Створені',
   'card.joined': 'Приєднався',
 
