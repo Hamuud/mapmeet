@@ -150,7 +150,14 @@ export default function YouScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View className="gap-5 px-5 pt-2 pb-4">
-            {/* Header row — settings on the right */}
+            {/* Header row — the one way to Settings.
+                It used to be reachable twice: this button and another in
+                the action row below, which left the row with three equal
+                thirds and no primary. The button stays here rather than
+                there because settings is a destination, not something
+                you do to your profile — and it is a gear now, not an
+                ellipsis. "…" means "more", which was a promise this
+                button never kept: it only ever went to one place. */}
             <View className="flex-row items-center justify-end">
               <Pressable
                 onPress={() => router.navigate('/settings')}
@@ -158,7 +165,7 @@ export default function YouScreen() {
                 hitSlop={8}
                 className="h-9 w-9 items-center justify-center rounded-full border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
               >
-                <Ionicons name="ellipsis-horizontal" size={18} color={iconColor} />
+                <Ionicons name="settings-outline" size={18} color={iconColor} />
               </Pressable>
             </View>
 
@@ -184,16 +191,20 @@ export default function YouScreen() {
               </View>
             </View>
 
-            {/* Actions */}
+            {/* Actions — 60/40, not thirds.
+                Three equal buttons made Edit profile primary by fill
+                alone, which is a weak signal at a glance and no signal
+                at all in monochrome. Width says it louder than colour
+                does, and it costs nothing. */}
             <View className="flex-row gap-2">
-              <View className="flex-1">
+              <View style={{ flex: 3 }}>
                 <PrimaryButton
                   label={t('profile.editProfile')}
                   onPress={() => router.navigate('/profile-edit')}
                   fullWidth
                 />
               </View>
-              <View className="flex-1">
+              <View style={{ flex: 2 }}>
                 <PrimaryButton
                   label={t('profile.friends')}
                   variant="secondary"
@@ -204,22 +215,20 @@ export default function YouScreen() {
                   fullWidth
                 />
               </View>
-              <View className="flex-1">
-                <PrimaryButton
-                  label={t('profile.settings')}
-                  variant="secondary"
-                  leftIcon={
-                    <Ionicons name="settings-outline" size={14} color={iconColor} />
-                  }
-                  onPress={() => router.navigate('/settings')}
-                  fullWidth
-                />
-              </View>
             </View>
 
-            {/* Stats */}
+            {/* Stats — always four.
+                The rating arrives from its own request, and rendering
+                the tile only once it landed meant three tiles widened
+                to fill the row and then snapped back to four when it
+                did. The slot is held from the first frame and shows a
+                dash until there is a number to put in it. */}
             <View className="flex-row items-stretch gap-3">
-              {rating ? <StatTile value={rating} label={t('profile.statRating')} /> : null}
+              <StatTile
+                value={rating}
+                pending={rating == null}
+                label={t('profile.statRating')}
+              />
               <StatTile value={hostingCount} label={t('profile.statEvents')} />
               <StatTile value={attendingCount} label={t('profile.statAttending')} />
               <StatTile value={past.length} label={t('profile.statPast')} />
@@ -325,13 +334,45 @@ export default function YouScreen() {
   );
 }
 
-function StatTile({ value, label }: { value: number | string; label: string }) {
+function StatTile({
+  value,
+  label,
+  pending = false,
+}: {
+  value: number | string | null;
+  label: string;
+  /** Waiting on the number. Holds the slot, shows a dash. */
+  pending?: boolean;
+}) {
   return (
-    <View className="flex-1 rounded-2xl border border-border-light bg-panel-light px-4 py-3 dark:border-border-dark dark:bg-panel-dark">
-      <Text className="font-display text-2xl leading-none text-text-light dark:text-text-dark">
-        {value}
+    // px-3, down from px-4. Four tiles across 400pt of content with 12pt
+    // gaps leave about 91pt each; the old horizontal padding spent 32 of
+    // those on nothing, and the label had 59pt to fit a word that needs
+    // more. Three points back on each side is most of the shortfall.
+    <View className="flex-1 rounded-2xl border border-border-light bg-panel-light px-3 py-3 dark:border-border-dark dark:bg-panel-dark">
+      <Text
+        numberOfLines={1}
+        className={[
+          'font-display text-2xl leading-none',
+          pending
+            ? 'text-muted-light dark:text-muted-dark'
+            : 'text-text-light dark:text-text-dark',
+        ].join(' ')}
+      >
+        {pending ? '—' : value}
       </Text>
-      <Text className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light">
+      {/* numberOfLines is the part that matters. "ATTENDING" wrapped to
+          "ATTENDI / NG", and a label free to wrap will always find a
+          word long enough to break on — a longer translation, a wider
+          font, a narrower phone. One line, and shrink a little rather
+          than truncate, so the guard holds for labels nobody has
+          written yet. */}
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-light"
+      >
         {label}
       </Text>
     </View>

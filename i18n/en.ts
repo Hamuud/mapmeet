@@ -395,7 +395,10 @@ export const en = {
   'profile.friends': 'Friends',
   'profile.statRating': '★ Rating',
   'profile.statEvents': 'Events',
-  'profile.statAttending': 'Attending',
+  // "Going", not "Attending": three characters shorter in the tile that
+  // had none to spare, and the word the rest of the app already uses —
+  // "0 going", "See who's going".
+  'profile.statAttending': 'Going',
   'profile.statPast': 'Past',
   'profile.tabHosting': 'Hosting · {n}',
   'profile.tabAttending': 'Attending · {n}',

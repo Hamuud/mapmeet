@@ -398,7 +398,9 @@ export const uk: Record<TranslationKey, Phrase> = {
   'profile.friends': 'Друзі',
   'profile.statRating': '★ Рейтинг',
   'profile.statEvents': 'Події',
-  'profile.statAttending': 'Відвідую',
+  // Matches the English shortening, and «Іду» is what the app says
+  // elsewhere — «Іде {count} друг», «хто йде».
+  'profile.statAttending': 'Іду',
   'profile.statPast': 'Минулі',
   'profile.tabHosting': 'Організовую · {n}',
   'profile.tabAttending': 'Відвідую · {n}',
