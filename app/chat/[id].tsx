@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -15,6 +15,11 @@ import { useT } from '@/i18n';
 import { DateSeparator, dayKey } from '@/components/chat/DateSeparator';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MessageInput } from '@/components/chat/MessageInput';
+import { JumpToLatest } from '@/components/chat/JumpToLatest';
+import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { UnreadDivider } from '@/components/chat/UnreadDivider';
+import { MessageSearchSheet } from '@/features/chat/MessageSearchSheet';
+import { useRoomExtras } from '@/hooks/useRoomExtras';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -50,7 +55,7 @@ export default function ChatRoomScreen() {
   const toast = useToast();
   const iconColor = useIconColor();
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const viewerId = session?.user.id ?? null;
   const { coords } = useLocation();
   const favoriteReaction = usePreferencesStore((s) => s.favoriteReaction);
@@ -60,6 +65,8 @@ export default function ChatRoomScreen() {
   const venue = useVenue(event);
   const { messages, status, refetch } = useChat(eventId ?? null, viewerId);
   const recorder = useVoiceRecorder();
+  const listRef = useRef<FlatList<MessageWithSender> | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const [eventOpen, setEventOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -77,6 +84,15 @@ export default function ChatRoomScreen() {
     if (!viewerId) return [];
     return messages.filter((m) => !m.deleted_for.includes(viewerId)).reverse();
   }, [messages, viewerId]);
+
+  const extras = useRoomExtras({
+    scope: 'event',
+    targetId: eventId ?? null,
+    viewerId,
+    displayName: profile?.display_name ?? '',
+    messages,
+    listRef,
+  });
 
   // Resolve reply quotes from the loaded window — no extra fetches.
   const byId = useMemo(() => {
@@ -286,6 +302,38 @@ export default function ChatRoomScreen() {
         </Pressable>
 
         <Pressable
+          onPress={() => setSearchOpen(true)}
+          accessibilityLabel={t('room.search')}
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+        >
+          <Ionicons name="search" size={16} color={iconColor} />
+        </Pressable>
+
+        {/* Mute lives in the header, not behind the event sheet: it is
+            the thing you reach for while the chat is being noisy, which
+            is precisely when you do not want to go hunting. */}
+        <Pressable
+          onPress={() => {
+            void extras
+              .toggleMute()
+              .then((next) =>
+                toast.show(t(next ? 'chat.mutedToast' : 'chat.unmutedToast'), 'success'),
+              )
+              .catch(() => toast.show(t('chat.muteFailed'), 'error'));
+          }}
+          accessibilityLabel={t(extras.muted ? 'chat.unmute' : 'chat.mute')}
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full bg-elevated-light dark:bg-elevated-dark"
+        >
+          <Ionicons
+            name={extras.muted ? 'notifications-off' : 'notifications-outline'}
+            size={16}
+            color={extras.muted ? '#FE5800' : iconColor}
+          />
+        </Pressable>
+
+        <Pressable
           onPress={() => setMembersOpen(true)}
           accessibilityLabel={t('room.members')}
           hitSlop={10}
@@ -301,10 +349,17 @@ export default function ChatRoomScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <FlatList
+          ref={listRef}
           data={visible}
           inverted
           keyExtractor={(m) => m.id}
           showsVerticalScrollIndicator={false}
+          onScroll={extras.onScroll}
+          scrollEventThrottle={64}
+          // Inverted, so the list's header renders at the BOTTOM — which
+          // is exactly where a typing line belongs, just above the
+          // newest message and below nothing.
+          ListHeaderComponent={<TypingIndicator names={extras.typerNames} />}
           contentContainerStyle={{ paddingVertical: 12 }}
           renderItem={({ item, index }) => {
             const older = visible[index + 1];
@@ -312,6 +367,9 @@ export default function ChatRoomScreen() {
             return (
               <View>
                 {showDate ? <DateSeparator iso={item.created_at} /> : null}
+                {item.id === extras.firstUnreadId ? (
+                  <UnreadDivider count={extras.unreadCount} />
+                ) : null}
                 <MessageBubble
                   message={item}
                   isOwn={item.sender_id === viewerId}
@@ -345,11 +403,20 @@ export default function ChatRoomScreen() {
           }
         />
 
+        {/* Sits over the list, clear of the composer. */}
+        <JumpToLatest
+          visible={extras.showJump}
+          count={extras.missedCount}
+          onPress={extras.jumpToLatest}
+          bottom={insets.bottom + 70}
+        />
+
         {/* Composer sits above the home indicator: SafeAreaView only
             covers the top edge (the keyboard needs to butt straight up
             against the input), so fold the bottom inset in here. */}
         <View style={{ paddingBottom: insets.bottom }}>
           <MessageInput
+            onTyping={extras.notifyTyping}
             onSend={handleSend}
             onAttach={() =>
               toast.show(t('room.attachSoon'), 'info')
@@ -365,6 +432,20 @@ export default function ChatRoomScreen() {
           />
         </View>
       </KeyboardAvoidingView>
+
+      <MessageSearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        search={(q) => messagesService.search(eventId!, q)}
+        onPick={(m) => {
+          setSearchOpen(false);
+          // Reveal it if it is in the loaded window; otherwise the sheet
+          // has at least shown the text, which is most of what someone
+          // searching for it wanted.
+          const i = visible.findIndex((x) => x.id === m.id);
+          if (i >= 0) listRef.current?.scrollToIndex({ index: i, animated: true });
+        }}
+      />
 
       {/* Pinned event expanded — full details incl. venue text.
           Directions opens the same maps-app chooser the map uses. */}

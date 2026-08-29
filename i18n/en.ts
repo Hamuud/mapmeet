@@ -377,6 +377,33 @@ export const en = {
   'chat.emptyDirectHint': 'Tap + to start a group with friends, or Message on a profile for a DM.',
   'chat.directFailed': "Couldn't load your messages",
   'chat.directFailedHint': 'Check your connection and try again — nothing has been lost.',
+  'chat.searchPlaceholder': 'Search conversations',
+  'chat.searchNoResults': 'No conversations match',
+  'chat.searchNoResultsHint': 'Try part of a name, or the event title.',
+  'chat.muted': 'Muted',
+  'chat.mute': 'Mute this chat',
+  'chat.unmute': 'Unmute this chat',
+  'chat.muteHint': 'Stops notifications from this conversation only.',
+  'chat.mutedToast': 'Muted. You will still see new messages here.',
+  'chat.unmutedToast': 'Unmuted.',
+  'chat.muteFailed': "Couldn't change that",
+
+  // ── Typing indicator ──────────────────────────────────────────────
+  'typing.one': '{name} is typing',
+  'typing.two': '{a} and {b} are typing',
+  'typing.many': '{count} people are typing',
+
+  // ── In-room search / navigation ───────────────────────────────────
+  'room.search': 'Search in chat',
+  'room.searchPlaceholder': 'Search messages',
+  'room.searchPrompt': 'Find a message',
+  'room.searchNoResults': 'Nothing found',
+  'room.searchNoResultsHint': 'Only text messages are searchable.',
+  'room.unreadDivider': {
+    one: '{count} new message',
+    few: '{count} new messages',
+    other: '{count} new messages',
+  },
   'chat.findFriends': 'Find friends',
   'chat.emptyActive': 'No active chats',
   'chat.emptyActiveHint': 'Join an event on the map — every event comes with its own group chat.',

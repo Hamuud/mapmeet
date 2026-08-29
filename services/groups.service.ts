@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { withSignedMedia } from './media.service';
 import { openChannel } from './realtime';
 import { supabase } from './supabase';
+import { likePattern } from '@/utils/search';
 import type { MessageWithSender } from '@/types';
 
 /** A group message row, before we adapt it to the shared bubble shape. */
@@ -135,6 +136,28 @@ export const groupsService = {
         .reverse()
         .map((row) => toMessage(row, row.sender)),
     );
+  },
+
+  /** Text search inside one group chat. Newest first; see the note on
+   *  messagesService.search for why this asks the database. */
+  async searchMessages(
+    groupId: string,
+    query: string,
+    limit = 50,
+  ): Promise<MessageWithSender[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from('group_messages')
+      .select(`*, sender:sender_id (id, username, display_name, avatar_url, role)`)
+      .eq('group_id', groupId)
+      .ilike('text', likePattern(q))
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (
+      (data ?? []) as Array<GroupMessageRow & { sender: ProfileLite | null }>
+    ).map((row) => toMessage(row, row.sender));
   },
 
   async send(groupId: string, text: string, replyTo?: string | null): Promise<void> {

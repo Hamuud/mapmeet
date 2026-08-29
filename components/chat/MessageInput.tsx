@@ -25,6 +25,10 @@ type Props = {
   /** Reply context — renders the quoted strip above the input. */
   replyingTo?: MessageWithSender | null;
   onCancelReply?: () => void;
+  /** Called on each keystroke so the room can tell the others somebody
+   *  is writing. Throttled by `useTyping`, not here — the composer
+   *  should not have to know how often is too often. */
+  onTyping?: () => void;
   /** Voice recording controls (wired to useVoiceRecorder in the room). */
   recording?: boolean;
   recordingMs?: number;
@@ -68,6 +72,7 @@ export function MessageInput({
   onCreatePoll,
   replyingTo,
   onCancelReply,
+  onTyping,
   recording,
   recordingMs = 0,
   onStartVoice,
@@ -172,7 +177,13 @@ export function MessageInput({
           <View className="max-h-28 min-h-[44px] flex-1 justify-center rounded-3xl border border-border-light bg-elevated-light px-4 py-2 dark:border-border-dark dark:bg-elevated-dark">
             <TextInput
               value={draft}
-              onChangeText={setDraft}
+              onChangeText={(v) => {
+                setDraft(v);
+                // Only on real input, never on the programmatic clear
+                // after sending — otherwise every send would announce
+                // that you had started typing again.
+                if (v.length > 0) onTyping?.();
+              }}
               placeholder={t('room.messagePlaceholder')}
               placeholderTextColor="#8B8880"
               multiline

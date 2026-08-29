@@ -161,18 +161,47 @@ async function forgetTokens(tokens: Set<string>) {
   }
 }
 
-/** Profiles → recipients, filtered by a per-category opt-out column.
- *  Anyone banned, tokenless or opted out simply drops out of the list. */
+/** Which room a notification belongs to, so anyone who has muted that
+ *  one specifically can be dropped. Omitted for notifications that
+ *  belong to no room — a friend request, an event being moved. */
+export type MuteScope = { scope: 'event' | 'dm' | 'group'; targetId: string };
+
+/** Profiles → recipients, filtered by a per-category opt-out column and,
+ *  when the notification belongs to a conversation, by whether the
+ *  recipient has muted that conversation.
+ *
+ *  Anyone banned, tokenless, opted out of the category, or muted on this
+ *  room simply drops out of the list. */
 export async function recipientsFor(
   userIds: Iterable<string>,
   category: 'push_chat' | 'push_joins' | 'push_events' | 'push_social',
+  mute?: MuteScope,
 ): Promise<Recipient[]> {
   const ids = [...new Set(userIds)].filter(Boolean);
   if (ids.length === 0) return [];
+
+  // Asked as one query for the whole room rather than per recipient, and
+  // narrowed to the ids we already care about so a popular chat does not
+  // drag back every mute anyone ever set on it.
+  let muted = new Set<string>();
+  if (mute) {
+    const rows = await rest(
+      `chat_mutes?scope=eq.${mute.scope}&target_id=eq.${mute.targetId}` +
+        `&user_id=in.(${ids.join(',')})&select=user_id`,
+    );
+    muted = new Set(rows.map((r) => r.user_id as string));
+  }
+
   const rows = await rest(
-    `profiles?id=in.(${ids.join(',')})&select=push_token,locale,banned_at,${category}`,
+    `profiles?id=in.(${ids.join(',')})&select=id,push_token,locale,banned_at,${category}`,
   );
   return rows
-    .filter((p) => p[category] !== false && !p.banned_at && isPushToken(p.push_token))
+    .filter(
+      (p) =>
+        p[category] !== false &&
+        !p.banned_at &&
+        !muted.has(p.id as string) &&
+        isPushToken(p.push_token),
+    )
     .map((p) => ({ token: p.push_token as string, locale: asLocale(p.locale) }));
 }

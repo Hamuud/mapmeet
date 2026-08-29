@@ -48,7 +48,12 @@ async function displayName(id: string | null | undefined): Promise<string> {
   return rows[0]?.display_name ?? 'Someone';
 }
 
-/** Creator + participants of an event, minus the actor. */
+/** Creator + participants of an event, minus the actor.
+ *
+ *  Everything this audience receives belongs to the event's own room, so
+ *  it carries the mute scope: someone who has silenced this chat gets
+ *  neither its messages nor its joins. Muting a conversation and still
+ *  being told who walked into it would be a strange kind of quiet. */
 async function eventAudience(
   eventId: string,
   exclude: string | null,
@@ -62,7 +67,7 @@ async function eventAudience(
   if (events[0]?.creator_id) ids.add(events[0].creator_id);
   for (const p of parts) ids.add(p.user_id);
   if (exclude) ids.delete(exclude);
-  return recipientsFor(ids, category);
+  return recipientsFor(ids, category, { scope: 'event', targetId: eventId });
 }
 
 async function groupAudience(
@@ -73,7 +78,7 @@ async function groupAudience(
   const members = await rest(`group_members?group_id=eq.${groupId}&select=user_id`);
   const ids = new Set<string>(members.map((m) => m.user_id));
   if (exclude) ids.delete(exclude);
-  return recipientsFor(ids, category);
+  return recipientsFor(ids, category, { scope: 'group', targetId: groupId });
 }
 
 Deno.serve(async (req) => {
@@ -139,7 +144,10 @@ Deno.serve(async (req) => {
       if (!dm) return skip('no dm');
       // A DM has exactly one other side.
       const other = dm.user_a === row.sender_id ? dm.user_b : dm.user_a;
-      const to = await recipientsFor([other], 'push_chat');
+      const to = await recipientsFor([other], 'push_chat', {
+        scope: 'dm',
+        targetId: row.dm_id,
+      });
       await sendPush(
         to,
         (locale) => ({ title: name, body: preview(locale, row) }),

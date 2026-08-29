@@ -378,6 +378,33 @@ export const uk: Record<TranslationKey, Phrase> = {
   'chat.emptyDirectHint': 'Натисніть +, щоб створити групу з друзями, або «Написати» в профілі для особистого чату.',
   'chat.directFailed': 'Не вдалося завантажити повідомлення',
   'chat.directFailedHint': 'Перевірте зʼєднання та спробуйте ще — нічого не втрачено.',
+  'chat.searchPlaceholder': 'Пошук у розмовах',
+  'chat.searchNoResults': 'Нічого не знайдено',
+  'chat.searchNoResultsHint': 'Спробуйте частину імені або назву події.',
+  'chat.muted': 'Без звуку',
+  'chat.mute': 'Вимкнути сповіщення',
+  'chat.unmute': 'Увімкнути сповіщення',
+  'chat.muteHint': 'Зупиняє сповіщення лише з цієї розмови.',
+  'chat.mutedToast': 'Без звуку. Нові повідомлення тут усе одно зʼявлятимуться.',
+  'chat.unmutedToast': 'Сповіщення увімкнено.',
+  'chat.muteFailed': 'Не вдалося змінити',
+
+  // ── Typing indicator ──────────────────────────────────────────────
+  'typing.one': '{name} пише',
+  'typing.two': '{a} і {b} пишуть',
+  'typing.many': 'Пишуть: {count}',
+
+  // ── In-room search / navigation ───────────────────────────────────
+  'room.search': 'Пошук у чаті',
+  'room.searchPlaceholder': 'Пошук повідомлень',
+  'room.searchPrompt': 'Знайти повідомлення',
+  'room.searchNoResults': 'Нічого не знайдено',
+  'room.searchNoResultsHint': 'Шукати можна лише текстові повідомлення.',
+  'room.unreadDivider': {
+    one: '{count} нове повідомлення',
+    few: '{count} нові повідомлення',
+    other: '{count} нових повідомлень',
+  },
   'chat.findFriends': 'Знайти друзів',
   'chat.emptyActive': 'Активних чатів немає',
   'chat.emptyActiveHint': 'Приєднайтеся до події на карті — у кожної події є власний груповий чат.',

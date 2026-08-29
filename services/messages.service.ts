@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { withSignedMedia } from './media.service';
 import { openChannel } from './realtime';
 import { supabase } from './supabase';
+import { likePattern } from '@/utils/search';
 import type { Message, MessageWithSender } from '@/types';
 
 /** PostgREST embed for the sender profile. Kept identical between the
@@ -37,6 +38,36 @@ export const messagesService = {
     return withSignedMedia(
       ((data as unknown as MessageWithSender[]) ?? []).reverse(),
     );
+  },
+
+  /** Text search inside one event's chat.
+   *
+   *  Goes to the database rather than filtering what the room happens to
+   *  have loaded. `list` fetches the newest hundred, so a client-side
+   *  filter would quietly only search the recent past and report
+   *  "nothing found" for a message that is sitting right there in the
+   *  history. Newest first, because the thing you are looking for is
+   *  usually the thing you saw most recently.
+   *
+   *  RLS scopes this to chats the viewer belongs to; system messages are
+   *  dropped because "X joined" is noise in a result list. */
+  async search(
+    eventId: string,
+    query: string,
+    limit = 50,
+  ): Promise<MessageWithSender[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from('messages')
+      .select(SELECT_MESSAGE)
+      .eq('event_id', eventId)
+      .neq('type', 'system')
+      .ilike('text', likePattern(q))
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data as unknown as MessageWithSender[]) ?? [];
   },
 
   /** Single message with sender embed — used by the realtime handler,

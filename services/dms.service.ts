@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { withSignedMedia } from './media.service';
 import { openChannel } from './realtime';
 import { supabase } from './supabase';
+import { likePattern } from '@/utils/search';
 import type { MessageWithSender } from '@/types';
 
 export type DmMessage = {
@@ -103,6 +104,29 @@ export const dmsService = {
       ((data ?? []) as Array<DmMessage & { sender: ProfileLite | null }>)
         .reverse()
         .map((row) => toMessage(row, row.sender)),
+    );
+  },
+
+  /** Text search inside one DM. Newest first; see the note on
+   *  messagesService.search for why this asks the database rather than
+   *  filtering the loaded window. */
+  async searchMessages(
+    dmId: string,
+    query: string,
+    limit = 50,
+  ): Promise<MessageWithSender[]> {
+    const q = query.trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from('dm_messages')
+      .select('*, sender:sender_id (id, username, display_name, avatar_url, role)')
+      .eq('dm_id', dmId)
+      .ilike('text', likePattern(q))
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return ((data ?? []) as Array<DmMessage & { sender: ProfileLite | null }>).map(
+      (row) => toMessage(row, row.sender),
     );
   },
 

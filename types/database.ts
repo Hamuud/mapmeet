@@ -344,6 +344,24 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      /** One row per conversation the viewer has silenced. */
+      chat_mutes: {
+        Row: {
+          user_id: string;
+          scope: 'event' | 'dm' | 'group';
+          target_id: string;
+          created_at: string;
+        };
+        // `user_id` is omitted on purpose: the column defaults to
+        // auth.uid() and the RLS check would reject any other value, so
+        // the client has no business sending one.
+        Insert: {
+          scope: 'event' | 'dm' | 'group';
+          target_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       dms: {
         Row: {
           id: string;
