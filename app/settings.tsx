@@ -1,8 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  AppState,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -104,6 +113,20 @@ export default function SettingsScreen() {
     );
   };
 
+  // Re-read the permission whenever the app comes back to the front.
+  //
+  // iOS does not tell an app that a permission changed underneath it,
+  // and nothing else on this screen re-checks. Without this, someone
+  // taps the row, switches location on in Settings, comes back — and
+  // the row still says Off. Which looks exactly like the change not
+  // having worked, two taps after being sent there to make it.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void requestLocation();
+    });
+    return () => sub.remove();
+  }, [requestLocation]);
+
   const locationStatusLabel = (() => {
     if (locStatus === 'granted') return t('settings.statusOn');
     if (locStatus === 'denied') return t('settings.statusOff');
@@ -195,9 +218,19 @@ export default function SettingsScreen() {
                   : t('settings.locationAsk')
             }
             rightText={locationStatusLabel}
-            onPress={() =>
-              locStatus === 'denied' ? openOSSettings() : void requestLocation()
-            }
+            // Always iOS Settings, whatever the current answer is.
+            //
+            // This used to open Settings only when permission was
+            // already denied and otherwise call requestLocation() —
+            // which, once permission has been granted, resolves
+            // instantly with no dialog and nothing on screen. Tapping
+            // the row did nothing at all, which is the state most
+            // people are in. And it could not have worked anyway:
+            // iOS asks once, so re-requesting after a denial is
+            // silently ignored too. The only place the answer can
+            // actually be changed is Settings, so that is where the
+            // row goes.
+            onPress={openOSSettings}
           />
           <SettingsRow
             icon="trash-outline"

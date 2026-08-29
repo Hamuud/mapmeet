@@ -172,9 +172,12 @@ export const en = {
   'settings.privacy': 'Privacy',
   'settings.privacyHint': "Who can see the events you're attending",
   'settings.location': 'Location',
-  'settings.locationWhileUsing': 'While using the app',
-  'settings.locationOff': 'Turned off — open Settings to enable',
-  'settings.locationAsk': 'Tap to request',
+  // All three now end the same way, because the row does the same thing
+  // in all three states: it opens iOS Settings. The old "Tap to
+  // request" promised an in-app prompt that iOS only ever shows once.
+  'settings.locationWhileUsing': 'While using the app — tap to change in Settings',
+  'settings.locationOff': 'Turned off — tap to change in Settings',
+  'settings.locationAsk': 'Tap to change in Settings',
   'settings.statusOn': 'ON',
   'settings.statusOff': 'OFF',
   'settings.statusAsk': 'ASK',

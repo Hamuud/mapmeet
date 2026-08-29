@@ -175,9 +175,10 @@ export const uk: Record<TranslationKey, Phrase> = {
   'settings.privacy': 'Приватність',
   'settings.privacyHint': 'Хто бачить події, до яких ви приєдналися',
   'settings.location': 'Геолокація',
-  'settings.locationWhileUsing': 'Під час користування застосунком',
-  'settings.locationOff': 'Вимкнено — увімкніть у налаштуваннях системи',
-  'settings.locationAsk': 'Торкніться, щоб дозволити',
+  'settings.locationWhileUsing':
+    'Під час користування застосунком — торкніться, щоб змінити в Налаштуваннях',
+  'settings.locationOff': 'Вимкнено — торкніться, щоб змінити в Налаштуваннях',
+  'settings.locationAsk': 'Торкніться, щоб змінити в Налаштуваннях',
   'settings.statusOn': 'УВІМК',
   'settings.statusOff': 'ВИМК',
   'settings.statusAsk': 'ЗАПИТ',
