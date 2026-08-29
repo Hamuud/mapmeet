@@ -43,7 +43,9 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
   {
     events,
     initialCenter,
-    userLocation,
+    // `userLocation` is deliberately not read here. Native gets the dot
+    // from `showsUserLocation`; only the web map, which has no such
+    // thing in MapLibre, draws one from the prop.
     selectedEventId,
     pendingCoords,
     pickMode,
@@ -132,13 +134,11 @@ export const Map = forwardRef<MapRef, MapProps>(function Map(
         onPickLocation?.({ latitude, longitude });
       }}
     >
-      {userLocation ? (
-        <Marker
-          coordinate={userLocation}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-        />
-      ) : null}
+      {/* No marker for the user's own position. `showsUserLocation`
+          above already draws the blue dot, and this used to add a second
+          Marker on the same coordinate with no children — which
+          react-native-maps renders as its default red pin. Two markers,
+          one place, and the stock one on top. */}
 
       {pendingCoords ? (
         <Marker
