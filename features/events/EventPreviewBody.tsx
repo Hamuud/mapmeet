@@ -15,6 +15,7 @@ import {
 
 import { useT } from '@/i18n';
 import { Badge } from '@/components/ui/Badge';
+import { PosterImage } from '@/components/ui/PosterImage';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { ShareSheet } from '@/components/ui/ShareSheet';
@@ -334,10 +335,13 @@ export function EventPreviewBody({
     <View className="gap-3">
       {/* Poster — imported events ship one; user events don't (yet). */}
       {event.image_url ? (
-        <Image
-          source={{ uri: event.image_url }}
-          style={{ width: '100%', height: 132, borderRadius: 16 }}
-          resizeMode="cover"
+        // 132 → 180. The sheet caps at 85% of the viewport and shrinks to
+        // its content, so there was room; the old height was set before
+        // imported events brought posters with anything on them worth
+        // reading, and a quarter of a portrait poster is not a poster.
+        <PosterImage
+          uri={event.image_url}
+          height={180}
           accessibilityLabel={t('preview.posterAlt', { title: event.title })}
         />
       ) : null}

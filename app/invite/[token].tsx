@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PosterImage } from '@/components/ui/PosterImage';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -125,10 +126,9 @@ export default function InviteAcceptScreen() {
 
       <View className="gap-4 p-5">
         {preview.event_image_url ? (
-          <Image
-            source={{ uri: preview.event_image_url }}
-            style={{ width: '100%', height: 180, borderRadius: 16 }}
-            resizeMode="cover"
+          <PosterImage
+            uri={preview.event_image_url}
+            height={180}
             accessibilityLabel={t('preview.posterAlt', { title: preview.event_title })}
           />
         ) : null}
