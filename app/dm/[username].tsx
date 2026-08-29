@@ -315,14 +315,6 @@ export default function DmRoomScreen() {
     }
   }, [other, dmId, refetch, toast]);
 
-  if (!other) {
-    return (
-      <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <EmptyState emoji="💬" title={t('room.loadingDm')} />
-      </SafeAreaView>
-    );
-  }
-
   const extras = useRoomExtras({
     scope: 'dm',
     targetId: dmId,
@@ -331,6 +323,14 @@ export default function DmRoomScreen() {
     messages,
     listRef,
   });
+
+  if (!other) {
+    return (
+      <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
+        <EmptyState emoji="💬" title={t('room.loadingDm')} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>

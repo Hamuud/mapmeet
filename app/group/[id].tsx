@@ -274,14 +274,6 @@ export default function GroupRoomScreen() {
     }
   }, [groupId, toast]);
 
-  if (!group) {
-    return (
-      <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
-        <EmptyState emoji="💬" title={t('room.loadingGroup')} />
-      </SafeAreaView>
-    );
-  }
-
   const extras = useRoomExtras({
     scope: 'group',
     targetId: groupId ?? null,
@@ -290,6 +282,14 @@ export default function GroupRoomScreen() {
     messages,
     listRef,
   });
+
+  if (!group) {
+    return (
+      <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark">
+        <EmptyState emoji="💬" title={t('room.loadingGroup')} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface-light dark:bg-surface-dark" edges={['top']}>
