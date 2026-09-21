@@ -413,6 +413,9 @@ export type Database = {
           id: string;
           name: string;
           emoji: string;
+          /** Null falls back to the emoji — both are kept, so removing a
+           *  photo restores whatever emoji the group already had. */
+          avatar_url: string | null;
           creator_id: string;
           created_at: string;
           updated_at: string;
@@ -860,6 +863,17 @@ export type Database = {
           max_per_day: number | null;
           resets_at: string | null;
         }[];
+      };
+      /** Rename a group, change its emoji, or set/clear its photo.
+       *  Creator only; enforced inside the function. */
+      update_group: {
+        Args: {
+          p_group: string;
+          p_name?: string | null;
+          p_emoji?: string | null;
+          p_avatar_url?: string | null;
+        };
+        Returns: void;
       };
       /** Claim this device's push token for the caller, releasing it
        *  from any other profile that still holds it. Null clears it. */

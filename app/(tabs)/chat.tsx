@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { NewGroupSheet } from '@/features/chat/NewGroupSheet';
 import { SearchBar } from '@/components/events/SearchBar';
+import { GroupAvatar } from '@/components/chat/GroupAvatar';
 import { muteKey, mutesService } from '@/services/mutes.service';
 import { GuestGate } from '@/features/auth/GuestGate';
 import { useT, type TFunction } from '@/i18n';
@@ -490,9 +491,10 @@ function GroupRow({
       onPress={() => router.navigate({ pathname: '/group/[id]', params: { id: room.id } })}
       className="flex-row items-center gap-3 rounded-2xl border border-border-light bg-panel-light p-3 active:opacity-80 dark:border-border-dark dark:bg-panel-dark"
     >
-      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-elevated-light dark:bg-elevated-dark">
-        <Text style={{ fontSize: 22 }}>{room.emoji}</Text>
-      </View>
+      {/* No tinted wrapper: GroupAvatar paints its own tile for the emoji
+          case, and a photo has to fill the square rather than float in a
+          2px ring of background. */}
+      <GroupAvatar emoji={room.emoji} avatarUrl={room.avatar_url} size={48} radius={16} />
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
           <Text

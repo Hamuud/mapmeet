@@ -28,6 +28,8 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ShareSheet } from '@/components/ui/ShareSheet';
 import { useToast } from '@/components/ui/Toast';
 import { AddGroupMembersSheet } from '@/features/chat/AddGroupMembersSheet';
+import { GroupEditSheet } from '@/features/chat/GroupEditSheet';
+import { GroupAvatar } from '@/components/chat/GroupAvatar';
 import { PollComposerSheet } from '@/features/chat/PollComposerSheet';
 import { PollResultsSheet } from '@/features/chat/PollResultsSheet';
 import { useVoiceRecorder } from '@/features/chat/useVoiceRecorder';
@@ -60,9 +62,16 @@ export default function GroupRoomScreen() {
   const recorder = useVoiceRecorder();
   const listRef = useRef<FlatList<MessageWithSender> | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [group, setGroup] = useState<
-    { id: string; name: string; emoji: string; creator_id: string } | null
+    {
+      id: string;
+      name: string;
+      emoji: string;
+      avatar_url: string | null;
+      creator_id: string;
+    } | null
   >(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
@@ -307,9 +316,7 @@ export default function GroupRoomScreen() {
           onPress={() => setDetailsOpen(true)}
           className="flex-1 flex-row items-center gap-2.5 active:opacity-80"
         >
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-elevated-light dark:bg-elevated-dark">
-            <Text style={{ fontSize: 20 }}>{group.emoji}</Text>
-          </View>
+          <GroupAvatar emoji={group.emoji} avatarUrl={group.avatar_url} size={40} radius={14} />
           <View className="flex-1">
             <Text className="text-[15px] font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
               {group.name}
@@ -472,12 +479,34 @@ export default function GroupRoomScreen() {
       {/* Details sheet — members, share, leave */}
       <BottomSheet open={detailsOpen} onClose={() => setDetailsOpen(false)} autoHeight>
         <View className="gap-3 pb-2">
-          <Text className="text-lg font-bold text-text-light dark:text-text-dark">
-            {group.emoji} {group.name}
-          </Text>
-          <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
-            {members.length} {members.length === 1 ? 'member' : 'members'}
-          </Text>
+          <View className="flex-row items-center gap-3">
+            <GroupAvatar emoji={group.emoji} avatarUrl={group.avatar_url} size={48} />
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-text-light dark:text-text-dark" numberOfLines={1}>
+                {group.name}
+              </Text>
+              <Text className="font-mono text-[10px] uppercase tracking-wider text-muted-light">
+                {members.length} {members.length === 1 ? 'member' : 'members'}
+              </Text>
+            </View>
+            {/* Creator only. The RPC refuses anyone else regardless, so
+                hiding this is about not offering what would be denied. */}
+            {isCreator ? (
+              <Pressable
+                onPress={() => {
+                  setDetailsOpen(false);
+                  setEditOpen(true);
+                }}
+                accessibilityLabel={t('group.editAction')}
+                className="h-9 flex-row items-center gap-1.5 rounded-full border border-border-light px-3 active:opacity-70 dark:border-border-dark"
+              >
+                <Ionicons name="create-outline" size={14} color={iconColor} />
+                <Text className="text-[13px] font-semibold text-text-light dark:text-text-dark">
+                  {t('settings.edit')}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
           <View className="gap-2">
             {members.map((m) => {
               const memberIsCreator = m.id === group.creator_id;
@@ -554,7 +583,16 @@ export default function GroupRoomScreen() {
         </View>
       </BottomSheet>
 
-      {/* Add friends to the group (member-only, friends-only) */}
+      {/* Rename / re-emoji / re-photo the group (creator-only) */}
+      <GroupEditSheet
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        group={group}
+        canEdit={isCreator}
+        viewerId={viewerId ?? ''}
+        onSaved={() => void load()}
+      />
+
       <AddGroupMembersSheet
         open={addOpen}
         viewerId={viewerId}

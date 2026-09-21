@@ -30,6 +30,10 @@ export type GroupRoom = {
   id: string;
   name: string;
   emoji: string;
+  /** A photo, when the group has one. Null falls back to the emoji —
+   *  both are kept, because an emoji is one tap and no upload, and most
+   *  groups will never want more than that. */
+  avatar_url: string | null;
   memberCount: number;
   lastMessage: GroupMessageRow | null;
   unreadCount: number;
@@ -100,10 +104,16 @@ export const groupsService = {
 
   async getById(
     groupId: string,
-  ): Promise<{ id: string; name: string; emoji: string; creator_id: string } | null> {
+  ): Promise<{
+    id: string;
+    name: string;
+    emoji: string;
+    avatar_url: string | null;
+    creator_id: string;
+  } | null> {
     const { data, error } = await supabase
       .from('group_chats')
-      .select('id, name, emoji, creator_id')
+      .select('id, name, emoji, avatar_url, creator_id')
       .eq('id', groupId)
       .maybeSingle();
     if (error) throw error;
@@ -158,6 +168,27 @@ export const groupsService = {
     return (
       (data ?? []) as Array<GroupMessageRow & { sender: ProfileLite | null }>
     ).map((row) => toMessage(row, row.sender));
+  },
+
+  /** Rename the group, change its emoji, or set/clear its photo.
+   *
+   *  Creator only — enforced in the RPC, not here. Undefined means
+   *  "leave it alone"; for the photo, null means "remove it", which the
+   *  RPC receives as an empty string because a SQL null is already
+   *  spoken for by "unchanged".
+   */
+  async update(
+    groupId: string,
+    patch: { name?: string; emoji?: string; avatarUrl?: string | null },
+  ): Promise<void> {
+    const { error } = await supabase.rpc('update_group', {
+      p_group: groupId,
+      p_name: patch.name ?? null,
+      p_emoji: patch.emoji ?? null,
+      p_avatar_url:
+        patch.avatarUrl === undefined ? null : (patch.avatarUrl ?? ''),
+    });
+    if (error) throw error;
   },
 
   async send(groupId: string, text: string, replyTo?: string | null): Promise<void> {
@@ -237,7 +268,7 @@ export const groupsService = {
 
     const { data: groups, error: gErr } = await supabase
       .from('group_chats')
-      .select('id, name, emoji')
+      .select('id, name, emoji, avatar_url')
       .in('id', ids);
     if (gErr) throw gErr;
 
@@ -259,6 +290,7 @@ export const groupsService = {
       id: g.id,
       name: g.name,
       emoji: g.emoji,
+      avatar_url: g.avatar_url ?? null,
       memberCount: counts.get(g.id) ?? 1,
       lastMessage: null,
       unreadCount: 0,

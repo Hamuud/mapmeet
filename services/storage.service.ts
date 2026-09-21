@@ -63,6 +63,34 @@ export const storageService = {
     return data.publicUrl;
   },
 
+  /** A group's photo.
+   *
+   *  Same bucket and the same `<uid>/` prefix as a personal avatar, on
+   *  purpose: the storage policies already scope writes to that folder,
+   *  so a group photo needs no new rule. The group id goes in the
+   *  filename rather than the path so one person's several groups stay
+   *  apart without leaving the folder their policy covers.
+   */
+  async uploadGroupPhoto(
+    userId: string,
+    groupId: string,
+    localUri: string,
+  ): Promise<string> {
+    const bytes = await readAsBytes(localUri);
+    const contentType = inferContentType(localUri);
+    const ext = contentType.split('/')[1] ?? 'jpg';
+    const path = `${userId}/group-${groupId}-${Date.now()}.${ext}`;
+
+    const { error } = await supabase.storage.from('avatars').upload(path, bytes, {
+      contentType,
+      upsert: true,
+    });
+    if (error) throw error;
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
   /** Remove every avatar the user has ever uploaded, on account
    *  deletion. Storage does not cascade, and SQL is forbidden from
    *  deleting storage.objects, so this has to go through the API — the
